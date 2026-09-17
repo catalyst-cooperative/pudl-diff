@@ -215,6 +215,91 @@ include:
   implement the core functionality.
 * I will review and approve that plan before you start working on them.
 
+#### Approved task breakdown
+
+Pure data-comparison library, no CLI/notebook yet. Two root paths (local or S3, via
+`UPath`), each containing Parquet files and a `datapackage.json`. Uses Polars as the
+primary tool, with pandas conversion available on demand, falling back to DuckDB only
+if Polars can't do what's needed. Data visualization (scatterplots, heatmaps) is
+deferred to the Marimo notebook phase — Core Functionality only produces the
+comparison data, not plots. Float comparisons default to `numpy.isclose()` defaults
+(`rtol=1e-5, atol=1e-8`), with override parameters, refined later based on initial
+results.
+
+**Task 1 — Dataset/table loading primitives**
+
+* A dataset wrapper (e.g. `PudlDiffDataset`) around a root `UPath` plus a cached
+  `Package` parsed from `datapackage.json`, reusing `pudl.metadata.classes.Package`
+  and `Resource`.
+* A method to lazily load a named table as a `pl.LazyFrame` from
+  `<root>/<table>.parquet`, working for both local and S3 roots without downloading
+  remote files where Polars supports it directly (e.g. `pl.scan_parquet` with
+  `storage_options`).
+* A method to look up a table's `Resource` and expose its `primary_key`
+  (`list[str]`, possibly empty), reusing `Package.get_resource`.
+* Unit tests: fixture Parquet files plus a `datapackage.json` written to `tmp_path`;
+  verify loading and schema/PK lookup, including the no-primary-key case.
+
+**Task 2 — Schema comparison**
+
+* Compare two `pl.Schema`/dtype mappings: same column set (order-independent),
+  matching dtypes.
+* Return a structured result (e.g. `SchemaDiff` dataclass with
+  `columns_only_in_left`, `columns_only_in_right`,
+  `dtype_mismatches: dict[str, tuple[dtype, dtype]]`) and an `is_identical`
+  property.
+* Unit tests: identical schemas, extra/missing columns, dtype mismatches,
+  column-order independence.
+
+**Task 3 — Row-count comparison (with and without partitioning)**
+
+* Given two lazyframes and an optional partition column/expression, compute
+  per-partition expected/observed row counts and their differences — the same
+  semantics as the `check_row_counts_per_partition` dbt macro
+  (`dbt/macros/row_counts_per_partition.sql`), reimplemented in Polars
+  (`group_by(partition_col).len()` plus a full outer join). No partition column
+  means a single implicit partition.
+* Unit tests: matching counts, mismatched counts, extra/missing partitions, null
+  partition values.
+
+**Task 4 — Row-level comparison for tables without primary keys**
+
+* Given two lazyframes with identical schemas, compute the symmetric difference of
+  rows (e.g. `anti_join` in both directions, or `unique(keep="none")` after
+  concatenation with a source label).
+* Return rows-only-in-left, rows-only-in-right, and a combined dataframe labeled by
+  source dataset; every result convertible to polars or pandas via a consistent
+  `as_pandas: bool = False` parameter across all public functions.
+* Since there is no primary key, exact-match anti-joins don't tolerate float noise
+  on their own; apply a rounding/bucketing strategy to float columns before the
+  anti-join so that "close enough" values are treated as equal. This strategy will
+  be revisited based on initial real-world results.
+* Unit tests: identical tables, added/removed/changed rows, float tolerance edge
+  cases.
+
+**Task 5 — Row-level comparison for tables with primary keys**
+
+* Given PK columns, compute the symmetric difference of PK values (anti-joins on PK
+  columns), returning left-only/right-only/combined rows with a source label.
+* For shared PKs, join on PK and compare non-PK columns per-column with type-aware
+  equality (float columns via `numpy.isclose`-style tolerance, others exact),
+  returning: an overall identical bool, a per-column mismatch summary, and a
+  dataframe of mismatched rows (or a sample) with both left/right values available
+  for inspection (e.g. suffixed columns).
+* Unit tests: identical PK sets, differing PK sets (left-only, right-only, both),
+  identical PKs with identical vs. differing non-PK data (numeric, string/
+  categorical, float-tolerance).
+
+**Task 6 — Top-level orchestration**
+
+* A single `compare_table(left_root, right_root, table_name, partition_col=None) ->
+  TableDiffResult` tying together Tasks 2-5: runs the schema diff and row-count
+  diff, dispatches to PK-based or PK-less row comparison depending on the table's
+  schema, and reports overall `is_identical` per the "functionally identical"
+  definition above.
+* Unit tests: end-to-end fixture-based tests exercising the full result object for
+  a PK'd table and a PK-less table, both identical and differing.
+
 ### The PUDL Diff Marimo Notebook
 
 We are not yet ready to implement the Marimo notebook.
