@@ -300,6 +300,67 @@ results.
 * Unit tests: end-to-end fixture-based tests exercising the full result object for
   a PK'd table and a PK-less table, both identical and differing.
 
+#### Follow-up: strategy for large tables
+
+Smoke-testing `compare_table` against real PUDL output revealed that the current
+row-level comparison functions (`compare_rows_with_pk`, `compare_rows_without_pk`)
+materialize full joined dataframes in memory rather than streaming. This works fine
+up to the tens-of-millions-of-rows range, but comparing `out_vcerare__hourly_available_capacity_factor`
+(300M rows) against itself peaked at ~93GB RSS, and `core_epacems__hourly_emissions`
+(~1.02B rows) OOM-killed the process outright on a 128GB machine.
+
+As a stopgap, `compare_table` now bails out of row-level comparison (logging a
+warning, still running the cheap schema and row-count comparisons) whenever either
+side of a table exceeds `MAX_ROWS_FOR_ROW_LEVEL_COMPARISON` (100,000,000 rows). We
+need to follow up with an actual strategy for comparing these large tables' row
+contents without exhausting memory — candidates include a streaming/lazy `sink_*`-based
+implementation, chunking the comparison (e.g. by the same partition column used for
+row counts), or falling back to DuckDB's out-of-core execution as anticipated in the
+"Tools for Implementation" section above. Not yet scheduled as a task.
+
+#### Smoke test performance results
+
+`compare_table(ds, ds, table_name)` run against a real local PUDL build, comparing
+each table to itself (expected result: identical). All machine specs: 128GB RAM.
+Rows above the double rule were re-run in their own isolated process to get an
+accurate per-table peak RSS (each pays a ~250MB baseline for the Python/Polars
+process itself, on top of which the comparison's own memory shows up as the
+table grows); the two large tables below that were only run once each per
+scenario, since re-running them repeatedly isn't cheap.
+
+| Table | Rows | Primary key | Time | Peak RSS | Result |
+| --- | ---: | :---: | ---: | ---: | --- |
+| `core_eia__codes_wet_dry_bottom` | 2 | Yes | 0.008 s | 256 MB | identical |
+| `core_rus__codes_investment_types` | 11 | Yes | 0.007 s | 258 MB | identical |
+| `core_eia861__yearly_distributed_generation_fuel` | 24,052 | No | 0.011 s | 274 MB | identical |
+| `core_eia176__yearly_gas_exports` | 12,740 | No | 0.011 s | 273 MB | identical |
+| `out_rus12__yearly_investments` | 24,091 | No | 0.013 s | 289 MB | identical |
+| `out_rus7__yearly_materials_and_supplies` | 16,912 | Yes | 0.021 s | 293 MB | identical |
+| `_core_phmsagas__yearly_distribution_misc` | 91,983 | No | 0.020 s | 352 MB | identical |
+| `core_rus12__yearly_plant_costs` | 52,500 | No | 0.022 s | 305 MB | identical |
+| `core_ferc1__yearly_energy_sources_sched401` | 41,913 | Yes | 0.022 s | 325 MB | identical |
+| `core_eia861__yearly_operational_data_revenue` | 462,133 | Yes | 0.094 s | 516 MB | identical |
+| `_core_eia__forensics_entity_resolution_generators` | 1,758,590 | No | 0.142 s | 1,179 MB | identical |
+| `out_eia923__monthly_boiler_fuel` | 1,892,184 | Yes | 0.351 s | 2,232 MB | identical |
+| `core_eiaaeo__yearly_projected_energy_use_by_sector_and_type` | 1,163,063 | Yes | 0.354 s | 967 MB | identical |
+| `core_eia930__hourly_subregion_demand` | 5,974,704 | Yes | 0.507 s | 2,225 MB | identical |
+| `out_eia__yearly_generators_by_ownership` | 1,417,312 | No | 0.494 s | 2,421 MB | identical |
+| `out_eia930__hourly_subregion_demand` | 5,974,704 | Yes | 0.573 s | 2,442 MB | identical |
+| `_core_phmsagas__yearly_distribution_by_material_and_size` | 8,085,709 | No | 0.633 s | 4,295 MB | identical |
+| `out_eia__yearly_plant_parts` | 5,445,543 | Yes | 1.521 s | 12,554 MB | identical* |
+| `out_vcerare__hourly_available_capacity_factor` | 300,161,400 | Yes | 82.9 s | ~93 GB | identical (before the 100M-row bail-out was added; full row-level join) |
+| `out_vcerare__hourly_available_capacity_factor` | 300,161,400 | Yes | 0.26 s | — | row-level comparison skipped (after the bail-out; schema + row count only) |
+| `core_epacems__hourly_emissions` | 1,017,999,168 | Yes | — | OOM-killed | crashed (before the bail-out; full row-level join) |
+| `core_epacems__hourly_emissions` | 1,017,999,168 | Yes | 0.79 s | — | row-level comparison skipped (after the bail-out; schema + row count only) |
+
+\* `out_eia__yearly_plant_parts` initially reported as a false mismatch due to the
+infinity-handling bugs described above; after the fix it correctly reports identical.
+Its peak RSS is disproportionately high relative to its row count (~5.4M rows, on
+par with `out_eia930__hourly_subregion_demand` at ~6M) because it's unusually wide
+(87 columns), which drives up the memory cost of building the full left/right join
+used by `compare_rows_with_pk` — a first hint that column count, not just row
+count, matters for the large-table strategy noted above.
+
 ### The PUDL Diff Marimo Notebook
 
 We are not yet ready to implement the Marimo notebook.
