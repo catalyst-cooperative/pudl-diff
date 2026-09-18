@@ -92,7 +92,7 @@ Examples:
     help="Absolute tolerance for float equality, matching numpy.isclose.",
 )
 @click.option(
-    "--partition-col",
+    "--partition-expr",
     type=str,
     default=None,
     help="Column to group row counts by when comparing them. Defaults to "
@@ -104,7 +104,7 @@ Examples:
     is_flag=True,
     default=False,
     help="Compare whole-table row counts even if a dbt partition is "
-    "configured for this table. Ignored if --partition-col is given.",
+    "configured for this table. Ignored if --partition-expr is given.",
 )
 @click.pass_context
 def main(
@@ -118,7 +118,7 @@ def main(
     max_output_rows: int | None,
     rtol: float,
     atol: float,
-    partition_col: str | None,
+    partition_expr: str | None,
     no_auto_partition: bool,
 ) -> None:
     """Compare TABLE_NAME between two PUDL Parquet datasets.
@@ -141,7 +141,7 @@ def main(
         right_dataset,
         table_name,
         right_table_name=right_table,
-        partition_col=partition_col,
+        partition_expr=partition_expr,
         auto_partition=not no_auto_partition,
         rtol=rtol,
         atol=atol,

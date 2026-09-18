@@ -103,22 +103,28 @@ The report has three main sections, corresponding to the three kinds of
 comparison ``pudl_diff`` runs:
 
 * ``schema_diff`` -- columns only in the left table, columns only in the right
-  table, and any dtype mismatches for columns present in both. Column order
+  table, and any dtype changes for columns present in both. Column order
   doesn't matter.
-* ``row_count_diff`` -- total row counts for each side, and (if the table has a
+* ``row_count_diff`` -- total row counts for each side, the change in row count
+  from the left (reference) table to the right one (``row_count_difference``,
+  positive if the right table has more rows), and (if the table has a
   `dbt row-count-per-partition test
   <https://docs.getdbt.com/best-practices/writing-custom-generic-tests>`__
-  configured, e.g. by report year) a per-partition breakdown of any mismatches.
-  Use ``--partition-col`` to specify a different partition column, or
+  configured, e.g. by report year) a per-partition breakdown of any changes.
+  Use ``--partition-expr`` to specify a different partition column or expression, or
   ``--no-auto-partition`` to always compare whole-table row counts.
-* ``row_diff`` -- the row-level comparison, if it ran (see
-  :ref:`pudl-diff-skipped-comparisons` below for when it doesn't). For a table
-  with a primary key (looked up from the dataset's own ``datapackage.json``, or
-  falling back to PUDL's own metadata if that's missing or stale), this reports
+* ``row_diff`` -- the row-level comparison, with a ``pk_diff`` and a
+  ``non_pk_diff`` entry, only one of which is a full report. For a table with a
+  primary key (looked up from the dataset's own ``datapackage.json``, or falling
+  back to PUDL's own metadata if that's missing or stale), ``pk_diff`` reports
   whether the two tables share the same set of primary keys, and, for shared
-  keys, a per-column count of how many rows have differing non-primary-key
-  values. For a table without one, it reports the symmetric difference of whole
-  rows.
+  keys, a per-column count of how many rows have changed non-primary-key
+  values. For a table without one, ``non_pk_diff`` reports the symmetric
+  difference of whole rows. The other entry contains only a ``skipped_reason``:
+  ``primary_key_available`` for ``non_pk_diff`` on a table with a primary key,
+  or ``no_primary_key`` for ``pk_diff`` on one without. See
+  :ref:`pudl-diff-skipped-comparisons` below for other reasons a comparison
+  doesn't run.
 
 Each dataset's own provenance (build ID, creation timestamp, git SHA and tags,
 read from its ``datapackage.json`` if present) is also included, so a saved
@@ -131,7 +137,8 @@ When row-level comparison is skipped
 
 Row-level comparison is the most expensive part of the comparison, and
 ``pudl_diff`` skips it (falling back to just the schema and row-count results)
-in a few situations, recorded in the report's ``row_diff.skipped_reason``:
+in a few situations, recorded as the ``skipped_reason`` of whichever of
+``row_diff.pk_diff`` or ``row_diff.non_pk_diff`` would otherwise have run:
 
 * ``too_many_rows`` -- either table has more rows than ``--max-compare-rows``
   (default 100,000,000), a memory-safety cutoff. Row-level comparison uses the
@@ -155,7 +162,7 @@ Comparing dbt row counts
 
 ``pudl_diff``'s row-count comparison reimplements the same logic as dbt's
 ``check_row_counts_per_partition`` test (see
-:doc:`data_validation_reference`), so a partitioned row-count mismatch reported
+:doc:`data_validation_reference`), so a partitioned row-count change reported
 by ``pudl_diff`` should match what that dbt test would report for the same two
 datasets. Unlike the dbt test, ``pudl_diff`` doesn't require a dedicated seed of
 expected row counts -- it compares two live datasets directly.

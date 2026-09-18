@@ -113,7 +113,7 @@ def test_differing_pk_table_exits_one_and_writes_parquet(tmp_path: Path):
     report = json.loads((output_path / "table_with_pk_diff.json").read_text())
     assert report["success"] is True
     assert report["is_identical"] is False
-    assert report["row_diff"]["pk_diff"]["mismatched_row_count"] == 1
+    assert report["row_diff"]["pk_diff"]["changed_row_count"] == 1
     assert (output_path / "table_with_pk_left_only.parquet").exists()
     assert (output_path / "table_with_pk_right_only.parquet").exists()
 
@@ -246,7 +246,10 @@ def test_large_table_skip_still_exits_one(tmp_path: Path):
     report = json.loads((output_path / "table_with_pk_diff.json").read_text())
     assert report["success"] is True
     assert report["is_identical"] is False
-    assert report["row_diff"]["skipped_reason"] == "too_many_rows"
+    assert report["row_diff"]["pk_diff"] == {"skipped_reason": "too_many_rows"}
+    assert report["row_diff"]["non_pk_diff"] == {
+        "skipped_reason": "primary_key_available"
+    }
     assert not (output_path / "table_with_pk_left_only.parquet").exists()
 
 
