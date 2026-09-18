@@ -20,10 +20,12 @@ documented. It will live in a new module `src/pudl/validate/diff.py`
 Each PUDL dataset to be compared will be defined by a root path, which can be either a
 local path or a remote path (e.g. an S3 bucket). The root path will contain all of the
 Parquet outputs for a full PUDL ETL run, as well as a `datapackage.json` descriptor. By
-default we will compare the local PUDL dataset at `$PUDL_OUTPUT/parquet` against the
-outputs of the most recent successful nightly build at
-`s3://pudl.catalyst.coop/nightly/`. However, users will be able to override these
-defaults and provide any two root paths to compare. In addition to the root path, most
+default we will compare the outputs of the most recent successful nightly build at
+`s3://pudl.catalyst.coop/nightly/` (the "left"/reference dataset) against the local
+PUDL dataset at `$PUDL_OUTPUT/parquet` (the "right" dataset), so the diff reads as
+what's changed locally since the last nightly build. However, users will be able to
+override these defaults and provide any two root paths to compare. In addition to
+the root path, most
 comparisons will need to know which table to compare, and potentially also which
 specific data column or columns to compare.
 
@@ -361,7 +363,7 @@ par with `out_eia930__hourly_subregion_demand` at ~6M) because it's unusually wi
 used by `compare_rows_with_pk` — a first hint that column count, not just row
 count, matters for the large-table strategy noted above.
 
-### The PUDL Diff CLI Tool (2026-09-17 19:46)
+### The PUDL Diff CLI Tool (2026-09-17 19:46 - 2026-09-17 23:34 (3hr48min))
 
 We are going to build a CLI around the `src/pudl/validate/diff.py` module.
 We will use the Click framework to create a new CLI at `src/pudl/scripts/pudl_diff.py`.
@@ -443,8 +445,12 @@ The report will contain the following information for each table comparison:
 
 #### PUDL Diff CLI Arguments
 
-* Path to the left dataset root (local path or URL, optional, defaults to `$PUDL_OUTPUT/parquet`)
-* Path to the right dataset root (local path or URL, optional, defaults to `s3://pudl.catalyst.coop/nightly/`)
+* Path to the left dataset root (local path or URL, optional, defaults to
+  `s3://pudl.catalyst.coop/nightly/`, the reference point most diffs are measured
+  against)
+* Path to the right dataset root (local path or URL, optional, defaults to
+  `$PUDL_OUTPUT/parquet`, so the diff reads as what's changed locally since the last
+  nightly build)
 * Left table name to compare (string, required)
 * Right table name to compare (string, optional, defaults to left table name)
 * Output path for the JSON report and Parquet outputs (local path, optional, defaults to current working directory, must be a writable directory, will be created along with parent directories if it does not yet exist)
@@ -577,13 +583,15 @@ works; not scheduled as a task yet.
   large-table skip, and a simulated error — checking exit codes and the
   written JSON/Parquet files' contents.
 
-**Task 7 — Docs and release notes**
+**Task 7 — Documentation** (2026-09-18T10:05-06:00)
 
-* Add a release notes entry to `docs/release_notes.rst` with issue/PR
-  numbers.
 * Confirm the "The PUDL Diff CLI Tool" section of `pudl-diff.md` reflects
   actual usage now that the tool exists (update if behavior diverged during
   implementation).
+* Create a new documentation page `docs/dev/pudl_diff.rst` Explaining
+  the purpose of the tool, how to use it, and what the output means.
+* Ensure that `pudl_diff --help` provides 2-3 examples of typical usage, including a
+  local vs. nightly comparison and a comparison of two local datasets.
 
 ### The PUDL Diff Marimo Notebook
 

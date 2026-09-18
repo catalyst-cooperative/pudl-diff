@@ -12,8 +12,24 @@ from pudl.workspace.setup import PudlPaths
 
 logger = get_logger(__name__)
 
+_EPILOG = """
+\b
+Examples:
+\b
+  # Local build vs. the last nightly build (the default comparison)
+  pudl_diff out_eia__yearly_generators
+\b
+  # Two arbitrary datasets, local or remote
+  pudl_diff out_eia__yearly_generators \\
+      --left s3://pudl.catalyst.coop/stable --right $PUDL_OUTPUT/parquet
+\b
+  # A core_ table vs. the out_ table built from it, within the local build
+  pudl_diff core_eia860__scd_utilities --right-table out_eia__yearly_utilities \\
+      --left $PUDL_OUTPUT/parquet
+"""
 
-@click.command(context_settings={"help_option_names": ["-h", "--help"]})
+
+@click.command(context_settings={"help_option_names": ["-h", "--help"]}, epilog=_EPILOG)
 @click.argument("table_name", type=str)
 @click.option(
     "--left",
