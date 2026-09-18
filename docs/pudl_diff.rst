@@ -134,9 +134,10 @@ Row-level comparison is the most expensive part of the comparison, and
 in a few situations, recorded in the report's ``row_diff.skipped_reason``:
 
 * ``too_many_rows`` -- either table has more rows than ``--max-compare-rows``
-  (default 100,000,000), a memory-safety cutoff. Row-level comparison currently
-  materializes the full joined data in memory rather than streaming, so
-  comparing tables above this size risks exhausting memory on typical hardware.
+  (default 100,000,000), a memory-safety cutoff. Row-level comparison uses the
+  Polars streaming engine and writes its results to temporary Parquet files, but
+  its hash joins still hold one side's join keys in memory, so comparing tables
+  above this size risks exhausting memory on typical hardware.
 * ``incompatible_dtypes`` -- the join underlying the row-level comparison
   failed, most likely because a shared column has incompatible dtypes between
   the two tables.
