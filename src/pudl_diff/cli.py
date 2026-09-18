@@ -20,14 +20,16 @@ logger = get_logger(__name__)
     type=str,
     default=None,
     help="Root path of the 'left' dataset (local path or URL, e.g. s3://...). "
-    "Defaults to $PUDL_OUTPUT/parquet.",
+    "Defaults to PUDL's nightly build outputs on S3, the reference point most "
+    "diffs are measured against.",
 )
 @click.option(
     "--right",
     type=str,
     default=None,
     help="Root path of the 'right' dataset (local path or URL). Defaults to "
-    "PUDL's nightly build outputs on S3.",
+    "$PUDL_OUTPUT/parquet, so the diff reads as what's changed locally since "
+    "the last nightly build.",
 )
 @click.option(
     "--right-table",
@@ -111,8 +113,8 @@ def main(
     if the comparison itself failed (e.g. TABLE_NAME doesn't exist in one of
     the datasets, or a dataset's datapackage.json couldn't be read).
     """
-    left_root = left or str(PudlPaths().parquet_path())
-    right_root = right or str(pudl.PUDL_NIGHTLY_BUILDS_BASE_PATH)
+    left_root = left or str(pudl.PUDL_NIGHTLY_BUILDS_BASE_PATH)
+    right_root = right or str(PudlPaths().parquet_path())
     output_path = output_path or Path.cwd()
 
     left_dataset = diff.PudlDiffDataset(left_root)
