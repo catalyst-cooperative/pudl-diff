@@ -206,7 +206,7 @@ include:
   proceed with a task or there is a major design decision with multiple reasonable
   options.
 
-### Core Functionality
+### Core Functionality (3hr38m on 2026-09-16)
 
 * We will start by implementing the core functionality in `src/pudl/validate/diff.py`
   and writing the associated unit tests.
@@ -361,13 +361,226 @@ par with `out_eia930__hourly_subregion_demand` at ~6M) because it's unusually wi
 used by `compare_rows_with_pk` — a first hint that column count, not just row
 count, matters for the large-table strategy noted above.
 
+### The PUDL Diff CLI Tool (2026-09-17 19:46)
+
+We are going to build a CLI around the `src/pudl/validate/diff.py` module.
+We will use the Click framework to create a new CLI at `src/pudl/scripts/pudl_diff.py`.
+The CLI will generate a structured report using JSON that summarizes the results of the diff.
+The structured report will be consumed by agents that are using the CLI to compare PUDL outputs.
+The structured report will also be saved to disk as a record of the diff in various contexts, including nightly builds and versioned data releases.
+Later we will also use these structured reports as an input to a Marimo notebook for visualizing the results of a diff, or a collection of diffs.
+We will also add a CLI option to generate a human-readable summary of the diff, which will be useful for interactive use and for debugging.
+However, for now we are focused just on the structured JSON report, which will enable those other applications.
+First we will define the structure of the report for a single pair of tables, and later create a higher level structure for comparing two entire datasets composed of many tables.
+
+#### Information contained in the PUDL Diff report structure
+
+The table diff summary report will be a JSON object, serialized from a Pydantic
+`TableDiffReport` model (so it can be validated on reload for later analysis and
+visualization, rather than a plain dataclass).
+The JSON object will not contain any of either table's actual data.
+Alongside the JSON report we will also save a pair of Parquet files.
+The parquet files will contain left-only and right-only rows, respectively, for tables that have primary keys.
+The parquet files will contain the rows that are part of the symmetric difference of the two tables, and also the rows that have matching primary keys but differing non-PK data.
+For tables that do not have primary keys, the parquet files will contain the rows that are part of the symmetric difference of the two tables.
+The schema of the left-only Parquet file must be identical to the schema of the left table, and the schema of the right-only Parquet file must be identical to the schema of the right table.
+
+The report will contain the following information for each table comparison:
+
+* Report provenance
+  * Report creation timestamp (UTC, ISO-8601), matching the `created` field
+    convention used in PUDL's enriched `datapackage.json`
+  * Left dataset provenance: `id`, `created`, `git_sha`, `git_tags`, read
+    from the left dataset's own `datapackage.json` if present (omitted/null
+    for any field that dataset's descriptor doesn't have, e.g. an older
+    build without git provenance) — `created` here is the left dataset's own
+    build timestamp, distinct from the report creation timestamp above
+  * Right dataset provenance: same four fields, read from the right
+    dataset's `datapackage.json`
+* Table level information
+  * Left table name (string)
+  * Path to the left table input file (local path or URL)
+  * Right table name (string)
+  * Path to the right table input file (local path or URL)
+  * Overall table identical boolean (True if the two tables are functionally identical, False otherwise)
+  * Time it took to run the comparison (in seconds)
+  * Peak memory usage during the comparison (in bytes)
+* Schema comparison results
+  * Columns only in left table
+  * Columns only in right table
+  * Dtype mismatches (column name, left dtype, right dtype)
+  * Overall schema identical boolean
+* Row count comparison results
+  * Total rows in left table
+  * Total rows in right table
+  * Row count difference (left - right)
+  * Partitioned row counts (if applicable)
+    * Partition column name
+    * Partition values and their respective row counts in left and right datasets
+    * Row count differences per partition
+  * Overall row count identical boolean
+* Row-level comparison results (if applicable)
+  * Primary key presence and comparison results
+    * Left and right table primary key columns
+    * Number of primary keys found only in left table
+    * Number of primary keys found only in right table
+    * Primary key set identical boolean (True if the two tables have the same set of primary keys, False otherwise)
+    * Number of rows with matching primary keys but differing non-PK data (if applicable)
+    * Column-wise mismatch summary (column name, number of differing values in that column, across all the rows with matching primary keys but at least one differing non-PK value)
+  * Non-primary key row-level comparison results (if applicable)
+    * Number of rows only in left table
+    * Number of rows only in right table
+    * Symmetric difference row count (sum of the above two counts)
+    * Overall row-level identical boolean (True if the two tables have the same set of rows, False otherwise)
+  * If row-level comparison did not run, a reason (too many rows, incompatible dtypes, or mismatched columns without a usable primary key)
+  * Left-only Parquet output: path, `bytes`, `hash` (`"sha256:<hexdigest>"`,
+    matching PUDL's enriched `datapackage.json` resource convention)
+  * Right-only Parquet output: same three fields
+* Error summary (if any errors occurred during the comparison, including error messages and stack traces)
+* Success boolean (True if the comparison completed successfully, False otherwise)
+
+#### PUDL Diff CLI Arguments
+
+* Path to the left dataset root (local path or URL, optional, defaults to `$PUDL_OUTPUT/parquet`)
+* Path to the right dataset root (local path or URL, optional, defaults to `s3://pudl.catalyst.coop/nightly/`)
+* Left table name to compare (string, required)
+* Right table name to compare (string, optional, defaults to left table name)
+* Output path for the JSON report and Parquet outputs (local path, optional, defaults to current working directory, must be a writable directory, will be created along with parent directories if it does not yet exist)
+* Max table size to compare at the row level (integer, optional, defaults to 100,000,000)
+* Max number of rows to save to each Parquet output file (integer, optional, defaults to all rows)
+
+#### Approved task breakdown
+
+Human-readable text-report formatting is deferred until after the JSON report
+works; not scheduled as a task yet.
+
+**Task 0 — Restructure the row-level diff data model**
+
+* Split `compare_rows_with_pk`'s single suffixed `mismatched_rows` dataframe
+  into separate `mismatched_left`/`mismatched_right` DataFrames, each holding
+  the PK columns plus the original (non-suffixed) column names with just
+  that side's values — selected off the same shared-PK inner join used
+  today, so nothing ever materializes a doubled-width combined frame. This
+  also matches the Parquet output shape directly, with no un-suffixing
+  needed in Task 4.
+* Remove `RowSetDiff.combined` and the module-level `SOURCE_COL` constant —
+  nothing consumes the label-tagged concatenation, and it doesn't match the
+  separate-left/right-file convention the report and Parquet outputs use.
+* Update `KeyedRowDiff` accordingly: `pk_diff: RowSetDiff`,
+  `column_mismatches: dict[str, int]`, `mismatched_left`, `mismatched_right`.
+* Update all existing unit tests in `diff_test.py` that reference
+  `.combined`, `SOURCE_COL`, or `mismatched_rows` to match the new shape.
+
+**Task 1 — Row-count totals, skip-reason, and a configurable row-level cap**
+
+* Add `left_row_count`/`right_row_count` totals to `RowCountDiff` (currently
+  it only tracks per-partition mismatches, not the overall totals the report
+  needs).
+* Add a `row_diff_skipped_reason: str | None` field to `TableDiffResult`,
+  populated by `compare_table` with why `row_diff` is `None`: too many rows,
+  dtype-incompatible join failure, or mismatched columns (with or without a
+  usable primary key).
+* Turn `MAX_ROWS_FOR_ROW_LEVEL_COMPARISON` into a `compare_table` parameter
+  (`max_rows_for_row_level_comparison: int = MAX_ROWS_FOR_ROW_LEVEL_COMPARISON`)
+  so the CLI can override it, keeping the module constant as the default.
+* Unit tests: one case per skip reason, row-count totals on partitioned and
+  unpartitioned comparisons, and an explicit override of the row-level cap.
+
+**Task 2 — Timing and peak-memory instrumentation**
+
+* Add `elapsed_seconds: float` and `peak_rss_bytes: int` fields to
+  `TableDiffResult`, measured by `compare_table` around its own execution.
+* Peak RSS measured via a `psutil`-based background sampler thread (polls
+  `psutil.Process().memory_info().rss` at a short interval, tracks the max,
+  nets out the pre-call baseline) rather than `resource.getrusage`, avoiding
+  the whole-process/high-water-mark and macOS-vs-Linux unit issues.
+* Add `psutil` to `[tool.pixi.dependencies]` in `pyproject.toml`; run
+  `pixi install`.
+* Unit tests: elapsed time is positive; sampler correctness tested against a
+  mocked/fake memory source rather than relying on real allocation timing.
+
+**Task 3 — Error-tolerant comparison wrapper**
+
+* A new outer function (e.g. `run_table_diff`) that wraps `compare_table`,
+  catching any exception raised during the comparison and capturing it as an
+  error summary (message + traceback) plus a `success: bool`, so a report can
+  always be produced even when the comparison itself blows up (e.g. a
+  missing datapackage, an S3 access failure) — distinct from the existing
+  in-`compare_table` handling of dtype-incompatible row joins, which is an
+  expected skip, not an error.
+* Unit tests: a simulated failure (e.g. missing datapackage) yields
+  `success=False` with a captured error; a normal run yields `success=True`
+  with no error.
+
+**Task 4 — Parquet side-output writer**
+
+* A new function, e.g. `write_row_diff_parquet(row_diff, output_path, ...)`,
+  that writes `<table_name>_left_only.parquet` / `..._right_only.parquet`
+  (schema-matched to the left/right tables respectively) for both the PK
+  case (`KeyedRowDiff`: combines `pk_diff.only_in_left`/`only_in_right` with
+  `mismatched_left`/`mismatched_right` from Task 0) and the non-PK case
+  (`RowSetDiff`: `only_in_left`/`only_in_right` directly).
+* Applies the `--max-rows-per-output-parquet` cap, while still recording the
+  true total row count (for the JSON report) separately from what was
+  written to disk.
+* After writing, computes each file's `bytes` (size) and `hash`
+  (`"sha256:<hexdigest>"` via `hashlib.sha256`, matching the convention in
+  `src/pudl/dagster/assets/core/datapackage.py`) for the report's provenance
+  section.
+* Unit tests: PK table (symmetric-diff + mismatched rows land on the correct
+  side with the original schema), non-PK table, row capping behavior, correct
+  `bytes`/`hash` values, and the no-row-diff (skipped) case writing nothing.
+
+**Task 5 — JSON report structure and serializer**
+
+* A new `TableDiffReport` Pydantic model (with nested models for each
+  section) matching the detailed schema above, including the provenance
+  section (report `created` timestamp; left/right dataset `id`/`created`/
+  `git_sha`/`git_tags`, read via a new `PudlDiffDataset.provenance()` method
+  that pulls those optional fields from `self.datapackage`) and the Parquet
+  output `path`/`bytes`/`hash` fields from Task 4 — with no row-level data
+  embedded, only counts and summaries.
+* Built from a `run_table_diff` result plus the two datasets' table
+  names/paths and provenance.
+* `model_dump_json(indent=2)` used for serialization (no separate custom
+  serializer needed, unlike the dataclass-based approach originally
+  considered).
+* Unit tests: report structure for an identical PK table, a differing PK
+  table, a differing non-PK table, a schema-mismatch case, a skipped-large-
+  table case, an error case, and a dataset with/without git provenance in
+  its `datapackage.json` — each checked against the spec's field list.
+
+**Task 6 — CLI: arguments, orchestration, exit codes**
+
+* New `src/pudl/scripts/pudl_diff.py`: required `table_name` argument;
+  `--left`/`--right` defaulting to `PudlPaths().parquet_path()` and
+  `pudl.PUDL_NIGHTLY_BUILDS_BASE_PATH`; `--right-table-name`;
+  `--output-path` (default cwd, created if missing); `--max-rows-for-row-
+  level-comparison`; `--max-rows-per-output-parquet`; `--rtol`/`--atol`;
+  `--partition-col`/`--no-auto-partition`.
+* Orchestrates `run_table_diff` → Parquet side-output writing → JSON report
+  serialization → write to `<output-path>/<table_name>_diff.json`.
+* Exit codes: `0` identical, `1` not identical, `2` error (unknown table,
+  dataset load failure not otherwise caught by `run_table_diff`, e.g. bad
+  CLI arguments).
+* Register `pudl_diff = "pudl.scripts.pudl_diff:main"` in
+  `[project.scripts]`.
+* Unit tests: end-to-end CliRunner tests against fixture datasets on
+  `tmp_path`, covering identical, differing (PK and non-PK), unknown table,
+  large-table skip, and a simulated error — checking exit codes and the
+  written JSON/Parquet files' contents.
+
+**Task 7 — Docs and release notes**
+
+* Add a release notes entry to `docs/release_notes.rst` with issue/PR
+  numbers.
+* Confirm the "The PUDL Diff CLI Tool" section of `pudl-diff.md` reflects
+  actual usage now that the tool exists (update if behavior diverged during
+  implementation).
+
 ### The PUDL Diff Marimo Notebook
 
 We are not yet ready to implement the Marimo notebook.
-
-### The PUDL Diff CLI Tool
-
-We are not yet ready to implement the CLI tool.
 
 ### Nightly PUDL Data Diff Reporting
 
