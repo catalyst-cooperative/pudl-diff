@@ -527,7 +527,7 @@ works; not scheduled as a task yet.
   case (`KeyedRowDiff`: combines `pk_diff.only_in_left`/`only_in_right` with
   `mismatched_left`/`mismatched_right` from Task 0) and the non-PK case
   (`RowSetDiff`: `only_in_left`/`only_in_right` directly).
-* Applies the `--max-rows-per-output-parquet` cap, while still recording the
+* Applies the `--max-output-rows` cap, while still recording the
   true total row count (for the JSON report) separately from what was
   written to disk.
 * After writing, computes each file's `bytes` (size) and `hash`
@@ -561,9 +561,9 @@ works; not scheduled as a task yet.
 
 * New `src/pudl/scripts/pudl_diff.py`: required `table_name` argument;
   `--left`/`--right` defaulting to `PudlPaths().parquet_path()` and
-  `pudl.PUDL_NIGHTLY_BUILDS_BASE_PATH`; `--right-table-name`;
-  `--output-path` (default cwd, created if missing); `--max-rows-for-row-
-  level-comparison`; `--max-rows-per-output-parquet`; `--rtol`/`--atol`;
+  `pudl.PUDL_NIGHTLY_BUILDS_BASE_PATH`; `--right-table`;
+  `--output-path` (default cwd, created if missing); `--max-compare-rows`;
+  `--max-output-rows`; `--rtol`/`--atol`;
   `--partition-col`/`--no-auto-partition`.
 * Orchestrates `run_table_diff` → Parquet side-output writing → JSON report
   serialization → write to `<output-path>/<table_name>_diff.json`.
