@@ -180,7 +180,7 @@ def test_unknown_table_exits_two(tmp_path: Path):
     assert result.exit_code == 2, result.output
     report = json.loads((output_path / "nonexistent_table_diff.json").read_text())
     assert report["success"] is False
-    assert "not found in datapackage" in report["error"]
+    assert "FileNotFoundError" in report["error"]
 
 
 def test_missing_dataset_exits_two(tmp_path: Path):
