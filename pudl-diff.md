@@ -405,6 +405,8 @@ The report will contain the following information for each table comparison:
   * Overall table identical boolean (True if the two tables are functionally identical, False otherwise)
   * Time it took to run the comparison (in seconds)
   * Peak memory usage during the comparison (in bytes)
+  * Peak CPU utilization during the comparison (percent of one core, e.g.
+    400.0 for four cores kept fully busy at once)
 * Schema comparison results
   * Columns only in left table
   * Columns only in right table
@@ -486,18 +488,23 @@ works; not scheduled as a task yet.
 * Unit tests: one case per skip reason, row-count totals on partitioned and
   unpartitioned comparisons, and an explicit override of the row-level cap.
 
-**Task 2 — Timing and peak-memory instrumentation**
+**Task 2 — Timing and peak-memory/CPU instrumentation**
 
-* Add `elapsed_seconds: float` and `peak_rss_bytes: int` fields to
-  `TableDiffResult`, measured by `compare_table` around its own execution.
-* Peak RSS measured via a `psutil`-based background sampler thread (polls
-  `psutil.Process().memory_info().rss` at a short interval, tracks the max,
-  nets out the pre-call baseline) rather than `resource.getrusage`, avoiding
-  the whole-process/high-water-mark and macOS-vs-Linux unit issues.
+* Add `elapsed_seconds: float`, `peak_rss_bytes: int`, and
+  `peak_cpu_percent: float` fields to `TableDiffResult`, measured by
+  `compare_table` around its own execution.
+* Peak RSS and CPU measured via a `psutil`-based background sampler thread
+  (polls `psutil.Process().memory_info().rss` and
+  `psutil.Process().cpu_percent()` at a short interval, tracks the max of
+  each) rather than `resource.getrusage`, avoiding the whole-process/high-
+  water-mark and macOS-vs-Linux unit issues; RSS is netted out against a
+  pre-call baseline, while CPU percent is a percentage of one core (e.g.
+  `400.0` for four cores kept fully busy at once).
 * Add `psutil` to `[tool.pixi.dependencies]` in `pyproject.toml`; run
   `pixi install`.
 * Unit tests: elapsed time is positive; sampler correctness tested against a
-  mocked/fake memory source rather than relying on real allocation timing.
+  mocked/fake memory and CPU source rather than relying on real allocation
+  timing.
 
 **Task 3 — Error-tolerant comparison wrapper**
 
