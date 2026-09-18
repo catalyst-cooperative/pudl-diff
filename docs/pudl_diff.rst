@@ -120,7 +120,10 @@ comparison ``pudl_diff`` runs:
   whether the two tables share the same set of primary keys, and, for shared
   keys, a per-column count of how many rows have changed non-primary-key
   values. For a table without one, ``non_pk_diff`` reports the symmetric
-  difference of whole rows. The other entry contains only a ``skipped_reason``:
+  difference of whole rows, counted as a multiset: a row that appears a
+  different number of times in the two tables is a difference, and
+  ``multiplicity_changed_row_count`` says how many distinct rows that applies
+  to. The other entry contains only a ``skipped_reason``:
   ``primary_key_available`` for ``non_pk_diff`` on a table with a primary key,
   or ``no_primary_key`` for ``pk_diff`` on one without. See
   :ref:`pudl-diff-skipped-comparisons` below for other reasons a comparison
@@ -142,9 +145,12 @@ in a few situations, recorded as the ``skipped_reason`` of whichever of
 
 * ``too_many_rows`` -- either table has more rows than ``--max-compare-rows``
   (default 100,000,000), a memory-safety cutoff. Row-level comparison uses the
-  Polars streaming engine and writes its results to temporary Parquet files, but
-  its hash joins still hold one side's join keys in memory, so comparing tables
-  above this size risks exhausting memory on typical hardware.
+  Polars streaming engine and writes its results to temporary Parquet files.
+  Rows are matched using 64-bit hashes of their primary key (or, for tables
+  without one, of the whole row), so the in-memory side of each join needs only
+  a few bytes per row, but that still grows with table size, and a table whose
+  float values all differ slightly needs much more. Comparing tables above this
+  size risks exhausting memory on typical hardware.
 * ``incompatible_dtypes`` -- the join underlying the row-level comparison
   failed, most likely because a shared column has incompatible dtypes between
   the two tables.
