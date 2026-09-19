@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 import polars as pl
+import pytest
 from click.testing import CliRunner
 
 from pudl.logging_helpers import get_logger
@@ -16,54 +17,14 @@ from pudl.scripts.pudl_diff import (
 )
 
 
-def _write_datapackage(root: Path, resources: list[dict]) -> None:
-    root.mkdir(parents=True, exist_ok=True)
-    (root / "datapackage.json").write_text(
-        json.dumps({"name": "test", "resources": resources})
-    )
-
-
-def _pk_resource(name: str, primary_key: list[str]) -> dict:
-    return {
-        "name": name,
-        "schema": {
-            "fields": [
-                {"name": "x", "type": "integer"},
-                {"name": "y", "type": "string"},
-            ],
-            "primaryKey": primary_key,
-        },
-    }
-
-
-def _no_pk_resource(name: str) -> dict:
-    return {
-        "name": name,
-        "schema": {
-            "fields": [
-                {"name": "x", "type": "integer"},
-                {"name": "y", "type": "string"},
-            ],
-        },
-    }
-
-
-def _make_dataset(
-    root: Path, resources: list[dict], tables: dict[str, pl.DataFrame]
-) -> None:
-    _write_datapackage(root, resources)
-    for table_name, df in tables.items():
-        df.write_parquet(root / f"{table_name}.parquet")
-
-
-def test_identical_table_exits_zero(tmp_path: Path):
-    resources = [_pk_resource("table_with_pk", ["x"])]
-    _make_dataset(
+def test_identical_table_exits_zero(tmp_path: Path, pk_resource, make_dataset):
+    resources = [pk_resource("table_with_pk", ["x"])]
+    make_dataset(
         tmp_path / "left",
         resources,
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})},
     )
-    _make_dataset(
+    make_dataset(
         tmp_path / "right",
         resources,
         {"table_with_pk": pl.DataFrame({"x": [2, 1], "y": ["b", "a"]})},
@@ -89,14 +50,16 @@ def test_identical_table_exits_zero(tmp_path: Path):
     assert report["is_identical"] is True
 
 
-def test_differing_pk_table_exits_one_and_writes_parquet(tmp_path: Path):
-    resources = [_pk_resource("table_with_pk", ["x"])]
-    _make_dataset(
+def test_differing_pk_table_exits_one_and_writes_parquet(
+    tmp_path: Path, pk_resource, make_dataset
+):
+    resources = [pk_resource("table_with_pk", ["x"])]
+    make_dataset(
         tmp_path / "left",
         resources,
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})},
     )
-    _make_dataset(
+    make_dataset(
         tmp_path / "right",
         resources,
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "changed"]})},
@@ -125,14 +88,14 @@ def test_differing_pk_table_exits_one_and_writes_parquet(tmp_path: Path):
     assert (output_path / "table_with_pk_right_only.parquet").exists()
 
 
-def test_differing_non_pk_table_exits_one(tmp_path: Path):
-    resources = [_no_pk_resource("table_without_pk")]
-    _make_dataset(
+def test_differing_non_pk_table_exits_one(tmp_path: Path, no_pk_resource, make_dataset):
+    resources = [no_pk_resource("table_without_pk")]
+    make_dataset(
         tmp_path / "left",
         resources,
         {"table_without_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})},
     )
-    _make_dataset(
+    make_dataset(
         tmp_path / "right",
         resources,
         {"table_without_pk": pl.DataFrame({"x": [1, 3], "y": ["a", "c"]})},
@@ -157,14 +120,14 @@ def test_differing_non_pk_table_exits_one(tmp_path: Path):
     assert report["row_diff"]["non_pk_diff"]["symmetric_difference_count"] == 2
 
 
-def test_unknown_table_exits_two(tmp_path: Path):
-    resources = [_pk_resource("table_with_pk", ["x"])]
-    _make_dataset(
+def test_unknown_table_exits_two(tmp_path: Path, pk_resource, make_dataset):
+    resources = [pk_resource("table_with_pk", ["x"])]
+    make_dataset(
         tmp_path / "left",
         resources,
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})},
     )
-    _make_dataset(
+    make_dataset(
         tmp_path / "right",
         resources,
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})},
@@ -190,13 +153,13 @@ def test_unknown_table_exits_two(tmp_path: Path):
     assert "FileNotFoundError" in report["error"]
 
 
-def test_missing_dataset_exits_two(tmp_path: Path):
+def test_missing_dataset_exits_two(tmp_path: Path, pk_resource, make_dataset):
     """A dataset root with no datapackage.json at all is also an exit-2 error."""
     left_root = tmp_path / "left"
     left_root.mkdir()
-    _make_dataset(
+    make_dataset(
         tmp_path / "right",
-        [_pk_resource("table_with_pk", ["x"])],
+        [pk_resource("table_with_pk", ["x"])],
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})},
     )
     output_path = tmp_path / "out"
@@ -219,14 +182,14 @@ def test_missing_dataset_exits_two(tmp_path: Path):
     assert report["success"] is False
 
 
-def test_large_table_skip_still_exits_one(tmp_path: Path):
-    resources = [_pk_resource("table_with_pk", ["x"])]
-    _make_dataset(
+def test_large_table_skip_still_exits_one(tmp_path: Path, pk_resource, make_dataset):
+    resources = [pk_resource("table_with_pk", ["x"])]
+    make_dataset(
         tmp_path / "left",
         resources,
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})},
     )
-    _make_dataset(
+    make_dataset(
         tmp_path / "right",
         resources,
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})},
@@ -260,14 +223,14 @@ def test_large_table_skip_still_exits_one(tmp_path: Path):
     assert not (output_path / "table_with_pk_left_only.parquet").exists()
 
 
-def test_max_rows_per_output_parquet(tmp_path: Path):
-    resources = [_no_pk_resource("table_without_pk")]
-    _make_dataset(
+def test_max_rows_per_output_parquet(tmp_path: Path, no_pk_resource, make_dataset):
+    resources = [no_pk_resource("table_without_pk")]
+    make_dataset(
         tmp_path / "left",
         resources,
         {"table_without_pk": pl.DataFrame({"x": [1, 2, 3, 4, 5], "y": list("abcde")})},
     )
-    _make_dataset(
+    make_dataset(
         tmp_path / "right",
         resources,
         {
@@ -300,24 +263,27 @@ def test_max_rows_per_output_parquet(tmp_path: Path):
     assert report["row_diff"]["non_pk_diff"]["only_in_left_count"] == 5
 
 
-def _all_tables_datasets(tmp_path: Path) -> tuple[Path, Path]:
+@pytest.fixture
+def all_tables_datasets(
+    tmp_path: Path, pk_resource, no_pk_resource, make_dataset
+) -> tuple[Path, Path]:
     """Two datasets sharing an identical and a changed table, plus one table
     unique to each side."""
     resources = [
-        _pk_resource("same_table", ["x"]),
-        _pk_resource("changed_table", ["x"]),
-        _no_pk_resource("left_only_table"),
-        _no_pk_resource("right_only_table"),
+        pk_resource("same_table", ["x"]),
+        pk_resource("changed_table", ["x"]),
+        no_pk_resource("left_only_table"),
+        no_pk_resource("right_only_table"),
     ]
     df = pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})
     left = tmp_path / "left"
     right = tmp_path / "right"
-    _make_dataset(
+    make_dataset(
         left,
         resources,
         {"same_table": df, "changed_table": df, "left_only_table": df},
     )
-    _make_dataset(
+    make_dataset(
         right,
         resources,
         {
@@ -329,8 +295,10 @@ def _all_tables_datasets(tmp_path: Path) -> tuple[Path, Path]:
     return left, right
 
 
-def test_no_table_name_compares_every_table_in_both_datasets(tmp_path: Path):
-    left, right = _all_tables_datasets(tmp_path)
+def test_no_table_name_compares_every_table_in_both_datasets(
+    tmp_path: Path, all_tables_datasets
+):
+    left, right = all_tables_datasets
     output_path = tmp_path / "out"
 
     result = CliRunner().invoke(
@@ -385,11 +353,13 @@ def test_no_table_name_compares_every_table_in_both_datasets(tmp_path: Path):
     assert "Tables added (only in right): 1\n  right_only_table\n" in result.output
 
 
-def test_no_table_name_all_identical_exits_zero(tmp_path: Path):
-    resources = [_pk_resource("a", ["x"]), _pk_resource("b", ["x"])]
+def test_no_table_name_all_identical_exits_zero(
+    tmp_path: Path, pk_resource, make_dataset
+):
+    resources = [pk_resource("a", ["x"]), pk_resource("b", ["x"])]
     df = pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})
-    _make_dataset(tmp_path / "left", resources, {"a": df, "b": df})
-    _make_dataset(tmp_path / "right", resources, {"a": df, "b": df})
+    make_dataset(tmp_path / "left", resources, {"a": df, "b": df})
+    make_dataset(tmp_path / "right", resources, {"a": df, "b": df})
 
     result = CliRunner().invoke(
         main,
@@ -407,12 +377,14 @@ def test_no_table_name_all_identical_exits_zero(tmp_path: Path):
     assert "Identical: 2  Changed: 0  Error: 0" in result.output
 
 
-def test_no_table_name_failed_comparison_exits_two(tmp_path: Path):
+def test_no_table_name_failed_comparison_exits_two(
+    tmp_path: Path, pk_resource, make_dataset
+):
     """A table that fails to compare is reported, and doesn't stop the others."""
-    resources = [_pk_resource("a", ["x"]), _pk_resource("b", ["x"])]
+    resources = [pk_resource("a", ["x"]), pk_resource("b", ["x"])]
     df = pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})
-    _make_dataset(tmp_path / "left", resources, {"a": df, "b": df})
-    _make_dataset(tmp_path / "right", resources, {"a": df, "b": df})
+    make_dataset(tmp_path / "left", resources, {"a": df, "b": df})
+    make_dataset(tmp_path / "right", resources, {"a": df, "b": df})
     # Corrupt one table on the right so that comparing it raises.
     (tmp_path / "right" / "a.parquet").write_bytes(b"not a parquet file")
 
@@ -441,10 +413,12 @@ def test_no_table_name_failed_comparison_exits_two(tmp_path: Path):
     assert report["tables"]["b"]["success"] is True
 
 
-def test_no_table_name_no_tables_in_common_exits_two(tmp_path: Path):
+def test_no_table_name_no_tables_in_common_exits_two(
+    tmp_path: Path, no_pk_resource, make_dataset
+):
     df = pl.DataFrame({"x": [1]})
-    _make_dataset(tmp_path / "left", [_no_pk_resource("a")], {"a": df})
-    _make_dataset(tmp_path / "right", [_no_pk_resource("b")], {"b": df})
+    make_dataset(tmp_path / "left", [no_pk_resource("a")], {"a": df})
+    make_dataset(tmp_path / "right", [no_pk_resource("b")], {"b": df})
     output_path = tmp_path / "out"
 
     result = CliRunner().invoke(
@@ -468,17 +442,17 @@ def test_no_table_name_no_tables_in_common_exits_two(tmp_path: Path):
     assert report["tables"] == {}
 
 
-def test_summary_shows_total_size_and_change(tmp_path: Path):
-    result = CliRunner().invoke(
-        main, ["same_table", "changed_table", *_two_table_args(tmp_path)]
-    )
+def test_summary_shows_total_size_and_change(tmp_path: Path, two_table_args):
+    result = CliRunner().invoke(main, ["same_table", "changed_table", *two_table_args])
 
     assert re.search(r"Total size: +[\d.]+ K?B left, [\d.]+ K?B right", result.output)
     assert re.search(r"Size change: +[+-][\d.]+ K?B [+-][\d.]+%", result.output)
 
 
-def test_right_table_and_partition_expr_require_a_table_name(tmp_path: Path):
-    left, right = _all_tables_datasets(tmp_path)
+def test_right_table_and_partition_expr_require_a_table_name(
+    tmp_path: Path, all_tables_datasets
+):
+    left, right = all_tables_datasets
     base = ["--left", str(left), "--right", str(right)]
 
     # --right-table needs exactly one table: none, or more than one, is an error.
@@ -497,8 +471,10 @@ def test_right_table_and_partition_expr_require_a_table_name(tmp_path: Path):
     assert "--partition-expr requires at least one TABLE_NAME" in result.output
 
 
-def test_multiple_table_names_compares_only_those_tables(tmp_path: Path):
-    left, right = _all_tables_datasets(tmp_path)
+def test_multiple_table_names_compares_only_those_tables(
+    tmp_path: Path, all_tables_datasets
+):
+    left, right = all_tables_datasets
     output_path = tmp_path / "out"
 
     result = CliRunner().invoke(
@@ -528,8 +504,10 @@ def test_multiple_table_names_compares_only_those_tables(tmp_path: Path):
     assert "Tables added" not in result.output
 
 
-def test_multiple_table_names_including_a_missing_table_exits_two(tmp_path: Path):
-    left, right = _all_tables_datasets(tmp_path)
+def test_multiple_table_names_including_a_missing_table_exits_two(
+    tmp_path: Path, all_tables_datasets
+):
+    left, right = all_tables_datasets
     output_path = tmp_path / "out"
 
     result = CliRunner().invoke(
@@ -554,29 +532,32 @@ def test_multiple_table_names_including_a_missing_table_exits_two(tmp_path: Path
     assert "same_table" in _load_report(output_path)["tables"]
 
 
-def _two_table_args(tmp_path: Path) -> list[str]:
-    left, right = _all_tables_datasets(tmp_path)
+@pytest.fixture
+def two_table_args(tmp_path: Path, all_tables_datasets) -> list[str]:
+    left, right = all_tables_datasets
     return ["-l", str(left), "-r", str(right), "-o", str(tmp_path / "out")]
 
 
-def test_short_flags(tmp_path: Path):
-    result = CliRunner().invoke(main, ["changed_table", *_two_table_args(tmp_path)])
+def test_short_flags(tmp_path: Path, two_table_args):
+    result = CliRunner().invoke(main, ["changed_table", *two_table_args])
 
     assert result.exit_code == 1, result.output
     assert "changed_table" in _load_report(tmp_path / "out")["tables"]
 
 
-def test_color_flag_forces_ansi_output(tmp_path: Path):
+def test_color_flag_forces_ansi_output(tmp_path: Path, two_table_args):
     result = CliRunner().invoke(
-        main, ["same_table", "changed_table", *_two_table_args(tmp_path), "--color"]
+        main, ["same_table", "changed_table", *two_table_args, "--color"]
     )
 
     assert result.exit_code == 1, result.output
     assert "\x1b[" in result.output
 
 
-def test_no_color_flag_and_non_tty_default_have_no_ansi_output(tmp_path: Path):
-    args = ["same_table", "changed_table", *_two_table_args(tmp_path)]
+def test_no_color_flag_and_non_tty_default_have_no_ansi_output(
+    tmp_path: Path, two_table_args
+):
+    args = ["same_table", "changed_table", *two_table_args]
 
     # CliRunner's stdout isn't a terminal, so that's the default.
     default = CliRunner().invoke(main, args)
@@ -587,10 +568,10 @@ def test_no_color_flag_and_non_tty_default_have_no_ansi_output(tmp_path: Path):
     assert "[IDENTICAL]" in default.output
 
 
-def test_progress_shows_sub_second_runtimes_with_millisecond_precision(tmp_path: Path):
-    result = CliRunner().invoke(
-        main, ["same_table", "changed_table", *_two_table_args(tmp_path)]
-    )
+def test_progress_shows_sub_second_runtimes_with_millisecond_precision(
+    tmp_path: Path, two_table_args
+):
+    result = CliRunner().invoke(main, ["same_table", "changed_table", *two_table_args])
 
     assert re.search(
         r"\[1/2\]  \[IDENTICAL\] .* \d+\.\d{3}s  same_table", result.output
@@ -606,15 +587,15 @@ def _plain(line: str) -> str:
     return re.sub(r"\x1b\[[0-9;]*m", "", line)
 
 
-def test_cli_row_shows_status_and_changes(tmp_path: Path):
+def test_cli_row_shows_status_and_changes(tmp_path: Path, pk_resource, make_dataset):
     """End to end, a table with a primary key shows +added/changed/-removed."""
-    resources = [_pk_resource("t", ["x"])]
-    _make_dataset(
+    resources = [pk_resource("t", ["x"])]
+    make_dataset(
         tmp_path / "left",
         resources,
         {"t": pl.DataFrame({"x": [1, 2, 3], "y": ["a", "b", "c"]})},
     )
-    _make_dataset(
+    make_dataset(
         tmp_path / "right",
         resources,
         {"t": pl.DataFrame({"x": [2, 3, 4, 5], "y": ["b", "changed", "d", "e"]})},
@@ -637,8 +618,10 @@ def test_cli_row_shows_status_and_changes(tmp_path: Path):
     assert "+2/1/-1" in result.output
 
 
-def test_cli_shows_header_and_summary_with_paths_time_and_memory(tmp_path: Path):
-    left, right = _all_tables_datasets(tmp_path)
+def test_cli_shows_header_and_summary_with_paths_time_and_memory(
+    tmp_path: Path, all_tables_datasets
+):
+    left, right = all_tables_datasets
 
     result = CliRunner().invoke(
         main, ["-l", str(left), "-r", str(right), "-o", str(tmp_path / "out")]
@@ -661,14 +644,14 @@ def test_cli_shows_header_and_summary_with_paths_time_and_memory(tmp_path: Path)
     assert "% of left rows:  +0%/50.00%/-0%" in result.output
 
 
-def test_cli_shows_added_and_removed_columns(tmp_path: Path):
-    resources = [_pk_resource("t", ["x"])]
-    _make_dataset(
+def test_cli_shows_added_and_removed_columns(tmp_path: Path, pk_resource, make_dataset):
+    resources = [pk_resource("t", ["x"])]
+    make_dataset(
         tmp_path / "left",
         resources,
         {"t": pl.DataFrame({"x": [1, 2], "y": ["a", "b"], "old": [1, 2]})},
     )
-    _make_dataset(
+    make_dataset(
         tmp_path / "right",
         resources,
         {
@@ -697,8 +680,8 @@ def test_cli_shows_added_and_removed_columns(tmp_path: Path):
     assert re.search(r"\b3 +\+2/0/-1 +[\d,]+ +\+0/0/-0", result.output)
 
 
-def test_summary_totals_count_uncompared_tables(tmp_path: Path):
-    left, right = _all_tables_datasets(tmp_path)
+def test_summary_totals_count_uncompared_tables(tmp_path: Path, all_tables_datasets):
+    left, right = all_tables_datasets
 
     result = CliRunner().invoke(
         main,
@@ -739,8 +722,8 @@ def test_set_log_level_hides_lower_severities_and_restores(caplog):
     assert logging.getLogger("catalystcoop").level == before
 
 
-def test_cli_leaves_logging_as_it_found_it(tmp_path: Path):
-    left, right = _all_tables_datasets(tmp_path)
+def test_cli_leaves_logging_as_it_found_it(tmp_path: Path, all_tables_datasets):
+    left, right = all_tables_datasets
     before = logging.getLogger("catalystcoop").level
 
     CliRunner().invoke(
@@ -751,14 +734,16 @@ def test_cli_leaves_logging_as_it_found_it(tmp_path: Path):
     assert logging.getLogger("catalystcoop").level == before
 
 
-def test_cli_shows_dtype_changes_in_the_columns_cell(tmp_path: Path):
-    resources = [_pk_resource("t", ["x"])]
-    _make_dataset(
+def test_cli_shows_dtype_changes_in_the_columns_cell(
+    tmp_path: Path, pk_resource, make_dataset
+):
+    resources = [pk_resource("t", ["x"])]
+    make_dataset(
         tmp_path / "left",
         resources,
         {"t": pl.DataFrame({"x": [1, 2], "y": [1, 2]})},
     )
-    _make_dataset(
+    make_dataset(
         tmp_path / "right",
         resources,
         {"t": pl.DataFrame({"x": [1, 2], "y": [1.0, 2.0]})},
@@ -783,23 +768,26 @@ def test_cli_shows_dtype_changes_in_the_columns_cell(tmp_path: Path):
     assert re.search(r"\+0/1/-0 +[\d,]+ +\+0/0/-0", result.output)
 
 
-def _schema_change_datasets(tmp_path: Path) -> tuple[Path, Path]:
+@pytest.fixture
+def schema_change_datasets(
+    tmp_path: Path, pk_resource, make_dataset
+) -> tuple[Path, Path]:
     """Two datasets sharing four tables: one with added and removed columns, one
     with a changed dtype, one with both, and one identical; plus a table removed
     from and a table added to the right dataset."""
     resources = [
-        _pk_resource(name, ["x"])
+        pk_resource(name, ["x"])
         for name in ["cols", "dtype", "both", "same", "removed", "added"]
     ]
     base = pl.DataFrame({"x": [1, 2], "y": [1, 2], "old": [1, 2]})
     left = tmp_path / "left"
     right = tmp_path / "right"
-    _make_dataset(
+    make_dataset(
         left,
         resources,
         {"cols": base, "dtype": base, "both": base, "same": base, "removed": base},
     )
-    _make_dataset(
+    make_dataset(
         right,
         resources,
         {
@@ -818,8 +806,8 @@ def _schema_change_datasets(tmp_path: Path) -> tuple[Path, Path]:
     return left, right
 
 
-def test_summary_totals_schema_changes(tmp_path: Path):
-    left, right = _schema_change_datasets(tmp_path)
+def test_summary_totals_schema_changes(tmp_path: Path, schema_change_datasets):
+    left, right = schema_change_datasets
 
     result = CliRunner().invoke(
         main, ["-l", str(left), "-r", str(right), "-o", str(tmp_path / "out")]
@@ -840,11 +828,13 @@ def test_summary_totals_schema_changes(tmp_path: Path):
     assert "Tables added (only in right): 1\n  added\n" in result.output
 
 
-def test_summary_schema_totals_are_gray_when_nothing_changed(tmp_path: Path):
-    resources = [_pk_resource("t", ["x"])]
+def test_summary_schema_totals_are_gray_when_nothing_changed(
+    tmp_path: Path, pk_resource, make_dataset
+):
+    resources = [pk_resource("t", ["x"])]
     df = pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})
-    _make_dataset(tmp_path / "left", resources, {"t": df})
-    _make_dataset(tmp_path / "right", resources, {"t": df})
+    make_dataset(tmp_path / "left", resources, {"t": df})
+    make_dataset(tmp_path / "right", resources, {"t": df})
 
     result = CliRunner().invoke(
         main,
@@ -865,8 +855,8 @@ def test_summary_schema_totals_are_gray_when_nothing_changed(tmp_path: Path):
     assert "Tables added" not in result.output
 
 
-def test_summary_schema_and_table_list_colors(tmp_path: Path):
-    left, right = _schema_change_datasets(tmp_path)
+def test_summary_schema_and_table_list_colors(tmp_path: Path, schema_change_datasets):
+    left, right = schema_change_datasets
 
     result = CliRunner().invoke(
         main,
@@ -894,8 +884,8 @@ def test_summary_schema_and_table_list_colors(tmp_path: Path):
     assert not any(color in line for line in heading_lines for color in (cyan, magenta))
 
 
-def test_summary_descriptors_are_bold(tmp_path: Path):
-    left, right = _all_tables_datasets(tmp_path)
+def test_summary_descriptors_are_bold(tmp_path: Path, all_tables_datasets):
+    left, right = all_tables_datasets
 
     result = CliRunner().invoke(
         main,
