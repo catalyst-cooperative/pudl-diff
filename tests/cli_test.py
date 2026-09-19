@@ -364,8 +364,8 @@ def test_no_table_name_compares_every_table_in_both_datasets(tmp_path: Path):
     assert "Identical: 1  Changed: 1  Error: 0" in result.output
     # Changed tables are counted, but not listed by name in the summary.
     assert "Changed: changed_table" not in result.output
-    assert "Only in left: left_only_table" in result.output
-    assert "Only in right: right_only_table" in result.output
+    assert "Tables removed (only in left): 1\n  left_only_table\n" in result.output
+    assert "Tables added (only in right): 1\n  right_only_table\n" in result.output
 
 
 def test_no_table_name_all_identical_exits_zero(tmp_path: Path):
@@ -415,7 +415,7 @@ def test_no_table_name_failed_comparison_exits_two(tmp_path: Path):
 
     assert result.exit_code == 2, result.output
     assert "Identical: 1  Changed: 0  Error: 1" in result.output
-    assert "Error: a" in result.output
+    assert "Tables with errors: 1\n  a\n" in result.output
     assert (tmp_path / "out" / "b_diff.json").exists()
     report = json.loads((tmp_path / "out" / "a_diff.json").read_text())
     assert report["success"] is False
@@ -482,7 +482,8 @@ def test_multiple_table_names_compares_only_those_tables(tmp_path: Path):
     assert "Comparing 2 tables between" in result.output
     assert "Identical: 1  Changed: 1  Error: 0" in result.output
     # Tables that weren't asked for aren't listed as one-sided.
-    assert "Only in" not in result.output
+    assert "Tables removed" not in result.output
+    assert "Tables added" not in result.output
 
 
 def test_multiple_table_names_including_a_missing_table_exits_two(tmp_path: Path):
@@ -507,7 +508,7 @@ def test_multiple_table_names_including_a_missing_table_exits_two(tmp_path: Path
 
     assert result.exit_code == 2, result.output
     assert "Identical: 1  Changed: 0  Error: 1" in result.output
-    assert "Error: left_only_table" in result.output
+    assert "Tables with errors: 1\n  left_only_table\n" in result.output
     assert (output_path / "same_table_diff.json").exists()
 
 
@@ -606,20 +607,30 @@ def test_format_outcome_column_changes():
     line = _plain(
         _format_outcome(
             _outcome(
-                1, added=0, changed=0, removed=0, columns_added=2, columns_removed=1
+                1,
+                added=0,
+                changed=0,
+                removed=0,
+                columns_added=2,
+                columns_removed=1,
+                dtypes_changed=3,
             )
         )
     )
-    assert "+2/-1" in line
-    assert line.index("+2/-1") < line.index("+0/0/-0")  # columns come before rows
+    assert "+2/3/-1" in line
+    assert line.index("+2/3/-1") < line.index("+0/0/-0")  # columns come before rows
+    assert "(dtypes changed)" not in line
 
 
 def test_format_outcome_column_colors():
-    gray, cyan, magenta = "\x1b[90m", "\x1b[36m", "\x1b[35m"
+    gray, cyan, hot_pink, magenta = "\x1b[90m", "\x1b[36m", "\x1b[38;5;205m", "\x1b[35m"
     kwargs = {"added": 0, "changed": 0, "removed": 0}
 
-    changed = _format_outcome(_outcome(1, columns_added=2, columns_removed=1, **kwargs))
+    changed = _format_outcome(
+        _outcome(1, columns_added=2, columns_removed=1, dtypes_changed=3, **kwargs)
+    )
     assert cyan in changed
+    assert hot_pink in changed
     assert magenta in changed
 
     # Zero column counts are gray, like zero row counts.
@@ -627,23 +638,31 @@ def test_format_outcome_column_colors():
         _outcome(0, columns_added=0, columns_removed=0, **kwargs)
     )
     assert cyan not in unchanged
+    assert hot_pink not in unchanged
     assert magenta not in unchanged
     assert gray in unchanged
 
 
 def test_format_outcome_error_has_no_column_counts():
     line = _plain(_format_outcome(_outcome(2)))
-    assert "+0/-0" not in line
+    assert "+0/0/-0" not in line
 
 
-def test_format_outcome_dtype_change_marker():
+def test_format_outcome_left_columns():
     kwargs = {"added": 0, "changed": 0, "removed": 0}
-    with_dtypes = _outcome(
-        1, columns_added=0, columns_removed=0, dtypes_changed=3, **kwargs
+    line = _plain(
+        _format_outcome(
+            _outcome(
+                0,
+                columns_added=1,
+                columns_removed=0,
+                dtypes_changed=0,
+                left_columns=1_234,
+                **kwargs,
+            )
+        )
     )
-    assert _plain(_format_outcome(with_dtypes)).endswith("(dtypes changed)")
-    without = _outcome(0, columns_added=0, columns_removed=0, **kwargs)
-    assert "dtypes" not in _plain(_format_outcome(without))
+    assert re.search(r"\b1,234 +\+1/0/-0\b", line)
 
 
 def test_format_header_names_each_column():
@@ -651,7 +670,8 @@ def test_format_header_names_each_column():
     for heading in [
         "STATUS",
         "KEY",
-        "COLS +add/-del",
+        "LEFT COLS",
+        "COLS +add/~chg/-del",
         "LEFT ROWS",
         "ROWS +add/~chg/-del",
         "% OF LEFT ROWS",
@@ -667,9 +687,11 @@ def test_format_header_names_each_column():
                 added=0,
                 changed=0,
                 removed=0,
-                columns_added=0,
-                columns_removed=0,
+                columns_added=1,
+                columns_removed=2,
+                dtypes_changed=3,
                 has_primary_key=True,
+                left_columns=42,
                 left_rows=1_234,
             ),
             "[3/378]",
@@ -677,7 +699,9 @@ def test_format_header_names_each_column():
     )
     assert header.index("STATUS") == row.index("[IDENTICAL]")
     assert header.index("KEY") == row.index("PK")
-    assert header.index("COLS") == row.index("+0/-0")
+    # Column counts are right-aligned too.
+    assert header.index("LEFT COLS") + len("LEFT COLS") == row.index("42") + 2
+    assert header.index("COLS +add") == row.index("+1/3/-2")
     # Row counts are right-aligned.
     assert header.index("LEFT ROWS") + len("LEFT ROWS") == row.index("1,234") + 5
     assert header.index("ROWS +add") == row.index("+0/0/-0")
@@ -859,7 +883,8 @@ def test_cli_shows_added_and_removed_columns(tmp_path: Path):
     assert result.exit_code == 1, result.output
     # The rows are unchanged, but two columns were added and one removed.
     assert "[CHANGED]" in result.output
-    assert re.search(r"\+2/-1 +[\d,]+ +\+0/0/-0", result.output)
+    # The left table had three columns, and the row counts are unchanged.
+    assert re.search(r"\b3 +\+2/0/-1 +[\d,]+ +\+0/0/-0", result.output)
 
 
 def test_summary_totals_count_uncompared_tables(tmp_path: Path):
@@ -914,3 +939,129 @@ def test_cli_leaves_logging_as_it_found_it(tmp_path: Path):
     )
 
     assert logging.getLogger("catalystcoop").level == before
+
+
+def test_cli_shows_dtype_changes_in_the_columns_cell(tmp_path: Path):
+    resources = [_pk_resource("t", ["x"])]
+    _make_dataset(
+        tmp_path / "left",
+        resources,
+        {"t": pl.DataFrame({"x": [1, 2], "y": [1, 2]})},
+    )
+    _make_dataset(
+        tmp_path / "right",
+        resources,
+        {"t": pl.DataFrame({"x": [1, 2], "y": [1.0, 2.0]})},
+    )
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "-l",
+            str(tmp_path / "left"),
+            "-r",
+            str(tmp_path / "right"),
+            "-o",
+            str(tmp_path / "out"),
+        ],
+    )
+
+    # No columns were added or removed, but one changed dtype, so the table
+    # counts as changed even though none of its values differ.
+    assert result.exit_code == 1, result.output
+    assert "[CHANGED]" in result.output
+    assert re.search(r"\+0/1/-0 +[\d,]+ +\+0/0/-0", result.output)
+
+
+def _schema_change_datasets(tmp_path: Path) -> tuple[Path, Path]:
+    """Two datasets sharing four tables: one with added and removed columns, one
+    with a changed dtype, one with both, and one identical; plus a table removed
+    from and a table added to the right dataset."""
+    resources = [
+        _pk_resource(name, ["x"])
+        for name in ["cols", "dtype", "both", "same", "removed", "added"]
+    ]
+    base = pl.DataFrame({"x": [1, 2], "y": [1, 2], "old": [1, 2]})
+    left = tmp_path / "left"
+    right = tmp_path / "right"
+    _make_dataset(
+        left,
+        resources,
+        {"cols": base, "dtype": base, "both": base, "same": base, "removed": base},
+    )
+    _make_dataset(
+        right,
+        resources,
+        {
+            # +2 columns, -1 column
+            "cols": base.drop("old").with_columns(new1=pl.lit(1), new2=pl.lit(2)),
+            # one column changes dtype
+            "dtype": base.with_columns(pl.col("y").cast(pl.Float64)),
+            # +1 column, -1 column, and one dtype change
+            "both": base.drop("old").with_columns(
+                pl.col("y").cast(pl.Float64), z=pl.lit(1)
+            ),
+            "same": base,
+            "added": base,
+        },
+    )
+    return left, right
+
+
+def test_summary_totals_schema_changes(tmp_path: Path):
+    left, right = _schema_change_datasets(tmp_path)
+
+    result = CliRunner().invoke(
+        main, ["-l", str(left), "-r", str(right), "-o", str(tmp_path / "out")]
+    )
+
+    assert result.exit_code == 1, result.output
+    # cols: +2/-1; dtype: ~1; both: +1/~1/-1. Three of the four tables changed.
+    assert "Column changes:  +3/2/-2" in result.output
+    assert "Schema changes:  3 tables" in result.output
+    assert "Tables removed (only in left): 1\n  removed\n" in result.output
+    assert "Tables added (only in right): 1\n  added\n" in result.output
+
+
+def test_summary_schema_totals_are_gray_when_nothing_changed(tmp_path: Path):
+    resources = [_pk_resource("t", ["x"])]
+    df = pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})
+    _make_dataset(tmp_path / "left", resources, {"t": df})
+    _make_dataset(tmp_path / "right", resources, {"t": df})
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "-l",
+            str(tmp_path / "left"),
+            "-r",
+            str(tmp_path / "right"),
+            "-o",
+            str(tmp_path / "out"),
+            "--color",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Schema changes:  0 tables" in _plain(result.output)
+    assert "Tables removed" not in result.output
+    assert "Tables added" not in result.output
+
+
+def test_summary_schema_and_table_list_colors(tmp_path: Path):
+    left, right = _schema_change_datasets(tmp_path)
+
+    result = CliRunner().invoke(
+        main,
+        ["-l", str(left), "-r", str(right), "-o", str(tmp_path / "out"), "--color"],
+    )
+
+    summary = result.output[result.output.index("Column changes:") :]
+    cyan, hot_pink, magenta = "\x1b[36m", "\x1b[38;5;205m", "\x1b[35m"
+    column_line = summary.splitlines()[0]
+    assert cyan in column_line
+    assert hot_pink in column_line
+    assert magenta in column_line
+    # Removed and added tables are headed in the same magenta and cyan.
+    assert f"{magenta}Tables removed (only in left)" in summary
+    assert f"{cyan}Tables added (only in right)" in summary

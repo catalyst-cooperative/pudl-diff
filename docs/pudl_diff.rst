@@ -118,22 +118,24 @@ Under a header naming each column, each table's line starts with a status tag fo
 the comparison as a whole (including its schema): ``[IDENTICAL]`` (green),
 ``[CHANGED]`` (yellow) or ``[ERROR]`` (red, the comparison itself failed). It's
 followed by whether the table has a primary key (``PK`` or ``no-PK``), the
-number of columns added and removed, the number of rows in the left table, a
+number of columns in the left table and how many were added, changed (had their
+dtype change) and removed, the number of rows in the left table, a
 summary of the row-level changes in the style of ``git diff`` (as counts and as
 percentages of the left table's rows), the time taken, and the table name:
 
 .. code-block:: text
 
-   STATUS       KEY    COLS +add/-del      LEFT ROWS  ROWS +add/~chg/-del             % OF LEFT ROWS                 TIME  TABLE
-   [IDENTICAL]  PK     +0/-0                 408,860  +0/0/-0                         +0%/0%/-0%                   0.043s  core_eia861__yearly_sales
-   [CHANGED]    PK     +0/-0                  12,450  +50/221/-764                    +0.40%/1.78%/-6.14%          0.512s  core_eia860__scd_utilities
-   [CHANGED]    no-PK  +2/-1                  61,320  +0/-0                           +0%/-0%                      1.204s  core_eia923__monthly_fuel
-   [CHANGED]    PK     +0/-0           1,017,748,176  row diff skipped: too many rows                              2.310s  core_epacems__hourly_emissions
+   STATUS       KEY    LEFT COLS  COLS +add/~chg/-del      LEFT ROWS  ROWS +add/~chg/-del             % OF LEFT ROWS                 TIME  TABLE
+   [IDENTICAL]  PK            25  +0/0/-0                    408,860  +0/0/-0                         +0%/0%/-0%                   0.043s  core_eia861__yearly_sales
+   [CHANGED]    PK            18  +0/0/-0                     12,450  +50/221/-764                    +0.40%/1.78%/-6.14%          0.512s  core_eia860__scd_utilities
+   [CHANGED]    no-PK         41  +2/3/-1                     61,320  +0/-0                           +0%/-0%                      1.204s  core_eia923__monthly_fuel
+   [CHANGED]    PK            12  +0/0/-0              1,017,748,176  row diff skipped: too many rows                              2.310s  core_epacems__hourly_emissions
 
-* Columns: the number of columns only in the right table (``+``, cyan) and only
-  in the left table (``-``, magenta). A table whose columns changed is always
-  ``[CHANGED]``. If only a column's dtype changed, the line ends with
-  ``(dtypes changed)``.
+* Left columns: the number of columns in the left table.
+* Column changes: the number of columns only in the right table (``+``, cyan), the
+  number of columns in both tables whose dtype changed (``~``, hot pink), and the
+  number only in the left table (``-``, magenta). A table whose columns or
+  dtypes changed is always ``[CHANGED]``.
 * Rows, ``+50`` (green): rows only in the right table. For a table with a
   primary key, these are rows whose primary key is only in the right table.
 * Rows, ``221`` (yellow): for a table with a primary key only, the number of
@@ -155,8 +157,14 @@ with which table it was). It also totals the rows in all the tables, left and
 right, and the rows added, changed and removed across all of them, in counts and
 as percentages of the total left rows. Tables with no row-level comparison
 still count towards the total left rows, so a separate line says how many tables
-and rows that applies to. Any tables that errored, or were present in only one
-dataset, are listed last.
+and rows that applies to.
+
+The summary totals the schema changes in the same colors as the per-table
+lines: the columns added, changed (dtype) and removed across all the tables, and
+how many tables had any schema change at all. Last, the tables that errored,
+that were removed (present only in the left dataset) and that were added
+(present only in the right dataset) are listed, one per line under a heading
+with their count.
 
 Log messages
 ------------

@@ -65,6 +65,7 @@ class _TableOutcome:
     """``None`` if the comparison failed before this was known."""
     left_rows: int | None = None
     right_rows: int | None = None
+    left_columns: int | None = None
     columns_added: int | None = None
     """Columns only in the right table. ``None`` if the comparison failed."""
     columns_removed: int | None = None
@@ -188,6 +189,9 @@ def _diff_table(
         right_rows=(
             report.row_count_diff.right_row_count if report.row_count_diff else None
         ),
+        left_columns=(
+            report.schema_diff.left_column_count if report.schema_diff else None
+        ),
         columns_added=(
             len(report.schema_diff.columns_only_in_right)
             if report.schema_diff
@@ -212,13 +216,19 @@ _TAGS = {
 """The log-level style tag and its color for each :attr:`_TableOutcome.exit_code`."""
 _TAG_WIDTH = 11
 _KEY_WIDTH = 5
-_COLUMNS_WIDTH = 14
+_LEFT_COLUMNS_WIDTH = 9
+_COLUMNS_WIDTH = 19
 _LEFT_ROWS_WIDTH = 13
 _ROWS_WIDTH = 30
 _PERCENT_WIDTH = 24
 _ELAPSED_WIDTH = 9
 
-_Segments = list[tuple[str, str | None]]
+_Color = str | int
+"""A color name click knows, or an ANSI 256-color code."""
+_HOT_PINK = 205
+_COLUMN_COLORS = ("cyan", _HOT_PINK, "magenta")
+"""Colors for columns added, changed (dtype) and removed."""
+_Segments = list[tuple[str, _Color | None]]
 """Pieces of text and the color (if any) to show each one in."""
 
 
@@ -272,36 +282,48 @@ def _render(segments: _Segments, width: int = 0) -> str:
     return styled + " " * max(0, width - len(plain))
 
 
-def _count(text: str, value: int, color: str) -> tuple[str, str]:
+def _count(text: str, value: int, color: _Color) -> tuple[str, _Color]:
     """A count in ``color``, or gray if it's zero."""
     return text, color if value else _GRAY
 
 
-def _columns_segments(outcome: _TableOutcome) -> _Segments:
-    """Summary of column changes: ``+added/-removed``, in cyan and magenta."""
-    if outcome.columns_added is None or outcome.columns_removed is None:
-        return []
-    return [
-        _count(f"+{outcome.columns_added:,}", outcome.columns_added, "cyan"),
-        ("/", _GRAY),
-        _count(f"-{outcome.columns_removed:,}", outcome.columns_removed, "magenta"),
-    ]
-
-
 def _change_segments(
-    added: int, changed: int | None, removed: int, text: Callable[[int], str]
+    added: int,
+    changed: int | None,
+    removed: int,
+    text: Callable[[int], str],
+    colors: tuple[_Color, _Color, _Color] = ("green", "yellow", "red"),
 ) -> _Segments:
     """Git diff style ``+added/changed/-removed``, shown as ``text(count)``.
 
-    Green for rows only in the right table, yellow for rows whose primary key is
-    in both tables but whose values changed (only for tables with a primary
-    key), and red for rows only in the left table. Zero counts are gray.
+    For rows, ``added`` are rows only in the right table (green), ``changed`` are
+    rows whose primary key is in both tables but whose values changed (yellow,
+    and only for tables with a primary key), and ``removed`` are rows only in
+    the left table (red). Zero counts are gray.
     """
+    added_color, changed_color, removed_color = colors
     separator = ("/", _GRAY)
-    segments = [_count(f"+{text(added)}", added, "green"), separator]
+    segments = [_count(f"+{text(added)}", added, added_color), separator]
     if changed is not None:
-        segments += [_count(text(changed), changed, "yellow"), separator]
-    return [*segments, _count(f"-{text(removed)}", removed, "red")]
+        segments += [_count(text(changed), changed, changed_color), separator]
+    return [*segments, _count(f"-{text(removed)}", removed, removed_color)]
+
+
+def _columns_segments(outcome: _TableOutcome) -> _Segments:
+    """Summary of column changes: ``+added/changed/-removed``.
+
+    Here ``changed`` counts the columns whose dtype changed. Cyan, hot pink and
+    magenta, to tell them apart from the row counts.
+    """
+    if outcome.columns_added is None or outcome.columns_removed is None:
+        return []
+    return _change_segments(
+        outcome.columns_added,
+        outcome.dtypes_changed,
+        outcome.columns_removed,
+        lambda n: f"{n:,}",
+        colors=_COLUMN_COLORS,
+    )
 
 
 def _row_cells(outcome: _TableOutcome) -> tuple[str, str]:
@@ -341,7 +363,8 @@ def _format_header(progress_width: int = 0) -> str:
         " " * progress_width,
         "STATUS".ljust(_TAG_WIDTH),
         "KEY".ljust(_KEY_WIDTH),
-        "COLS +add/-del".ljust(_COLUMNS_WIDTH),
+        "LEFT COLS".rjust(_LEFT_COLUMNS_WIDTH),
+        "COLS +add/~chg/-del".ljust(_COLUMNS_WIDTH),
         "LEFT ROWS".rjust(_LEFT_ROWS_WIDTH),
         "ROWS +add/~chg/-del".ljust(_ROWS_WIDTH),
         "% OF LEFT ROWS".ljust(_PERCENT_WIDTH),
@@ -364,11 +387,15 @@ def _format_outcome(outcome: _TableOutcome, progress: str = "") -> str:
         else ""
     )
     left_rows = f"{outcome.left_rows:,}" if outcome.left_rows is not None else ""
+    left_columns = (
+        f"{outcome.left_columns:,}" if outcome.left_columns is not None else ""
+    )
     row_counts, row_percents = _row_cells(outcome)
     parts = [
         progress,
         click.style(tag.ljust(_TAG_WIDTH), fg=color),
         _format_key(outcome.has_primary_key).ljust(_KEY_WIDTH),
+        left_columns.rjust(_LEFT_COLUMNS_WIDTH),
         _render(_columns_segments(outcome), _COLUMNS_WIDTH),
         left_rows.rjust(_LEFT_ROWS_WIDTH),
         row_counts,
@@ -376,8 +403,6 @@ def _format_outcome(outcome: _TableOutcome, progress: str = "") -> str:
         elapsed.rjust(_ELAPSED_WIDTH),
         outcome.table_name,
     ]
-    if outcome.dtypes_changed:
-        parts.append(click.style("(dtypes changed)", fg="yellow"))
     return "  ".join(part for part in parts if part)
 
 
@@ -408,6 +433,32 @@ def _echo_totals(outcomes: list[_TableOutcome]) -> None:
             f"Not compared:    {_tables(len(uncompared))} ({rows:,} left rows) "
             "had no row-level comparison"
         )
+
+
+def _echo_schema_totals(outcomes: list[_TableOutcome]) -> None:
+    """Print columns added, changed (dtype) and removed across all the tables."""
+    with_schema = [o for o in outcomes if o.columns_added is not None]
+    added = sum(o.columns_added or 0 for o in with_schema)
+    changed = sum(o.dtypes_changed for o in with_schema)
+    removed = sum(o.columns_removed or 0 for o in with_schema)
+    changed_tables = [
+        o
+        for o in with_schema
+        if o.columns_added or o.columns_removed or o.dtypes_changed
+    ]
+    columns = _change_segments(
+        added, changed, removed, lambda n: f"{n:,}", colors=_COLUMN_COLORS
+    )
+    click.echo(f"Column changes:  {_render(columns)}")
+    click.echo(f"Schema changes:  {_tables(len(changed_tables))}")
+
+
+def _echo_table_list(label: str, table_names: list[str], color: _Color) -> None:
+    """Print a heading and a count, then the tables one per line."""
+    if table_names:
+        click.echo(f"{click.style(label, fg=color)}: {len(table_names):,}")
+        for table_name in table_names:
+            click.echo(f"  {table_name}")
 
 
 def _echo_summary(
@@ -448,13 +499,10 @@ def _echo_summary(
             f"({peak.table_name})"
         )
     _echo_totals(outcomes)
-    for label, table_names in [
-        ("Error", errored),
-        ("Only in left", only_in_left),
-        ("Only in right", only_in_right),
-    ]:
-        if table_names:
-            click.echo(f"{label}: {' '.join(table_names)}")
+    _echo_schema_totals(outcomes)
+    _echo_table_list("Tables with errors", errored, "red")
+    _echo_table_list("Tables removed (only in left)", only_in_left, "magenta")
+    _echo_table_list("Tables added (only in right)", only_in_right, "cyan")
     click.echo(f"Reports written to {output_path}")
 
 
