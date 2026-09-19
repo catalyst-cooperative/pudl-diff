@@ -13,7 +13,7 @@ from dagster import get_dagster_logger
 import pudl
 from pudl.logging_helpers import get_logger
 from pudl.validate.diff import table_report
-from pudl.validate.diff.dataset import PudlDiffDataset
+from pudl.validate.diff.dataset import PudlDiffDataset, _NoTablesError, _resolve_tables
 from pudl.validate.diff.dataset_report import (
     PudlDiffReport,
     _outcome,
@@ -55,43 +55,6 @@ Examples:
   pudl_diff core_eia860__scd_utilities --right-table out_eia__yearly_utilities \\
       --left $PUDL_OUTPUT/parquet
 """
-
-
-class _NoTablesError(Exception):
-    """There are no tables to compare."""
-
-
-def _resolve_tables(
-    left: PudlDiffDataset,
-    right: PudlDiffDataset,
-    table_names: tuple[str, ...],
-) -> tuple[list[str], list[str], list[str]]:
-    """Decide which tables to compare.
-
-    Returns:
-        The tables to compare: those given, or else every table with a Parquet
-        file in both datasets. Then the tables found only in the left dataset and
-        those found only in the right dataset, both empty when tables are given.
-
-    Raises:
-        _NoTablesError: If no tables were given, and the datasets have none in
-            common.
-    """
-    if table_names:
-        return list(dict.fromkeys(table_names)), [], []
-    left_tables = left.parquet_table_names()
-    right_tables = right.parquet_table_names()
-    tables = sorted(set(left_tables) & set(right_tables))
-    if not tables:
-        raise _NoTablesError(
-            f"No tables found in both {str(left.root)!r} ({len(left_tables)} tables) "
-            f"and {str(right.root)!r} ({len(right_tables)} tables)."
-        )
-    return (
-        tables,
-        sorted(set(left_tables) - set(right_tables)),
-        sorted(set(right_tables) - set(left_tables)),
-    )
 
 
 def _compare_tables(
