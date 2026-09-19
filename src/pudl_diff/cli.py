@@ -15,6 +15,11 @@ import pudl
 from pudl.logging_helpers import get_logger
 from pudl.validate.diff import table_report as diff
 from pudl.validate.diff.dataset import PudlDiffDataset
+from pudl.validate.diff.dataset_report import (
+    PudlDiffReport,
+    PudlDiffSummary,
+    build_pudl_diff_report,
+)
 from pudl.validate.diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON
 from pudl.workspace.setup import PudlPaths
 
@@ -345,7 +350,7 @@ def _field(label: str, value: str) -> str:
     return f"{click.style(label, bold=True)}{padding}{value}"
 
 
-def _echo_totals(summary: diff.PudlDiffSummary) -> None:
+def _echo_totals(summary: PudlDiffSummary) -> None:
     """Print row and size totals and changes summed over all the compared tables."""
     click.echo(
         _field(
@@ -391,7 +396,7 @@ def _echo_totals(summary: diff.PudlDiffSummary) -> None:
 
 
 def _echo_schema_totals(
-    summary: diff.PudlDiffSummary, outcomes: list[_TableOutcome]
+    summary: PudlDiffSummary, outcomes: list[_TableOutcome]
 ) -> None:
     """Print columns added, changed (dtype) and removed across all the tables.
 
@@ -424,7 +429,7 @@ def _echo_table_list(label: str, table_names: list[str]) -> None:
 
 
 def _echo_summary(
-    report: diff.PudlDiffReport, outcomes: list[_TableOutcome], report_path: Path
+    report: PudlDiffReport, outcomes: list[_TableOutcome], report_path: Path
 ) -> None:
     """Print how the run went: table counts, what was compared, time and memory."""
     summary = report.summary
@@ -717,7 +722,7 @@ def main(
         partition_expr=partition_expr,
     )
 
-    def write_report(report: diff.PudlDiffReport) -> None:
+    def write_report(report: PudlDiffReport) -> None:
         output_path.mkdir(parents=True, exist_ok=True)
         report_path.write_text(report.model_dump_json(indent=2))
 
@@ -737,7 +742,7 @@ def main(
     if error is not None:
         # There's nothing to compare, but the report still records why.
         write_report(
-            diff.build_pudl_diff_report(
+            build_pudl_diff_report(
                 left_dataset,
                 right_dataset,
                 {},
@@ -762,7 +767,7 @@ def main(
         show_progress=not single,
     )
 
-    report = diff.build_pudl_diff_report(
+    report = build_pudl_diff_report(
         left_dataset,
         right_dataset,
         table_reports,
