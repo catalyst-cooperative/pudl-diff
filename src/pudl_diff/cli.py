@@ -14,6 +14,7 @@ from dagster import get_dagster_logger
 import pudl
 from pudl.logging_helpers import get_logger
 from pudl.validate.diff import table_report as diff
+from pudl.validate.diff.dataset import PudlDiffDataset
 from pudl.workspace.setup import PudlPaths
 
 logger = get_logger(__name__)
@@ -458,8 +459,8 @@ class _NoTablesError(Exception):
 
 
 def _resolve_tables(
-    left: diff.PudlDiffDataset,
-    right: diff.PudlDiffDataset,
+    left: PudlDiffDataset,
+    right: PudlDiffDataset,
     table_names: tuple[str, ...],
 ) -> tuple[list[str], list[str], list[str]]:
     """Decide which tables to compare.
@@ -505,8 +506,8 @@ def _echo_intro(
 
 
 def _compare_tables(
-    left: diff.PudlDiffDataset,
-    right: diff.PudlDiffDataset,
+    left: PudlDiffDataset,
+    right: PudlDiffDataset,
     tables: list[str],
     output_path: Path,
     *,
@@ -704,8 +705,8 @@ def main(
     output_path = output_path or Path.cwd()
     report_path = output_path / REPORT_FILENAME
 
-    left_dataset = diff.PudlDiffDataset(left_root)
-    right_dataset = diff.PudlDiffDataset(right_root)
+    left_dataset = PudlDiffDataset(left_root)
+    right_dataset = PudlDiffDataset(right_root)
     options = diff.DiffOptions(
         rtol=rtol,
         atol=atol,
