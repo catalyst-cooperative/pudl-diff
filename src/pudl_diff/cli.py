@@ -128,7 +128,7 @@ def _diff_table(
     exit_code = 0 if report.is_identical else 1
     if not run.success:
         exit_code = 2
-    rows = diff._summarize_row_diff(report.row_diff)
+    rows = diff.RowChanges.from_summary(report.row_diff)
     return _TableOutcome(
         table_name=table_name,
         exit_code=exit_code,
