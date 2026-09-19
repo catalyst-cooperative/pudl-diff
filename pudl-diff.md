@@ -674,26 +674,25 @@ and dispatches.
 
 #### Layout
 
-The code has been moved into these modules (Phases 1 and 2, done). Underscore-prefixed
-names still have their old names; Phase 3 renames them.
+The code now lives in these modules (Phases 1–3, done).
 
 Modules in `src/pudl/validate/diff/`:
 
 | Module | Contents |
 | ------ | -------- |
-| `__init__.py` | One-line docstring for now; the layer overview comes in step 19 |
-| `formatting.py` | `format_bytes`, `_format_elapsed`, `_format_duration`, `_format_percent`, `_format_signed_percent` |
-| `dataset.py` | `DatasetProvenance`, `PudlDiffDataset`, `_resolve_tables`, `_NoTablesError` |
+| `__init__.py` | Overview of how to run a comparison and how the modules are layered |
+| `formatting.py` | `format_bytes`, `format_elapsed`, `format_duration`, `format_percent`, `format_signed_percent` |
+| `dataset.py` | `DatasetProvenance`, `PudlDiffDataset`, `resolve_tables`, `NoTablesError` |
 | `schema.py` | `SchemaDiff`, `compare_schemas` |
-| `row_counts.py` | `RowCountDiff`, `NO_PARTITION`, `compare_row_counts`, dbt partition-expr helpers |
+| `row_counts.py` | `RowCountDiff`, `NO_PARTITION`, `compare_row_counts`, `count_rows`, dbt partition-expr helpers |
 | `rows.py` | `RowSetDiff`, `KeyedRowDiff`, hashing/spill, `compare_rows_with_pk`, `compare_rows_without_pk` |
-| `performance.py` | `_PerformanceSampler` |
-| `table.py` | `TableDiffResult`, `compare_table`, `TableDiffRun`, `run_table_diff`, `MAX_ROWS_FOR_ROW_LEVEL_COMPARISON`, `RowComparisonSkipReason` |
+| `performance.py` | `PerformanceSampler` |
+| `table.py` | `TableDiffResult`, `compare_table`, `TableDiffRun`, `run_table_diff`, `row_diff_left_right_frames`, `MAX_ROWS_FOR_ROW_LEVEL_COMPARISON`, `RowComparisonSkipReason` |
 | `outputs.py` | `ParquetOutput`, `RowDiffParquetOutputs`, `write_row_diff_parquet` |
 | `table_report.py` | `*Summary` classes, `RowChanges`, `SizeComparison`, `TableDiffReport`, `DiffOptions`, `report_table_diff`, `RowDiffSectionSkipReason` |
-| `dataset_report.py` | `DatasetInfo`, `PudlDiffSummary`, `PudlDiffReport`, `build_pudl_diff_report`, `REPORT_SCHEMA_VERSION`, `_TableOutcome`, `_outcome` |
-| `runner.py` | `_compare_tables` (to become `run_dataset_diff`, with a progress callback, in step 17) |
-| `terminal.py` | Text rendering of reports for a terminal: the styling constants, per-table lines, and end-of-run summary |
+| `dataset_report.py` | `DatasetInfo`, `PudlDiffSummary`, `PudlDiffReport`, `build_pudl_diff_report`, `REPORT_SCHEMA_VERSION`, `TableOutcome`, `table_outcome` |
+| `runner.py` | `run_dataset_diff`: resolves the tables, compares each, and returns the `PudlDiffReport`, reporting progress through callbacks |
+| `terminal.py` | Text rendering of reports for a terminal: the styling constants, per-table lines, end-of-run summary, and `TerminalProgress`, which supplies `run_dataset_diff`'s callbacks |
 
 Modules only import from those above them in this order (no cycles; checked with an
 `ast` scan before starting):
@@ -703,17 +702,14 @@ formatting, dataset, performance
   → schema, row_counts, rows
   → table → outputs
   → table_report → dataset_report
-  → terminal
-  → runner
+  → runner, terminal
 ```
 
-`runner` currently sits *below* `terminal`, because `_compare_tables` still prints a
-line for each table using the `terminal` formatters. Step 17 removes that import, which
-restores the intended order (`runner` above `dataset_report`, with `terminal` only
-used by the CLI).
+`runner` and `terminal` don't import each other: `runner` reports progress through
+callbacks, and `terminal.TerminalProgress` supplies them for the CLI.
 
-* `rows.py` imports `_count_rows` from `row_counts.py`.
-* `outputs.py` comes after `table.py` because it uses `_row_diff_left_right_frames`.
+* `rows.py` imports `count_rows` from `row_counts.py`.
+* `outputs.py` comes after `table.py` because it uses `row_diff_left_right_frames`.
 * `dataset_report.py` imports `DiffOptions`, `RowChanges`, `SizeComparison` and
   `TableDiffReport` from `table_report.py`.
 * Module-level constants and type aliases live with the code that uses them:
@@ -724,18 +720,24 @@ used by the CLI).
   `dataset_report.py`.
 
 Other consumers (a notebook, a web app) need only `runner.run_dataset_diff(...) ->
-PudlDiffReport` (once step 17 is done) and the `*_report` modules, which are Pydantic
-models, so `model_dump_json()` / `model_validate_json()` handle the JSON. They never
-touch `terminal.py`. `pudl_diff.py` keeps only the Click options, `_set_log_level`,
-wiring `terminal` in as the progress callback, writing the report file, and the exit
-code. It is now ~300 lines, down from ~780.
+PudlDiffReport` and the `*_report` modules, which are Pydantic models, so
+`model_dump_json()` / `model_validate_json()` handle the JSON. They never touch
+`terminal.py`. `pudl_diff.py` keeps only the Click options, `_set_log_level`, wiring
+`terminal.TerminalProgress` in as the progress callbacks, writing the report file, and
+the exit code. It is now ~260 lines, down from ~780.
+
+The unit tests mirror the layout: one `*_test.py` per library module in
+`tests/unit/validate/diff/`, with the helpers that build datasets to compare shared as
+fixtures in that directory's `conftest.py` (`write_datapackage`, `pk_resource`,
+`no_pk_resource`, `make_dataset` and `write_two_datasets`). `tests/unit/scripts/
+pudl_diff_test.py` keeps only the tests that invoke the CLI.
 
 #### Commit sequence
 
 Following the repo conventions, code is moved verbatim first; edits come in separate
-commits, and need explicit approval. Every commit so far passed the 191 unit tests in
-`tests/unit/validate/diff_test.py` and `tests/unit/scripts/pudl_diff_test.py`, `ruff`,
-`pyrefly-check` and the pre-commit hooks. `tests/pipeline/validate/pudl_diff_test.py`
+commits, and need explicit approval. Every commit passed the unit tests for the diff
+code (191 before the tests were extended, 220 at the end), `ruff`, `pyrefly-check` and
+the pre-commit hooks. `tests/pipeline/validate/pudl_diff_test.py`
 can't be run interactively, so only its imports were updated.
 
 **Phase 0 — Preflight** (done; no commit)
@@ -778,35 +780,51 @@ module.
 15. `_compare_tables` into the new `runner.py`, still printing directly, and so still
     importing `terminal`.
 
-Known leftovers from the verbatim moves, to clean up in Phase 3: `dataset_report.py`
-has both `from pudl.validate.diff import table_report` and names imported from
-`table_report`, because `_outcome` uses the attribute form; `dataset_report.py` has a
-one-name parenthesized `format_bytes` import; the module docstrings are one-liners,
-and the original overview docstring is still at the top of `table_report.py`.
+**Phase 3 — Edits** (done, except step 20)
 
-**Phase 3 — Edits** (remaining; each needs approval)
+16. Dropped the underscore from names now imported across modules: `format_elapsed`,
+    `format_duration`, `format_percent`, `format_signed_percent`, `resolve_tables`,
+    `NoTablesError`, `TableOutcome`, `table_outcome` (was `_outcome`),
+    `PerformanceSampler`, `count_rows`, `row_diff_left_right_frames`, `echo_intro`,
+    `echo_summary`, `format_header` and `format_outcome`. Names used within one module,
+    such as the terminal styling constants, stay private, as does the CLI's
+    `_set_log_level`. Ruff requires docstrings on public names, so
+    `PerformanceSampler`'s `__init__`, `__enter__` and `__exit__` and `count_rows` got
+    one-line docstrings. Also tidied the redundant imports in `dataset_report.py`.
+17. Replaced `_compare_tables` with `runner.run_dataset_diff`, which returns a
+    `PudlDiffReport` (with `error` set if there was nothing to compare, rather than
+    raising) and reports progress through optional `on_tables_resolved` and
+    `on_table_compared` callbacks. `terminal.TerminalProgress` supplies them for the
+    CLI and keeps each table's `TableOutcome` for the summary. `runner.py` no longer
+    imports `click` or `terminal`. The report's elapsed time now starts when the
+    comparison does, so it no longer includes setting up the datasets and options.
+    Added unit tests for `run_dataset_diff` and `TerminalProgress`. (This commit
+    initially introduced four pyrefly errors, which were fixed before moving on.)
+18. Added tests that a `PudlDiffReport` round-trips through `model_dump_json()` /
+    `model_validate_json()`, both for a comparison that found changes and for one that
+    failed. `RowChanges` is not part of the serialized report: `PudlDiffSummary.
+    from_tables` uses it only as a local intermediate, and `TableOutcome` holds it for
+    display. It stays a frozen dataclass.
+19. Wrote the `__init__.py` overview and a new `table_report.py` docstring, pointed
+    `docs/dev/pudl_diff.rst` at `run_dataset_diff`, and changed docstring roles that
+    named something that moved to another module to the `:class:`~.Name`` form, which
+    Sphinx resolves by suffix. `docs-check` passes with no warnings (it isn't
+    nitpicky, so the suffix references have not been checked to resolve). Split the
+    tests to mirror the layout, as described above, and moved the terminal and
+    formatting tests out of the CLI tests. A shared `helpers.py` was not possible:
+    the `name-tests-test` hook only allows `*_test.py` and `conftest.py`, and pyrefly
+    can't resolve `from tests...` imports.
+20. Add a release notes entry to `docs/release_notes.rst`, with the issue and PR
+    numbers (still to do: there is no PR for the branch yet).
 
-16. Rename symbols that are now imported across modules, dropping the underscore
-    (for example `_echo_intro`, `_echo_summary`, `_format_header`, `_format_outcome`,
-    `_TableOutcome`, `_outcome`, `_compare_tables`, `_resolve_tables`,
-    `_NoTablesError`, `_count_rows`, `_row_diff_left_right_frames`,
-    `_PerformanceSampler`, and the `_format_*` helpers). Names used only inside one
-    module, such as the terminal styling constants, stay private. Tidy the import
-    leftovers above.
-17. Replace the printing in `runner.py` with an `on_progress` callback and rename
-    `_compare_tables` to `run_dataset_diff`; wire the callback up in `pudl_diff.py`
-    with `terminal.py`. `runner.py` no longer imports `terminal.py` or `click`.
-18. Add a test that a `PudlDiffReport` round-trips through
-    `model_dump_json()` / `model_validate_json()`. `RowChanges` is not part of the
-    serialized report: `PudlDiffSummary.from_tables` uses it only as a local
-    intermediate, and `_TableOutcome` holds it for display. It can stay a frozen
-    dataclass.
-19. Write real module docstrings and the `__init__.py` overview of the layers (moving
-    the overview docstring out of `table_report.py`). Fix docstring cross-references
-    that were relative to the old single module. Split the tests to mirror the layout
-    under `tests/unit/validate/diff/`. Check `docs/dev/pudl_diff.rst` and run
-    `docs-check`.
-20. Add a release notes entry.
+**Row and column order**
+
+The comparisons are meant to be insensitive to the order of a table's rows and
+columns. Before this work, only `compare_schemas` (column order) and a two-row primary
+key case (row order) were tested. Added tests that shuffle both, for tables with and
+without a primary key (including a composite one, in either key order), for the row
+comparisons and for `compare_table`, plus a test that real changes are still found in
+a table whose rows and columns are in a different order.
 
 ### The PUDL Diff Marimo Notebook
 
