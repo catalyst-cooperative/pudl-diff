@@ -78,7 +78,7 @@ class TableDiffResult:
     """Peak resident set size attributable to this comparison: the highest
     whole-process RSS observed while :func:`compare_table` was running, net
     of the process's RSS just before it started. Sampled on a background
-    thread (see :class:`PerformanceSampler`), so very short, sharp spikes
+    thread (see :class:`~.PerformanceSampler`), so very short, sharp spikes
     between samples may be missed."""
     peak_cpu_percent: float = 0.0
     """Peak per-interval CPU utilization observed while :func:`compare_table`
@@ -118,7 +118,7 @@ def compare_table(
     """Compare a single table between two PUDL datasets.
 
     Times the comparison and samples this process's peak RSS and CPU
-    utilization while it runs (see :class:`PerformanceSampler`), recording
+    utilization while it runs (see :class:`~.PerformanceSampler`), recording
     all three on the returned :class:`TableDiffResult`. See
     :func:`_compare_table` for the comparison logic itself.
     """
@@ -158,7 +158,7 @@ def _compare_table(
     """Compare a single table between two PUDL datasets.
 
     Runs the schema and row-count comparisons, then dispatches to
-    :func:`compare_rows_with_pk` or :func:`compare_rows_without_pk` depending on
+    :func:`~.compare_rows_with_pk` or :func:`~.compare_rows_without_pk` depending on
     whether ``table_name`` has a primary key (per ``left``'s datapackage).
 
     Args:
@@ -176,7 +176,7 @@ def _compare_table(
         partition_expr: Column name or Polars expression to group row counts by.
             If not given and ``auto_partition`` is ``True`` (the default), it's
             derived from PUDL's dbt row-count test configuration via
-            :func:`get_partition_expr_for_table`; if that table has no such
+            :func:`~.get_partition_expr_for_table`; if that table has no such
             test, row counts are compared as a single whole-table total.
         auto_partition: Whether to look up ``partition_expr`` automatically as
             described above when it isn't given explicitly. Set to ``False``

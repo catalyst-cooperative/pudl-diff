@@ -32,7 +32,7 @@ def run_dataset_diff(
 
     A table whose comparison fails doesn't stop the others being compared, and if
     the tables to compare can't even be determined, the returned report records why
-    in its :attr:`PudlDiffReport.error` instead of raising.
+    in its :attr:`~.PudlDiffReport.error` instead of raising.
 
     Args:
         left: The "left" dataset.

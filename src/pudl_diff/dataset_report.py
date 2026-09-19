@@ -32,7 +32,7 @@ class PudlDiffSummary(SizeComparison):
 
     Saves consumers from aggregating the tables themselves.
 
-    The size fields (see :class:`SizeComparison`) total only the tables whose size
+    The size fields (see :class:`~.SizeComparison`) total only the tables whose size
     is known on both sides.
     """
 
@@ -69,7 +69,7 @@ class PudlDiffSummary(SizeComparison):
     columns_removed: int
 
     peak_rss_bytes: int | None = None
-    """The highest :attr:`TableDiffReport.peak_rss_bytes` of any table."""
+    """The highest :attr:`~.TableDiffReport.peak_rss_bytes` of any table."""
     peak_rss_table: str | None = None
     """The table with that peak memory use."""
 
@@ -162,7 +162,7 @@ class PudlDiffReport(pydantic.BaseModel):
     """The full comparison of two PUDL datasets: the saved JSON report.
 
     Built by :func:`build_pudl_diff_report`. Holds everything that pertains to the
-    comparison as a whole, plus a :class:`TableDiffReport` for each table.
+    comparison as a whole, plus a :class:`~.TableDiffReport` for each table.
     """
 
     schema_version: str = REPORT_SCHEMA_VERSION
@@ -187,7 +187,7 @@ class PudlDiffReport(pydantic.BaseModel):
     error: str | None = None
     """Why the comparison as a whole failed, e.g. no tables could be listed. This
     is ``None`` when the only failures are of individual tables, which each
-    record their own :attr:`TableDiffReport.error`."""
+    record their own :attr:`~.TableDiffReport.error`."""
     success: bool
     """Whether the comparison completed: :attr:`error` is ``None`` and so is
     every table's. Distinct from :attr:`is_identical`: a comparison can succeed

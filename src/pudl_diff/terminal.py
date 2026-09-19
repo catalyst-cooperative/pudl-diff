@@ -25,7 +25,7 @@ _TAGS = {
     1: ("[CHANGED]", "yellow"),
     2: ("[ERROR]", "red"),
 }
-"""The log-level style tag and its color for each :attr:`TableOutcome.exit_code`."""
+"""The log-level style tag and its color for each :attr:`~.TableOutcome.exit_code`."""
 _TAG_WIDTH = 11
 _KEY_WIDTH = 5
 _LEFT_COLUMNS_WIDTH = 9
@@ -359,8 +359,8 @@ def echo_intro(
 class TerminalProgress:
     """Prints the column headings, then a line about each table as it's compared.
 
-    Meant to be used as the callbacks of :func:`~pudl.validate.diff.runner.run_dataset_diff`.
-    Keeps each table's :class:`~pudl.validate.diff.dataset_report.TableOutcome`, in
+    Meant to be used as the callbacks of :func:`~.run_dataset_diff`.
+    Keeps each table's :class:`~.TableOutcome`, in
     :attr:`outcomes`, for the summary at the end.
     """
 

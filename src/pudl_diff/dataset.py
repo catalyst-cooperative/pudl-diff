@@ -32,7 +32,7 @@ class DatasetProvenance(pydantic.BaseModel):
     """The dataset's build UUID."""
     created: str | None = None
     """UTC ISO-8601 timestamp of when this dataset was built - distinct from
-    a :class:`PudlDiffReport`'s own :attr:`PudlDiffReport.created`, which
+    a :class:`~.PudlDiffReport`'s own :attr:`~.PudlDiffReport.created`, which
     is when the *comparison* was run."""
     git_sha: str | None = None
     git_tags: list[str] | None = None

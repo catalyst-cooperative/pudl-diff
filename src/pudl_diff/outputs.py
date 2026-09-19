@@ -92,7 +92,7 @@ def write_row_diff_parquet(
 
     Args:
         row_diff: The row-level comparison result to write out, e.g. from
-            :attr:`TableDiffResult.row_diff`. If ``None`` - row-level
+            :attr:`~.TableDiffResult.row_diff`. If ``None`` - row-level
             comparison was skipped for this table - nothing is written and
             this function returns ``None``.
         output_path: Directory to write the two Parquet files into.
@@ -101,7 +101,7 @@ def write_row_diff_parquet(
         right_table_name: Used as the filename prefix for the right output
             file, if it differs from ``table_name`` - e.g. writing out a
             diff between a `core_` table and the `out_` table built from it,
-            as passed to :func:`compare_table`. Defaults to ``table_name``.
+            as passed to :func:`~.compare_table`. Defaults to ``table_name``.
         max_rows_per_output_parquet: If given, caps the number of rows
             written to each file. :attr:`ParquetOutput.total_row_count`
             still reflects the true (uncapped) row count.

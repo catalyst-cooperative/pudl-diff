@@ -1,9 +1,8 @@
-"""Compare PUDL Parquet outputs between two dataset roots.
+"""The report on the comparison of one table.
 
-A "root" is a local or remote directory containing the Parquet outputs of a full
-PUDL ETL run, along with a datapackage descriptor of those outputs (e.g.
-``$PUDL_OUTPUT/parquet`` or ``s3://pudl.catalyst.coop/nightly``). This module lets
-callers load and compare individual tables between two such roots.
+Serializable summaries of the schema, row-count and row-level differences between two
+tables, assembled into a :class:`TableDiffReport`, and :func:`report_table_diff`, which
+compares a table and builds its report.
 """
 
 import os
@@ -40,7 +39,7 @@ logger = pudl.logging_helpers.get_logger(__name__)
 
 
 class SchemaDiffSummary(pydantic.BaseModel):
-    """The JSON-report form of :class:`SchemaDiff`."""
+    """The JSON-report form of :class:`~.SchemaDiff`."""
 
     columns_only_in_left: list[str]
     columns_only_in_right: list[str]
@@ -53,7 +52,7 @@ class SchemaDiffSummary(pydantic.BaseModel):
 
     @classmethod
     def from_schema_diff(cls, schema_diff: SchemaDiff) -> SchemaDiffSummary:
-        """Build from a :class:`SchemaDiff`, stringifying its Polars dtypes."""
+        """Build from a :class:`~.SchemaDiff`, stringifying its Polars dtypes."""
         return cls(
             columns_only_in_left=schema_diff.columns_only_in_left,
             columns_only_in_right=schema_diff.columns_only_in_right,
@@ -96,7 +95,7 @@ class PartitionRowCountChange(pydantic.BaseModel):
 
 
 class RowCountDiffSummary(pydantic.BaseModel):
-    """The JSON-report form of :class:`RowCountDiff`."""
+    """The JSON-report form of :class:`~.RowCountDiff`."""
 
     left_row_count: int
     right_row_count: int
@@ -117,7 +116,7 @@ class RowCountDiffSummary(pydantic.BaseModel):
 
     @classmethod
     def from_row_count_diff(cls, row_count_diff: RowCountDiff) -> RowCountDiffSummary:
-        """Build from a :class:`RowCountDiff`."""
+        """Build from a :class:`~.RowCountDiff`."""
         changes = (
             [
                 PartitionRowCountChange(
@@ -151,7 +150,7 @@ class RowCountDiffSummary(pydantic.BaseModel):
 
 
 class ParquetOutputSummary(pydantic.BaseModel):
-    """The JSON-report form of a single :class:`ParquetOutput`."""
+    """The JSON-report form of a single :class:`~.ParquetOutput`."""
 
     path: str
     bytes: int
@@ -165,13 +164,13 @@ class ParquetOutputSummary(pydantic.BaseModel):
 
     @classmethod
     def from_parquet_output(cls, output: ParquetOutput) -> ParquetOutputSummary:
-        """Build from a :class:`ParquetOutput`."""
+        """Build from a :class:`~.ParquetOutput`."""
         return cls(path=str(output.path), bytes=output.bytes, hash=output.hash)
 
 
 #: Reasons one *section* of the JSON report's ``row_diff`` (``pk_diff`` or
 #: ``non_pk_diff``) has no summary. The first three are the
-#: :data:`RowComparisonSkipReason` values, for when the whole row-level comparison
+#: :data:`~.RowComparisonSkipReason` values, for when the whole row-level comparison
 #: was skipped; the last two mean that section simply doesn't apply, because the
 #: table does or doesn't have a primary key.
 RowDiffSectionSkipReason = Literal[
@@ -190,7 +189,7 @@ class RowDiffSectionSkipped(pydantic.BaseModel):
 
 
 class PkRowDiffSummary(pydantic.BaseModel):
-    """The JSON-report form of a :class:`KeyedRowDiff`."""
+    """The JSON-report form of a :class:`~.KeyedRowDiff`."""
 
     primary_key_columns: list[str]
     only_in_left_count: int
@@ -204,7 +203,7 @@ class PkRowDiffSummary(pydantic.BaseModel):
 
 
 class NonPkRowDiffSummary(pydantic.BaseModel):
-    """The JSON-report form of a :class:`RowSetDiff` for a table with no primary key."""
+    """The JSON-report form of a :class:`~.RowSetDiff` without a primary key."""
 
     only_in_left_count: int
     only_in_right_count: int
@@ -218,14 +217,14 @@ class NonPkRowDiffSummary(pydantic.BaseModel):
 
 
 class RowDiffSummary(pydantic.BaseModel):
-    """The JSON-report form of :attr:`TableDiffResult.row_diff`.
+    """The JSON-report form of :attr:`~.TableDiffResult.row_diff`.
 
     Exactly one of :attr:`pk_diff` and :attr:`non_pk_diff` is a full summary
     (unless row-level comparison was skipped entirely); the other is a
     :class:`RowDiffSectionSkipped` saying why it wasn't produced: ``no_primary_key``
     or ``primary_key_available`` when the table's primary key determined which
     kind of comparison applies, or the reason the comparison was skipped
-    altogether (see :data:`RowComparisonSkipReason`), in which case the one that would
+    altogether (see :data:`~.RowComparisonSkipReason`), in which case the one that would
     have run carries that reason.
     """
 
@@ -409,12 +408,12 @@ class SizeComparison(pydantic.BaseModel):
 class TableDiffReport(SizeComparison):
     """A single table comparison, in the form saved in the PUDL Diff JSON report.
 
-    Built by :func:`build_table_diff_report` from a :class:`TableDiffRun`, and
-    one entry in :attr:`PudlDiffReport.tables`. Fields that describe the whole
+    Built by :func:`build_table_diff_report` from a :class:`~.TableDiffRun`, and
+    one entry in :attr:`~.PudlDiffReport.tables`. Fields that describe the whole
     comparison of the two datasets (when it was run, the datasets' provenance) live
-    on the :class:`PudlDiffReport` instead. Contains no row-level data itself -
+    on the :class:`~.PudlDiffReport` instead. Contains no row-level data itself -
     only counts and summaries; the actual differing rows are written
-    separately as Parquet files (see :func:`write_row_diff_parquet`) and
+    separately as Parquet files (see :func:`~.write_row_diff_parquet`) and
     referenced from :attr:`row_diff`.
     """
 
@@ -438,7 +437,7 @@ class TableDiffReport(SizeComparison):
     complete. ``None`` if :attr:`success` is ``True``."""
     success: bool
     """Whether the comparison completed at all, successfully or not - see
-    :class:`TableDiffRun`. Distinct from :attr:`is_identical`: a
+    :class:`~.TableDiffRun`. Distinct from :attr:`is_identical`: a
     comparison can succeed and still find the tables different."""
 
     @pydantic.computed_field
@@ -475,14 +474,14 @@ def build_table_diff_report(
     """Build the JSON-report form of a table comparison.
 
     Args:
-        run: The comparison's outcome, from :func:`run_table_diff`.
+        run: The comparison's outcome, from :func:`~.run_table_diff`.
         left: The "left" dataset that was compared.
         right: The "right" dataset compared against it.
         table_name: Name of the table compared in ``left``.
         right_table_name: Name of the table compared in ``right``, if it
             differed from ``table_name``. Defaults to ``table_name``.
         parquet_outputs: The Parquet side-output files written for this
-            table's row diff, from :func:`write_row_diff_parquet`, if any
+            table's row diff, from :func:`~.write_row_diff_parquet`, if any
             were written.
     """
     right_table_name = right_table_name or table_name
@@ -566,7 +565,7 @@ def report_table_diff(
 ) -> TableDiffReport:
     """Compare a table, write its Parquet side-outputs, and report on it.
 
-    Never raises because the comparison failed: see :func:`run_table_diff`.
+    Never raises because the comparison failed: see :func:`~.run_table_diff`.
 
     Args:
         left: The "left" dataset to compare.
