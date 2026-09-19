@@ -75,49 +75,6 @@ class _TableOutcome:
     peak_rss_bytes: int | None = None
 
 
-@dataclass(frozen=True)
-class _RowSummary:
-    """The row-level results of a table comparison, in the form we display."""
-
-    added: int | None = None
-    changed: int | None = None
-    removed: int | None = None
-    skipped_reason: str | None = None
-    has_primary_key: bool | None = None
-
-
-def _summarize_row_diff(row_diff: diff.RowDiffSummary | None) -> _RowSummary:
-    """Boil a table's row diff report down to what we display."""
-    if row_diff is None:
-        return _RowSummary()
-    pk_diff, non_pk_diff = row_diff.pk_diff, row_diff.non_pk_diff
-    if isinstance(pk_diff, diff.PkRowDiffSummary):
-        return _RowSummary(
-            added=pk_diff.only_in_right_count,
-            changed=pk_diff.changed_row_count,
-            removed=pk_diff.only_in_left_count,
-            has_primary_key=True,
-        )
-    if isinstance(non_pk_diff, diff.NonPkRowDiffSummary):
-        return _RowSummary(
-            added=non_pk_diff.only_in_right_count,
-            removed=non_pk_diff.only_in_left_count,
-            has_primary_key=False,
-        )
-    # Row-level comparison was skipped. The reason is on whichever section would
-    # have run; the other one just says why it doesn't apply.
-    not_applicable = {"primary_key_available", "no_primary_key"}
-    reasons = [
-        section.skipped_reason
-        for section in (pk_diff, non_pk_diff)
-        if section.skipped_reason not in not_applicable
-    ]
-    return _RowSummary(
-        skipped_reason=reasons[0] if reasons else None,
-        has_primary_key=non_pk_diff.skipped_reason == "primary_key_available",
-    )
-
-
 def _diff_table(
     left_dataset: diff.PudlDiffDataset,
     right_dataset: diff.PudlDiffDataset,
@@ -171,7 +128,7 @@ def _diff_table(
     exit_code = 0 if report.is_identical else 1
     if not run.success:
         exit_code = 2
-    rows = _summarize_row_diff(report.row_diff)
+    rows = diff._summarize_row_diff(report.row_diff)
     return _TableOutcome(
         table_name=table_name,
         exit_code=exit_code,
