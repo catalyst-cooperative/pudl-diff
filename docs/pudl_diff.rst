@@ -51,6 +51,11 @@ compared. ``--right-table`` only makes sense for a single table, so it requires
 exactly one table name; ``--partition-expr`` applies to every table given, so it
 requires at least one.
 
+``-l``, ``-r`` and ``-o`` are shorthand for ``--left``, ``--right`` and
+``--output-path``. Output is colorized when stdout is a terminal; use
+``--color`` or ``--no-color`` to override that, e.g. to keep the colors when
+paging through ``less -R``.
+
 Run ``pudl_diff --help`` for the full list of options and a few example
 invocations.
 

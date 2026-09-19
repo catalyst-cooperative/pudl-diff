@@ -1,6 +1,7 @@
 """Unit tests for the pudl_diff script."""
 
 import json
+import re
 from pathlib import Path
 
 import polars as pl
@@ -492,3 +493,44 @@ def test_multiple_table_names_including_a_missing_table_exits_two(tmp_path: Path
     assert "Identical: 1  Different: 0  Failed: 1" in result.output
     assert "Failed: left_only_table" in result.output
     assert (output_path / "same_table_diff.json").exists()
+
+
+def _two_table_args(tmp_path: Path) -> list[str]:
+    left, right = _all_tables_datasets(tmp_path)
+    return ["-l", str(left), "-r", str(right), "-o", str(tmp_path / "out")]
+
+
+def test_short_flags(tmp_path: Path):
+    result = CliRunner().invoke(main, ["changed_table", *_two_table_args(tmp_path)])
+
+    assert result.exit_code == 1, result.output
+    assert (tmp_path / "out" / "changed_table_diff.json").exists()
+
+
+def test_color_flag_forces_ansi_output(tmp_path: Path):
+    result = CliRunner().invoke(
+        main, ["same_table", "changed_table", *_two_table_args(tmp_path), "--color"]
+    )
+
+    assert result.exit_code == 1, result.output
+    assert "\x1b[" in result.output
+
+
+def test_no_color_flag_and_non_tty_default_have_no_ansi_output(tmp_path: Path):
+    args = ["same_table", "changed_table", *_two_table_args(tmp_path)]
+
+    # CliRunner's stdout isn't a terminal, so that's the default.
+    default = CliRunner().invoke(main, args)
+    forced_off = CliRunner().invoke(main, [*args, "--no-color"])
+
+    assert "\x1b[" not in default.output
+    assert "\x1b[" not in forced_off.output
+    assert "same_table: identical" in default.output
+
+
+def test_progress_shows_sub_second_runtimes_with_millisecond_precision(tmp_path: Path):
+    result = CliRunner().invoke(
+        main, ["same_table", "changed_table", *_two_table_args(tmp_path)]
+    )
+
+    assert re.search(r"\[1/2\] same_table: identical \(\d+\.\d{3}s\)", result.output)

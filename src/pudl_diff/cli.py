@@ -110,7 +110,18 @@ def _diff_table(
     )
 
 
-_STATUS = {0: "identical", 1: "DIFFERENT", 2: "FAILED"}
+_STATUS = {
+    0: click.style("identical", fg="green"),
+    1: click.style("DIFFERENT", fg="yellow"),
+    2: click.style("FAILED", fg="red"),
+}
+"""How to describe each :attr:`_TableOutcome.exit_code`. click.echo strips the
+styling from these again when color is off."""
+
+
+def _format_elapsed(seconds: float) -> str:
+    """Format a duration with enough precision to be meaningful for fast tables."""
+    return f"{seconds:.3f}s"
 
 
 def _echo_summary(
@@ -143,6 +154,7 @@ def _echo_summary(
 @click.command(context_settings={"help_option_names": ["-h", "--help"]}, epilog=_EPILOG)
 @click.argument("table_names", type=str, nargs=-1)
 @click.option(
+    "-l",
     "--left",
     type=str,
     default=None,
@@ -151,6 +163,7 @@ def _echo_summary(
     "diffs are measured against.",
 )
 @click.option(
+    "-r",
     "--right",
     type=str,
     default=None,
@@ -168,6 +181,7 @@ def _echo_summary(
     "one TABLE_NAME.",
 )
 @click.option(
+    "-o",
     "--output-path",
     type=click.Path(file_okay=False, path_type=Path),
     default=None,
@@ -219,6 +233,12 @@ def _echo_summary(
     help="Compare whole-table row counts even if a dbt partition is "
     "configured for this table. Ignored if --partition-expr is given.",
 )
+@click.option(
+    "--color/--no-color",
+    default=None,
+    help="Colorize the output. Defaults to on if stdout is a terminal, and off "
+    "otherwise (e.g. when piped to a file).",
+)
 @click.pass_context
 def main(
     ctx: click.Context,
@@ -233,6 +253,7 @@ def main(
     atol: float,
     partition_expr: str | None,
     no_auto_partition: bool,
+    color: bool | None,
 ) -> None:
     """Compare tables between two PUDL Parquet datasets.
 
@@ -254,6 +275,8 @@ def main(
     if partition_expr is not None and not table_names:
         raise click.UsageError("--partition-expr requires at least one TABLE_NAME.")
 
+    # click.echo consults the context's color setting, so this covers all output.
+    ctx.color = sys.stdout.isatty() if color is None else color
     left_root = left or str(pudl.PUDL_NIGHTLY_BUILDS_BASE_PATH)
     right_root = right or str(PudlPaths().parquet_path())
     output_path = output_path or Path.cwd()
@@ -328,7 +351,7 @@ def main(
         )
         outcomes.append(outcome)
         elapsed = (
-            f" ({outcome.elapsed_seconds:.1f}s)"
+            f" ({_format_elapsed(outcome.elapsed_seconds)})"
             if outcome.elapsed_seconds is not None
             else ""
         )
