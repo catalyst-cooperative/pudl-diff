@@ -1019,6 +1019,13 @@ def test_summary_totals_schema_changes(tmp_path: Path):
     # cols: +2/-1; dtype: ~1; both: +1/~1/-1. Three of the four tables changed.
     assert "Column changes:  +3/2/-2" in result.output
     assert "Schema changes:  3 tables" in result.output
+    # The tables whose schema changed are listed, one per line, with their own
+    # column changes. The unchanged table isn't.
+    assert (
+        "Schema changes:  3 tables\n  both   +1/1/-1\n  cols   +2/0/-1\n  dtype  +0/1/-0\n"
+        in result.output
+    )
+    assert "  same " not in result.output
     assert "Tables removed (only in left): 1\n  removed\n" in result.output
     assert "Tables added (only in right): 1\n  added\n" in result.output
 
@@ -1062,6 +1069,43 @@ def test_summary_schema_and_table_list_colors(tmp_path: Path):
     assert cyan in column_line
     assert hot_pink in column_line
     assert magenta in column_line
-    # Removed and added tables are headed in the same magenta and cyan.
-    assert f"{magenta}Tables removed (only in left)" in summary
-    assert f"{cyan}Tables added (only in right)" in summary
+    # Each listed table's own column changes are colored the same way.
+    list_line = next(line for line in summary.splitlines() if "  cols " in line)
+    assert cyan in list_line
+    assert magenta in list_line
+    # The headings of the table lists are bold, not colored.
+    bold = "\x1b[1m"
+    for heading in ["Tables removed (only in left):", "Tables added (only in right):"]:
+        assert f"{bold}{heading}" in summary
+    heading_lines = [
+        line for line in summary.splitlines() if line.startswith(f"{bold}Tables")
+    ]
+    assert len(heading_lines) == 2
+    assert not any(color in line for line in heading_lines for color in (cyan, magenta))
+
+
+def test_summary_descriptors_are_bold(tmp_path: Path):
+    left, right = _all_tables_datasets(tmp_path)
+
+    result = CliRunner().invoke(
+        main,
+        ["-l", str(left), "-r", str(right), "-o", str(tmp_path / "out"), "--color"],
+    )
+
+    bold = "\x1b[1m"
+    for descriptor in [
+        "Left:",
+        "Right:",
+        "Elapsed:",
+        "Peak memory:",
+        "Total rows:",
+        "Row changes:",
+        "% of left rows:",
+        "Column changes:",
+        "Schema changes:",
+        "Reports written to",
+    ]:
+        assert f"{bold}{descriptor}" in result.output, descriptor
+    # The values aren't bold, and stay aligned once the styling is stripped.
+    assert re.search(r"^Left: {12}\S", _plain(result.output), re.MULTILINE)
+    assert re.search(r"^Elapsed: {9}\S", _plain(result.output), re.MULTILINE)

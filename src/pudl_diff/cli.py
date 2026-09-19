@@ -406,6 +406,15 @@ def _format_outcome(outcome: _TableOutcome, progress: str = "") -> str:
     return "  ".join(part for part in parts if part)
 
 
+_LABEL_WIDTH = 17
+
+
+def _field(label: str, value: str) -> str:
+    """A summary line: a bold ``label``, then ``value`` aligned with the others."""
+    padding = " " * max(2, _LABEL_WIDTH - len(label))
+    return f"{click.style(label, bold=True)}{padding}{value}"
+
+
 def _echo_totals(outcomes: list[_TableOutcome]) -> None:
     """Print row totals and changes summed over all the compared tables."""
     left_total = sum(o.left_rows or 0 for o in outcomes)
@@ -415,28 +424,36 @@ def _echo_totals(outcomes: list[_TableOutcome]) -> None:
     changed = sum(o.changed or 0 for o in compared)
     removed = sum(o.removed or 0 for o in compared)
     click.echo(
-        f"Total rows:      {left_total:,} left, {right_total:,} right "
-        f"({_tables(len(outcomes))})"
+        _field(
+            "Total rows:",
+            f"{left_total:,} left, {right_total:,} right ({_tables(len(outcomes))})",
+        )
     )
     counts = _change_segments(added, changed, removed, lambda n: f"{n:,}")
-    click.echo(f"Row changes:     {_render(counts)}")
+    click.echo(_field("Row changes:", _render(counts)))
     percents = _change_segments(
         added, changed, removed, lambda n: _format_percent(n, left_total)
     )
-    click.echo(f"% of left rows:  {_render(percents)}")
+    click.echo(_field("% of left rows:", _render(percents)))
     # Rows in tables we couldn't count changes for still count towards the total
     # above, so say how many there are to make the percentages interpretable.
     uncompared = [o for o in outcomes if o not in compared]
     if uncompared:
         rows = sum(o.left_rows or 0 for o in uncompared)
         click.echo(
-            f"Not compared:    {_tables(len(uncompared))} ({rows:,} left rows) "
-            "had no row-level comparison"
+            _field(
+                "Not compared:",
+                f"{_tables(len(uncompared))} ({rows:,} left rows) "
+                "had no row-level comparison",
+            )
         )
 
 
 def _echo_schema_totals(outcomes: list[_TableOutcome]) -> None:
-    """Print columns added, changed (dtype) and removed across all the tables."""
+    """Print columns added, changed (dtype) and removed across all the tables.
+
+    Followed by each table whose schema changed, and how its columns changed.
+    """
     with_schema = [o for o in outcomes if o.columns_added is not None]
     added = sum(o.columns_added or 0 for o in with_schema)
     changed = sum(o.dtypes_changed for o in with_schema)
@@ -449,14 +466,20 @@ def _echo_schema_totals(outcomes: list[_TableOutcome]) -> None:
     columns = _change_segments(
         added, changed, removed, lambda n: f"{n:,}", colors=_COLUMN_COLORS
     )
-    click.echo(f"Column changes:  {_render(columns)}")
-    click.echo(f"Schema changes:  {_tables(len(changed_tables))}")
+    click.echo(_field("Column changes:", _render(columns)))
+    click.echo(_field("Schema changes:", _tables(len(changed_tables))))
+    # Schema changes can be disruptive to users, so name every table that has one,
+    # with its own column changes, one per line.
+    width = max((len(o.table_name) for o in changed_tables), default=0)
+    for outcome in changed_tables:
+        counts = _render(_columns_segments(outcome))
+        click.echo(f"  {outcome.table_name.ljust(width)}  {counts}")
 
 
-def _echo_table_list(label: str, table_names: list[str], color: _Color) -> None:
-    """Print a heading and a count, then the tables one per line."""
+def _echo_table_list(label: str, table_names: list[str]) -> None:
+    """Print a bold heading and a count, then the tables one per line."""
     if table_names:
-        click.echo(f"{click.style(label, fg=color)}: {len(table_names):,}")
+        click.echo(f"{click.style(label + ':', bold=True)} {len(table_names):,}")
         for table_name in table_names:
             click.echo(f"  {table_name}")
 
@@ -488,22 +511,24 @@ def _echo_summary(
             f"{click.style(label, fg=color)}: {n}" for label, n, color in counts
         )
     )
-    click.echo(f"Left:            {left_root}")
-    click.echo(f"Right:           {right_root}")
-    click.echo(f"Elapsed:         {_format_duration(elapsed_seconds)}")
+    click.echo(_field("Left:", left_root))
+    click.echo(_field("Right:", right_root))
+    click.echo(_field("Elapsed:", _format_duration(elapsed_seconds)))
     measured = [o for o in outcomes if o.peak_rss_bytes is not None]
     if measured:
         peak = max(measured, key=lambda o: o.peak_rss_bytes or 0)
         click.echo(
-            f"Peak memory:     {_format_bytes(peak.peak_rss_bytes or 0)} "
-            f"({peak.table_name})"
+            _field(
+                "Peak memory:",
+                f"{_format_bytes(peak.peak_rss_bytes or 0)} ({peak.table_name})",
+            )
         )
     _echo_totals(outcomes)
     _echo_schema_totals(outcomes)
-    _echo_table_list("Tables with errors", errored, "red")
-    _echo_table_list("Tables removed (only in left)", only_in_left, "magenta")
-    _echo_table_list("Tables added (only in right)", only_in_right, "cyan")
-    click.echo(f"Reports written to {output_path}")
+    _echo_table_list("Tables with errors", errored)
+    _echo_table_list("Tables removed (only in left)", only_in_left)
+    _echo_table_list("Tables added (only in right)", only_in_right)
+    click.echo(f"{click.style('Reports written to', bold=True)} {output_path}")
 
 
 def _set_log_level(level: str) -> Callable[[], None]:

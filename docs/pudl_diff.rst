@@ -161,7 +161,9 @@ and rows that applies to.
 
 The summary totals the schema changes in the same colors as the per-table
 lines: the columns added, changed (dtype) and removed across all the tables, and
-how many tables had any schema change at all. Last, the tables that errored,
+how many tables had any schema change at all. Since schema changes can be
+disruptive to users, every table whose schema changed is then listed, one per
+line, with its own column changes. Last, the tables that errored,
 that were removed (present only in the left dataset) and that were added
 (present only in the right dataset) are listed, one per line under a heading
 with their count.
