@@ -2,8 +2,6 @@
 
 import logging
 import sys
-import time
-import traceback
 from collections.abc import Callable
 from pathlib import Path
 
@@ -11,22 +9,13 @@ import click
 from dagster import get_dagster_logger
 
 import pudl
-from pudl.logging_helpers import get_logger
 from pudl.validate.diff import table_report
-from pudl.validate.diff.dataset import NoTablesError, PudlDiffDataset, resolve_tables
-from pudl.validate.diff.dataset_report import (
-    PudlDiffReport,
-    build_pudl_diff_report,
-)
-from pudl.validate.diff.runner import _compare_tables
+from pudl.validate.diff.dataset import PudlDiffDataset
+from pudl.validate.diff.dataset_report import PudlDiffReport
+from pudl.validate.diff.runner import run_dataset_diff
 from pudl.validate.diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON
-from pudl.validate.diff.terminal import (
-    echo_intro,
-    echo_summary,
-)
+from pudl.validate.diff.terminal import TerminalProgress, echo_summary
 from pudl.workspace.setup import PudlPaths
-
-logger = get_logger(__name__)
 
 REPORT_FILENAME = "pudl_diff_report.json"
 """Name of the JSON report, written to the output directory."""
@@ -214,7 +203,6 @@ def main(
     if partition_expr is not None and not table_names:
         raise click.UsageError("--partition-expr requires at least one TABLE_NAME.")
 
-    start = time.perf_counter()
     ctx.call_on_close(_set_log_level(loglevel))
     # click.echo consults the context's color setting, so this covers all output.
     ctx.color = sys.stdout.isatty() if color is None else color
@@ -238,65 +226,34 @@ def main(
         output_path.mkdir(parents=True, exist_ok=True)
         report_path.write_text(report.model_dump_json(indent=2))
 
-    try:
-        tables, only_in_left, only_in_right = resolve_tables(
-            left_dataset, right_dataset, table_names
-        )
-    except NoTablesError as e:
-        tables, only_in_left, only_in_right = [], [], []
-        error: str | None = str(e)
-    except Exception:
-        logger.exception("Couldn't list the tables to compare.")
-        tables, only_in_left, only_in_right = [], [], []
-        error = traceback.format_exc()
-    else:
-        error = None
-    if error is not None:
-        # There's nothing to compare, but the report still records why.
-        write_report(
-            build_pudl_diff_report(
-                left_dataset,
-                right_dataset,
-                {},
-                options=options,
-                elapsed_seconds=time.perf_counter() - start,
-                error=error,
-            )
-        )
-        click.echo(f"Comparison failed: {error}", err=True)
-        click.echo(f"Report written to {report_path}")
-        ctx.exit(2)
-
     single = len(table_names) == 1
-    echo_intro(tables, left_root, right_root, explicit=bool(table_names))
-    table_reports, outcomes = _compare_tables(
+    progress = TerminalProgress(
+        left_root, right_root, explicit=bool(table_names), show_progress=not single
+    )
+    report = run_dataset_diff(
         left_dataset,
         right_dataset,
-        tables,
         output_path,
+        table_names=table_names,
         right_table=right_table,
         options=options,
-        show_progress=not single,
-    )
-
-    report = build_pudl_diff_report(
-        left_dataset,
-        right_dataset,
-        table_reports,
-        options=options,
-        tables_only_in_left=only_in_left,
-        tables_only_in_right=only_in_right,
-        elapsed_seconds=time.perf_counter() - start,
+        on_tables_resolved=progress.tables_resolved,
+        on_table_compared=progress.table_compared,
     )
     write_report(report)
-    if single:
-        if outcomes[0].error is not None:
+    if report.error is not None:
+        click.echo(f"Comparison failed: {report.error}", err=True)
+        click.echo(f"Report written to {report_path}")
+    elif single:
+        outcome = progress.outcomes[0]
+        if outcome.error is not None:
             click.echo(
-                f"Comparison of {tables[0]!r} failed: {outcomes[0].error}", err=True
+                f"Comparison of {outcome.table_name!r} failed: {outcome.error}",
+                err=True,
             )
         click.echo(f"Report written to {report_path}")
     else:
-        echo_summary(report, outcomes, report_path)
+        echo_summary(report, progress.outcomes, report_path)
     ctx.exit(report.exit_code)
 
 

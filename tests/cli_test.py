@@ -15,13 +15,15 @@ from pudl.scripts.pudl_diff import (
     main,
 )
 from pudl.validate.diff import table_report
+from pudl.validate.diff.dataset import PudlDiffDataset
 from pudl.validate.diff.dataset_report import TableOutcome
 from pudl.validate.diff.formatting import (
     format_duration,
     format_percent,
     format_signed_percent,
 )
-from pudl.validate.diff.terminal import format_header, format_outcome
+from pudl.validate.diff.runner import run_dataset_diff
+from pudl.validate.diff.terminal import TerminalProgress, format_header, format_outcome
 
 
 def _write_datapackage(root: Path, resources: list[dict]) -> None:
@@ -1219,3 +1221,29 @@ def test_summary_descriptors_are_bold(tmp_path: Path):
     # The values aren't bold, and stay aligned once the styling is stripped.
     assert re.search(r"^Left: {12}\S", _plain(result.output), re.MULTILINE)
     assert re.search(r"^Elapsed: {9}\S", _plain(result.output), re.MULTILINE)
+
+
+def test_terminal_progress_prints_a_numbered_line_per_table(tmp_path: Path, capsys):
+    resources = [_pk_resource("table_a", ["x"]), _pk_resource("table_b", ["x"])]
+    tables = {
+        name: pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})
+        for name in ("table_a", "table_b")
+    }
+    _make_dataset(tmp_path / "left", resources, tables)
+    _make_dataset(tmp_path / "right", resources, tables)
+    progress = TerminalProgress("left", "right", explicit=False, show_progress=True)
+
+    run_dataset_diff(
+        PudlDiffDataset(tmp_path / "left"),
+        PudlDiffDataset(tmp_path / "right"),
+        tmp_path / "out",
+        on_tables_resolved=progress.tables_resolved,
+        on_table_compared=progress.table_compared,
+    )
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "Comparing 2 tables present in both 'left' and 'right'."
+    assert lines[1].split()[0] == "STATUS"
+    assert re.match(r"\[1/2\]\s+\[IDENTICAL\].*table_a$", lines[2])
+    assert re.match(r"\[2/2\]\s+\[IDENTICAL\].*table_b$", lines[3])
+    assert [o.table_name for o in progress.outcomes] == ["table_a", "table_b"]

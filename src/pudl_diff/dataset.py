@@ -2,6 +2,7 @@
 
 import json
 import os
+from collections.abc import Sequence
 
 import polars as pl
 import pydantic
@@ -215,7 +216,7 @@ class NoTablesError(Exception):
 def resolve_tables(
     left: PudlDiffDataset,
     right: PudlDiffDataset,
-    table_names: tuple[str, ...],
+    table_names: Sequence[str],
 ) -> tuple[list[str], list[str], list[str]]:
     """Decide which tables to compare.
 

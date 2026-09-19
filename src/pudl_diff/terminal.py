@@ -10,6 +10,7 @@ from pudl.validate.diff.dataset_report import (
     PudlDiffReport,
     PudlDiffSummary,
     TableOutcome,
+    table_outcome,
 )
 from pudl.validate.diff.formatting import (
     format_duration,
@@ -353,3 +354,54 @@ def echo_intro(
         return
     what = repr(tables[0]) if len(tables) == 1 else f"{len(tables)} tables"
     click.echo(f"Comparing {what} between {left_root!r} and {right_root!r}.")
+
+
+class TerminalProgress:
+    """Prints the column headings, then a line about each table as it's compared.
+
+    Meant to be used as the callbacks of :func:`~pudl.validate.diff.runner.run_dataset_diff`.
+    Keeps each table's :class:`~pudl.validate.diff.dataset_report.TableOutcome`, in
+    :attr:`outcomes`, for the summary at the end.
+    """
+
+    def __init__(
+        self, left_root: str, right_root: str, *, explicit: bool, show_progress: bool
+    ):
+        """Set up to describe a comparison of two datasets.
+
+        Args:
+            left_root: Where the left dataset is, for the introduction.
+            right_root: Where the right dataset is.
+            explicit: Whether the tables to compare were named, rather than being
+                all those in both datasets.
+            show_progress: Whether to start each line with a ``[n/total]`` count.
+        """
+        self._left_root = left_root
+        self._right_root = right_root
+        self._explicit = explicit
+        self._show_progress = show_progress
+        self._total = 0
+        self.outcomes: list[TableOutcome] = []
+
+    def tables_resolved(self, tables: list[str]) -> None:
+        """Say what's about to be compared, and print the column headings."""
+        self._total = len(tables)
+        echo_intro(tables, self._left_root, self._right_root, explicit=self._explicit)
+        total = self._total
+        click.echo(
+            format_header(len(f"[{total}/{total}]") if self._show_progress else 0)
+        )
+
+    def table_compared(
+        self, table_name: str, report: table_report.TableDiffReport
+    ) -> None:
+        """Print a line about a table that has just been compared."""
+        outcome = table_outcome(table_name, report)
+        self.outcomes.append(outcome)
+        width = len(str(self._total))
+        progress = (
+            f"[{len(self.outcomes):>{width}}/{self._total}]"
+            if self._show_progress
+            else ""
+        )
+        click.echo(format_outcome(outcome, progress))
