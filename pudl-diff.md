@@ -727,10 +727,11 @@ PudlDiffReport` and the `*_report` modules, which are Pydantic models, so
 the exit code. It is now ~260 lines, down from ~780.
 
 The unit tests mirror the layout: one `*_test.py` per library module in
-`tests/unit/validate/diff/`, with the helpers that build datasets to compare shared as
-fixtures in that directory's `conftest.py` (`write_datapackage`, `pk_resource`,
-`no_pk_resource`, `make_dataset` and `write_two_datasets`). `tests/unit/scripts/
-pudl_diff_test.py` keeps only the tests that invoke the CLI.
+`tests/unit/validate/diff/`. The helpers that build datasets to compare are fixtures in
+`tests/unit/conftest.py` (`write_datapackage`, `pk_resource`, `no_pk_resource`,
+`make_dataset` and `write_two_datasets`), so that the CLI tests in
+`tests/unit/scripts/pudl_diff_test.py`, which keep only the tests that invoke the CLI,
+share them rather than having their own copies.
 
 #### Commit sequence
 
@@ -811,9 +812,11 @@ module.
     Sphinx resolves by suffix. `docs-check` passes with no warnings (it isn't
     nitpicky, so the suffix references have not been checked to resolve). Split the
     tests to mirror the layout, as described above, and moved the terminal and
-    formatting tests out of the CLI tests. A shared `helpers.py` was not possible:
-    the `name-tests-test` hook only allows `*_test.py` and `conftest.py`, and pyrefly
-    can't resolve `from tests...` imports.
+    formatting tests out of the CLI tests. Shared test code has to be fixtures in a
+    `conftest.py`: a `helpers.py` isn't possible, since the `name-tests-test` hook only
+    allows `*_test.py` and `conftest.py`, and pyrefly can't resolve `from tests...`
+    imports. The fixtures started out in `tests/unit/validate/diff/conftest.py`, and
+    moved up to `tests/unit/conftest.py` so that the CLI tests could use them too.
 20. Add a release notes entry to `docs/release_notes.rst`, with the issue and PR
     numbers (still to do: there is no PR for the branch yet).
 
