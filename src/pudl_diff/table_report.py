@@ -30,6 +30,7 @@ from upath import UPath
 import pudl.logging_helpers
 from pudl import PUDL_DBT_PATH
 from pudl.metadata.classes import PUDL_PACKAGE
+from pudl.validate.diff.formatting import format_bytes
 
 logger = pudl.logging_helpers.get_logger(__name__)
 
@@ -55,26 +56,6 @@ class DatasetProvenance(pydantic.BaseModel):
     is when the *comparison* was run."""
     git_sha: str | None = None
     git_tags: list[str] | None = None
-
-
-def format_bytes(num_bytes: int, *, signed: bool = False) -> str:
-    """Format a byte count in decimal units, e.g. ``21.4 GB`` or ``512 B``.
-
-    Args:
-        num_bytes: The size to format. May be negative, for a change in size.
-        signed: Whether to prefix a positive size with ``+``. Negative sizes
-            always get a ``-``.
-    """
-    magnitude = abs(num_bytes)
-    for unit, factor in (("GB", 10**9), ("MB", 10**6), ("KB", 10**3)):
-        if magnitude >= factor:
-            text = f"{magnitude / factor:.1f} {unit}"
-            break
-    else:
-        text = f"{magnitude} B"
-    if num_bytes < 0:
-        return f"-{text}"
-    return f"+{text}" if signed and num_bytes > 0 else text
 
 
 class PudlDiffDataset:
