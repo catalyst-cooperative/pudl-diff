@@ -103,11 +103,10 @@ on top of its ``core_`` table and doesn't otherwise change its data:
 Interpreting the results
 -------------------------
 
-``pudl_diff`` prints a one-line summary for each table, and writes a JSON report for
-each table to
-``<output-path>/<table_name>_diff.json`` (``--output-path`` defaults to the
-current working directory). For a table found to differ, it also writes two
-Parquet side-output files:
+``pudl_diff`` prints a one-line summary for each table, and writes a single JSON
+report covering every table to ``<output-path>/pudl_diff_report.json``
+(``--output-path`` defaults to the current working directory). For a table found
+to differ, it also writes two Parquet side-output files:
 
 * ``<table_name>_left_only.parquet`` -- rows found only in the left dataset (for
   a table with a primary key, this also includes the left-hand values of rows
@@ -172,8 +171,8 @@ Log messages
 ------------
 
 Only log messages of ``ERROR`` severity or higher are shown, so that they don't
-interrupt the report. Skipped comparisons and errors are still recorded in each
-table's JSON report. Use ``--loglevel`` (e.g. ``--loglevel WARNING``) to see
+interrupt the report. Skipped comparisons and errors are still recorded in the
+JSON report. Use ``--loglevel`` (e.g. ``--loglevel WARNING``) to see
 more.
 
 Exit codes
@@ -188,14 +187,43 @@ table that fails doesn't stop the others from being compared.
   below). Check the JSON report to see what kind of difference was found.
 * ``2`` -- the comparison itself failed to run, e.g. ``TABLE_NAME`` doesn't
   exist in one of the datasets, or a dataset's ``datapackage.json`` couldn't be
-  read. The JSON report's ``error`` field has the exception message and
-  traceback.
+  read. The failed table's ``error`` field in the JSON report has the exception
+  message and traceback. If the run failed as a whole (e.g. the datasets have no
+  tables in common), the report's top-level ``error`` field says why.
 
 The JSON report
 ----------------
 
-The report has three main sections, corresponding to the three kinds of
-comparison ``pudl_diff`` runs:
+The report describes the comparison of the two datasets as a whole, with a
+``tables`` entry for each table compared, keyed by its name in the left dataset.
+Its top level holds:
+
+* ``schema_version`` -- the version of the report format.
+* ``created`` and ``elapsed_seconds`` -- when the report was generated, and how
+  long the comparison took.
+* ``left_dataset`` and ``right_dataset`` -- each dataset's ``root`` path or URL
+  and its own provenance (build ID, creation timestamp, git SHA and tags, read
+  from its ``datapackage.json`` if present), so a saved report can be traced
+  back to the builds it compared.
+* ``options`` -- the settings the comparison was run with (tolerances, row
+  limits and partitioning).
+* ``tables_only_in_left`` and ``tables_only_in_right`` -- tables that weren't
+  compared because they're in only one dataset.
+* ``summary`` -- totals over all the tables: how many were identical, changed or
+  failed, row and column changes, total size and the change in it, and peak
+  memory use.
+* ``is_identical``, ``success`` and ``error`` -- whether every table is
+  identical, whether every comparison completed, and why the run as a whole
+  failed, if it did. Failures of individual tables are recorded on their own
+  entries.
+
+Each table's entry also records the size in bytes of the table's Parquet file
+on each side (``left_table_bytes`` and ``right_table_bytes``), and the change
+(``bytes_difference``, and as a percentage of the left size in
+``bytes_difference_percent``), each alongside a human-readable version, e.g.
+``12.3 MB``. A table can change size, through compression for example, even if
+its contents haven't. The rest of the entry has three main sections,
+corresponding to the three kinds of comparison ``pudl_diff`` runs:
 
 * ``schema_diff`` -- columns only in the left table, columns only in the right
   table, and any dtype changes for columns present in both. Column order
@@ -223,10 +251,6 @@ comparison ``pudl_diff`` runs:
   or ``no_primary_key`` for ``pk_diff`` on one without. See
   :ref:`pudl-diff-skipped-comparisons` below for other reasons a comparison
   doesn't run.
-
-Each dataset's own provenance (build ID, creation timestamp, git SHA and tags,
-read from its ``datapackage.json`` if present) is also included, so a saved
-report can be traced back to the builds it compared.
 
 .. _pudl-diff-skipped-comparisons:
 
