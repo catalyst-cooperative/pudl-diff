@@ -103,8 +103,8 @@ on top of its ``core_`` table and doesn't otherwise change its data:
 Interpreting the results
 -------------------------
 
-``pudl_diff`` prints a one-line summary (in all-tables mode, one line per table
-followed by an overall summary) and writes a JSON report for each table to
+``pudl_diff`` prints a one-line summary for each table, and writes a JSON report for
+each table to
 ``<output-path>/<table_name>_diff.json`` (``--output-path`` defaults to the
 current working directory). For a table found to differ, it also writes two
 Parquet side-output files:
@@ -113,6 +113,58 @@ Parquet side-output files:
   a table with a primary key, this also includes the left-hand values of rows
   whose primary key matches but whose other data differs).
 * ``<right_table_name>_right_only.parquet`` -- the same, for the right dataset.
+
+Under a header naming each column, each table's line starts with a status tag for
+the comparison as a whole (including its schema): ``[IDENTICAL]`` (green),
+``[CHANGED]`` (yellow) or ``[ERROR]`` (red, the comparison itself failed). It's
+followed by whether the table has a primary key (``PK`` or ``no-PK``), the
+number of columns added and removed, the number of rows in the left table, a
+summary of the row-level changes in the style of ``git diff`` (as counts and as
+percentages of the left table's rows), the time taken, and the table name:
+
+.. code-block:: text
+
+   STATUS       KEY    COLS +add/-del      LEFT ROWS  ROWS +add/~chg/-del             % OF LEFT ROWS                 TIME  TABLE
+   [IDENTICAL]  PK     +0/-0                 408,860  +0/0/-0                         +0%/0%/-0%                   0.043s  core_eia861__yearly_sales
+   [CHANGED]    PK     +0/-0                  12,450  +50/221/-764                    +0.40%/1.78%/-6.14%          0.512s  core_eia860__scd_utilities
+   [CHANGED]    no-PK  +2/-1                  61,320  +0/-0                           +0%/-0%                      1.204s  core_eia923__monthly_fuel
+   [CHANGED]    PK     +0/-0           1,017,748,176  row diff skipped: too many rows                              2.310s  core_epacems__hourly_emissions
+
+* Columns: the number of columns only in the right table (``+``, cyan) and only
+  in the left table (``-``, magenta). A table whose columns changed is always
+  ``[CHANGED]``. If only a column's dtype changed, the line ends with
+  ``(dtypes changed)``.
+* Rows, ``+50`` (green): rows only in the right table. For a table with a
+  primary key, these are rows whose primary key is only in the right table.
+* Rows, ``221`` (yellow): for a table with a primary key only, the number of
+  rows whose primary key is in both tables but whose other values changed.
+* Rows, ``-764`` (red): rows only in the left table, or primary keys only in the
+  left table.
+* Percentages: each of those counts as a percentage of the left table's rows.
+  Very small ones are shown as ``<0.01%``.
+
+Zero counts are shown in gray. For a table with no primary key, rows are
+compared as a multiset, so a row that appears a different number of times counts
+towards ``+`` or ``-``. If row-level comparison was skipped, the rows column
+says so (e.g. ``row diff skipped: too many rows``) instead of showing counts.
+
+After the last table, ``pudl_diff`` prints how many tables were identical,
+changed and errored, the left and right datasets that were compared, the total
+time taken, and the peak memory used (the highest of any single table's, along
+with which table it was). It also totals the rows in all the tables, left and
+right, and the rows added, changed and removed across all of them, in counts and
+as percentages of the total left rows. Tables with no row-level comparison
+still count towards the total left rows, so a separate line says how many tables
+and rows that applies to. Any tables that errored, or were present in only one
+dataset, are listed last.
+
+Log messages
+------------
+
+Only log messages of ``ERROR`` severity or higher are shown, so that they don't
+interrupt the report. Skipped comparisons and errors are still recorded in each
+table's JSON report. Use ``--loglevel`` (e.g. ``--loglevel WARNING``) to see
+more.
 
 Exit codes
 ----------

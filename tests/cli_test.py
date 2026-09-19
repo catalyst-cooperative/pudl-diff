@@ -1,13 +1,24 @@
 """Unit tests for the pudl_diff script."""
 
 import json
+import logging
 import re
 from pathlib import Path
 
 import polars as pl
 from click.testing import CliRunner
 
-from pudl.scripts.pudl_diff import main
+from pudl.logging_helpers import get_logger
+from pudl.scripts.pudl_diff import (
+    _format_bytes,
+    _format_duration,
+    _format_header,
+    _format_outcome,
+    _format_percent,
+    _set_log_level,
+    _TableOutcome,
+    main,
+)
 
 
 def _write_datapackage(root: Path, resources: list[dict]) -> None:
@@ -350,8 +361,9 @@ def test_no_table_name_compares_every_table_in_both_datasets(tmp_path: Path):
     assert same["is_identical"] is True
     assert changed["is_identical"] is False
     assert (output_path / "changed_table_left_only.parquet").exists()
-    assert "Identical: 1  Different: 1  Failed: 0" in result.output
-    assert "Different: changed_table" in result.output
+    assert "Identical: 1  Changed: 1  Error: 0" in result.output
+    # Changed tables are counted, but not listed by name in the summary.
+    assert "Changed: changed_table" not in result.output
     assert "Only in left: left_only_table" in result.output
     assert "Only in right: right_only_table" in result.output
 
@@ -375,7 +387,7 @@ def test_no_table_name_all_identical_exits_zero(tmp_path: Path):
     )
 
     assert result.exit_code == 0, result.output
-    assert "Identical: 2  Different: 0  Failed: 0" in result.output
+    assert "Identical: 2  Changed: 0  Error: 0" in result.output
 
 
 def test_no_table_name_failed_comparison_exits_two(tmp_path: Path):
@@ -394,14 +406,16 @@ def test_no_table_name_failed_comparison_exits_two(tmp_path: Path):
             str(tmp_path / "left"),
             "--right",
             str(tmp_path / "right"),
+            "--loglevel",
+            "CRITICAL",  # pytest live logging clobbers CliRunner's stdout
             "--output-path",
             str(tmp_path / "out"),
         ],
     )
 
     assert result.exit_code == 2, result.output
-    assert "Identical: 1  Different: 0  Failed: 1" in result.output
-    assert "Failed: a" in result.output
+    assert "Identical: 1  Changed: 0  Error: 1" in result.output
+    assert "Error: a" in result.output
     assert (tmp_path / "out" / "b_diff.json").exists()
     report = json.loads((tmp_path / "out" / "a_diff.json").read_text())
     assert report["success"] is False
@@ -466,7 +480,7 @@ def test_multiple_table_names_compares_only_those_tables(tmp_path: Path):
         "same_table_diff.json",
     ]
     assert "Comparing 2 tables between" in result.output
-    assert "Identical: 1  Different: 1  Failed: 0" in result.output
+    assert "Identical: 1  Changed: 1  Error: 0" in result.output
     # Tables that weren't asked for aren't listed as one-sided.
     assert "Only in" not in result.output
 
@@ -484,14 +498,16 @@ def test_multiple_table_names_including_a_missing_table_exits_two(tmp_path: Path
             str(left),
             "--right",
             str(right),
+            "--loglevel",
+            "CRITICAL",  # pytest live logging clobbers CliRunner's stdout
             "--output-path",
             str(output_path),
         ],
     )
 
     assert result.exit_code == 2, result.output
-    assert "Identical: 1  Different: 0  Failed: 1" in result.output
-    assert "Failed: left_only_table" in result.output
+    assert "Identical: 1  Changed: 0  Error: 1" in result.output
+    assert "Error: left_only_table" in result.output
     assert (output_path / "same_table_diff.json").exists()
 
 
@@ -525,7 +541,7 @@ def test_no_color_flag_and_non_tty_default_have_no_ansi_output(tmp_path: Path):
 
     assert "\x1b[" not in default.output
     assert "\x1b[" not in forced_off.output
-    assert "same_table: identical" in default.output
+    assert "[IDENTICAL]" in default.output
 
 
 def test_progress_shows_sub_second_runtimes_with_millisecond_precision(tmp_path: Path):
@@ -533,4 +549,368 @@ def test_progress_shows_sub_second_runtimes_with_millisecond_precision(tmp_path:
         main, ["same_table", "changed_table", *_two_table_args(tmp_path)]
     )
 
-    assert re.search(r"\[1/2\] same_table: identical \(\d+\.\d{3}s\)", result.output)
+    assert re.search(
+        r"\[1/2\]  \[IDENTICAL\] .* \d+\.\d{3}s  same_table", result.output
+    )
+
+
+def _outcome(exit_code: int, **kwargs) -> _TableOutcome:
+    return _TableOutcome(
+        table_name="some_table",
+        exit_code=exit_code,
+        report_path=Path("report.json"),
+        elapsed_seconds=1.5,
+        error=None,
+        **kwargs,
+    )
+
+
+def _plain(line: str) -> str:
+    """Strip ANSI escape codes."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", line)
+
+
+def test_format_outcome_table_with_primary_key():
+    line = _plain(
+        _format_outcome(_outcome(1, added=1_234_567, changed=221, removed=764))
+    )
+    assert line.startswith("[CHANGED]")
+    assert "+1,234,567/221/-764" in line
+    assert line.endswith("1.500s  some_table")
+
+
+def test_format_outcome_table_without_primary_key_has_no_middle_count():
+    line = _plain(_format_outcome(_outcome(1, added=50, removed=30)))
+    assert "+50/-30" in line
+
+
+def test_format_outcome_identical_and_progress_prefix():
+    line = _plain(
+        _format_outcome(_outcome(0, added=0, changed=0, removed=0), "[ 3/378]")
+    )
+    assert line.startswith("[ 3/378]  [IDENTICAL]")
+    assert "+0/0/-0" in line
+
+
+def test_format_outcome_skipped_and_error_messages():
+    skipped = _plain(_format_outcome(_outcome(1, skipped_reason="too_many_rows")))
+    assert "[CHANGED]" in skipped
+    assert "row diff skipped: too many rows" in skipped
+
+    error = _plain(_format_outcome(_outcome(2)))
+    assert "[ERROR]" in error
+    assert "comparison failed" in error
+
+
+def test_format_outcome_column_changes():
+    line = _plain(
+        _format_outcome(
+            _outcome(
+                1, added=0, changed=0, removed=0, columns_added=2, columns_removed=1
+            )
+        )
+    )
+    assert "+2/-1" in line
+    assert line.index("+2/-1") < line.index("+0/0/-0")  # columns come before rows
+
+
+def test_format_outcome_column_colors():
+    gray, cyan, magenta = "\x1b[90m", "\x1b[36m", "\x1b[35m"
+    kwargs = {"added": 0, "changed": 0, "removed": 0}
+
+    changed = _format_outcome(_outcome(1, columns_added=2, columns_removed=1, **kwargs))
+    assert cyan in changed
+    assert magenta in changed
+
+    # Zero column counts are gray, like zero row counts.
+    unchanged = _format_outcome(
+        _outcome(0, columns_added=0, columns_removed=0, **kwargs)
+    )
+    assert cyan not in unchanged
+    assert magenta not in unchanged
+    assert gray in unchanged
+
+
+def test_format_outcome_error_has_no_column_counts():
+    line = _plain(_format_outcome(_outcome(2)))
+    assert "+0/-0" not in line
+
+
+def test_format_outcome_dtype_change_marker():
+    kwargs = {"added": 0, "changed": 0, "removed": 0}
+    with_dtypes = _outcome(
+        1, columns_added=0, columns_removed=0, dtypes_changed=3, **kwargs
+    )
+    assert _plain(_format_outcome(with_dtypes)).endswith("(dtypes changed)")
+    without = _outcome(0, columns_added=0, columns_removed=0, **kwargs)
+    assert "dtypes" not in _plain(_format_outcome(without))
+
+
+def test_format_header_names_each_column():
+    header = _plain(_format_header(len("[3/378]")))
+    for heading in [
+        "STATUS",
+        "KEY",
+        "COLS +add/-del",
+        "LEFT ROWS",
+        "ROWS +add/~chg/-del",
+        "% OF LEFT ROWS",
+        "TIME",
+        "TABLE",
+    ]:
+        assert heading in header
+    # The headings line up with the values in the rows below.
+    row = _plain(
+        _format_outcome(
+            _outcome(
+                0,
+                added=0,
+                changed=0,
+                removed=0,
+                columns_added=0,
+                columns_removed=0,
+                has_primary_key=True,
+                left_rows=1_234,
+            ),
+            "[3/378]",
+        )
+    )
+    assert header.index("STATUS") == row.index("[IDENTICAL]")
+    assert header.index("KEY") == row.index("PK")
+    assert header.index("COLS") == row.index("+0/-0")
+    # Row counts are right-aligned.
+    assert header.index("LEFT ROWS") + len("LEFT ROWS") == row.index("1,234") + 5
+    assert header.index("ROWS +add") == row.index("+0/0/-0")
+    assert header.index("% OF LEFT ROWS") == row.index("+0%/0%/-0%")
+    assert header.index("TABLE") == row.index("some_table")
+
+
+def test_format_outcome_key_and_left_rows():
+    pk = _plain(
+        _format_outcome(
+            _outcome(
+                1, added=1, changed=1, removed=1, has_primary_key=True, left_rows=1_500
+            )
+        )
+    )
+    assert re.search(r"\bPK\b.*\b1,500\b", pk)
+    no_pk = _plain(
+        _format_outcome(
+            _outcome(1, added=1, removed=1, has_primary_key=False, left_rows=1_500)
+        )
+    )
+    assert "no-PK" in no_pk
+    # An error means we don't know either.
+    error = _plain(_format_outcome(_outcome(2)))
+    assert "PK" not in error
+
+
+def test_format_outcome_percentages_are_relative_to_left_rows():
+    line = _plain(
+        _format_outcome(
+            _outcome(
+                1,
+                added=50,
+                changed=221,
+                removed=764,
+                has_primary_key=True,
+                left_rows=10_000,
+            )
+        )
+    )
+    assert "+50/221/-764" in line
+    assert "+0.50%/2.21%/-7.64%" in line
+
+
+def test_format_outcome_skipped_row_diff_still_shows_left_rows_but_no_percentages():
+    line = _plain(
+        _format_outcome(
+            _outcome(
+                1, skipped_reason="too_many_rows", has_primary_key=True, left_rows=99
+            )
+        )
+    )
+    assert "row diff skipped: too many rows" in line
+    assert " 99 " in line
+    assert "%" not in line.replace("% OF", "")
+
+
+def test_format_percent():
+    assert _format_percent(0, 100) == "0%"
+    assert _format_percent(0, 0) == "0%"
+    assert _format_percent(1, 0) == "n/a"
+    assert _format_percent(1, 100) == "1.00%"
+    assert _format_percent(1, 1_000_000) == "<0.01%"
+    assert _format_percent(250, 100) == "250%"
+    assert _format_percent(12_345, 100_000) == "12.35%"
+
+
+def test_format_duration():
+    assert _format_duration(0.0432) == "0.043s"
+    assert _format_duration(38.0) == "38.000s"
+    assert _format_duration(125.4) == "2m 05.4s"
+    assert _format_duration(3723.0) == "1h 02m 03s"
+
+
+def test_format_bytes():
+    assert _format_bytes(512_000_000) == "512.0 MB"
+    assert _format_bytes(21_394_456_576) == "21.4 GB"
+
+
+def test_format_outcome_colors():
+    gray, green, yellow, red = "\x1b[90m", "\x1b[32m", "\x1b[33m", "\x1b[31m"
+
+    mixed = _format_outcome(_outcome(1, added=5, changed=6, removed=7))
+    for code in (green, yellow, red):
+        assert code in mixed
+
+    # Zero counts are gray rather than colored.
+    zeros = _format_outcome(_outcome(0, added=0, changed=0, removed=0))
+    assert gray in zeros
+    assert yellow not in zeros
+    assert red not in zeros
+    assert f"{green}+0" not in zeros
+
+
+def test_cli_row_shows_status_and_changes(tmp_path: Path):
+    """End to end, a table with a primary key shows +added/changed/-removed."""
+    resources = [_pk_resource("t", ["x"])]
+    _make_dataset(
+        tmp_path / "left",
+        resources,
+        {"t": pl.DataFrame({"x": [1, 2, 3], "y": ["a", "b", "c"]})},
+    )
+    _make_dataset(
+        tmp_path / "right",
+        resources,
+        {"t": pl.DataFrame({"x": [2, 3, 4, 5], "y": ["b", "changed", "d", "e"]})},
+    )
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "-l",
+            str(tmp_path / "left"),
+            "-r",
+            str(tmp_path / "right"),
+            "-o",
+            str(tmp_path / "o"),
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    assert "[CHANGED]" in result.output
+    assert "+2/1/-1" in result.output
+
+
+def test_cli_shows_header_and_summary_with_paths_time_and_memory(tmp_path: Path):
+    left, right = _all_tables_datasets(tmp_path)
+
+    result = CliRunner().invoke(
+        main, ["-l", str(left), "-r", str(right), "-o", str(tmp_path / "out")]
+    )
+
+    assert result.exit_code == 1, result.output
+    assert "STATUS" in result.output
+    assert "TABLE" in result.output
+    assert f"Left:            {left}" in result.output
+    assert f"Right:           {right}" in result.output
+    assert re.search(r"Elapsed: +\d+\.\d{3}s", result.output)
+    # The peak is the highest of any single table's, and names that table.
+    assert re.search(
+        r"Peak memory: +\d+\.\d [MG]B \((changed_table|same_table)\)", result.output
+    )
+    # Totals: 2 rows in each of the two tables on the left, and the one changed
+    # table's 2 changed rows (the same key, but a different value for y).
+    assert "Total rows:      4 left, 4 right (2 tables)" in result.output
+    assert "Row changes:     +0/2/-0" in result.output
+    assert "% of left rows:  +0%/50.00%/-0%" in result.output
+
+
+def test_cli_shows_added_and_removed_columns(tmp_path: Path):
+    resources = [_pk_resource("t", ["x"])]
+    _make_dataset(
+        tmp_path / "left",
+        resources,
+        {"t": pl.DataFrame({"x": [1, 2], "y": ["a", "b"], "old": [1, 2]})},
+    )
+    _make_dataset(
+        tmp_path / "right",
+        resources,
+        {
+            "t": pl.DataFrame(
+                {"x": [1, 2], "y": ["a", "b"], "new1": [1, 2], "new2": [3, 4]}
+            )
+        },
+    )
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "-l",
+            str(tmp_path / "left"),
+            "-r",
+            str(tmp_path / "right"),
+            "-o",
+            str(tmp_path / "out"),
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    # The rows are unchanged, but two columns were added and one removed.
+    assert "[CHANGED]" in result.output
+    assert re.search(r"\+2/-1 +[\d,]+ +\+0/0/-0", result.output)
+
+
+def test_summary_totals_count_uncompared_tables(tmp_path: Path):
+    left, right = _all_tables_datasets(tmp_path)
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "same_table",
+            "changed_table",
+            "-l",
+            str(left),
+            "-r",
+            str(right),
+            "-o",
+            str(tmp_path / "out"),
+            "--max-compare-rows",
+            "1",
+        ],
+    )
+
+    # Neither table was row-compared, but their rows count towards the total.
+    assert "Total rows:      4 left, 4 right (2 tables)" in result.output
+    assert "Row changes:     +0/0/-0" in result.output
+    assert "Not compared:    2 tables (4 left rows)" in result.output
+
+
+def test_set_log_level_hides_lower_severities_and_restores(caplog):
+    logger = get_logger("pudl.scripts.pudl_diff_test")
+    before = logging.getLogger("catalystcoop").level
+
+    restore = _set_log_level("ERROR")
+    logger.warning("hidden warning")
+    logger.error("shown error")
+    restore()
+    logger.warning("visible again")
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert "hidden warning" not in messages
+    assert "shown error" in messages
+    assert "visible again" in messages
+    assert logging.getLogger("catalystcoop").level == before
+
+
+def test_cli_leaves_logging_as_it_found_it(tmp_path: Path):
+    left, right = _all_tables_datasets(tmp_path)
+    before = logging.getLogger("catalystcoop").level
+
+    CliRunner().invoke(
+        main,
+        ["same_table", "-l", str(left), "-r", str(right), "-o", str(tmp_path / "o")],
+    )
+
+    assert logging.getLogger("catalystcoop").level == before
