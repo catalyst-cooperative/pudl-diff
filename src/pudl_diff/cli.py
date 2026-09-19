@@ -15,6 +15,7 @@ import pudl
 from pudl.logging_helpers import get_logger
 from pudl.validate.diff import table_report as diff
 from pudl.validate.diff.dataset import PudlDiffDataset
+from pudl.validate.diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON
 from pudl.workspace.setup import PudlPaths
 
 logger = get_logger(__name__)
@@ -600,7 +601,7 @@ def _set_log_level(level: str) -> Callable[[], None]:
 @click.option(
     "--max-compare-rows",
     type=int,
-    default=diff.MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
+    default=MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
     show_default=True,
     help="Skip row-level comparison, keeping the cheaper schema and "
     "row-count comparisons, whenever either table has more rows than this.",
