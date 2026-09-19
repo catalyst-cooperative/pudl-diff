@@ -208,7 +208,7 @@ include:
   proceed with a task or there is a major design decision with multiple reasonable
   options.
 
-### Core Functionality (3hr38m on 2026-09-16)
+### Core Functionality
 
 * We will start by implementing the core functionality in `src/pudl/validate/diff.py`
   and writing the associated unit tests.
@@ -363,52 +363,75 @@ par with `out_eia930__hourly_subregion_demand` at ~6M) because it's unusually wi
 used by `compare_rows_with_pk` — a first hint that column count, not just row
 count, matters for the large-table strategy noted above.
 
-### The PUDL Diff CLI Tool (2026-09-17 19:46 - 2026-09-17 23:34 (3hr48min))
+### The PUDL Diff CLI Tool
 
-We are going to build a CLI around the `src/pudl/validate/diff.py` module.
-We will use the Click framework to create a new CLI at `src/pudl/scripts/pudl_diff.py`.
-The CLI will generate a structured report using JSON that summarizes the results of the diff.
-The structured report will be consumed by agents that are using the CLI to compare PUDL outputs.
-The structured report will also be saved to disk as a record of the diff in various contexts, including nightly builds and versioned data releases.
+We built a CLI around the `src/pudl/validate/diff.py` module.
+It uses the Click framework and lives at `src/pudl/scripts/pudl_diff.py`.
+The CLI compares any number of tables between two PUDL Parquet datasets (by default, every table present in both) and writes a single structured JSON report summarizing the results of the whole comparison.
+The structured report is consumed by agents that are using the CLI to compare PUDL outputs.
+It is also saved to disk as a record of the diff in various contexts, including nightly builds and versioned data releases.
 Later we will also use these structured reports as an input to a Marimo notebook for visualizing the results of a diff, or a collection of diffs.
-We will also add a CLI option to generate a human-readable summary of the diff, which will be useful for interactive use and for debugging.
-However, for now we are focused just on the structured JSON report, which will enable those other applications.
-First we will define the structure of the report for a single pair of tables, and later create a higher level structure for comparing two entire datasets composed of many tables.
+The CLI also prints a human-readable, colorized summary: a line for each table as it is compared, and (when comparing more than one table) totals at the end.
+Most of the logic lives in the library module rather than the CLI: the CLI only decides which tables to compare, renders the report for humans, and sets the exit code.
+
+The report is dataset-centric.
+It is built by `build_pudl_diff_report()` into a Pydantic `PudlDiffReport` model, which contains a `TableDiffReport` for each table compared.
+(Pydantic, rather than plain dataclasses, so the JSON can be validated on reload for later analysis and visualization.)
+The fields that pertain to the comparison as a whole are on the `PudlDiffReport`, and everything that pertains to only one table is on its `TableDiffReport`.
 
 #### Information contained in the PUDL Diff report structure
 
-The table diff summary report will be a JSON object, serialized from a Pydantic
-`TableDiffReport` model (so it can be validated on reload for later analysis and
-visualization, rather than a plain dataclass).
-The JSON object will not contain any of either table's actual data.
-Alongside the JSON report we will also save a pair of Parquet files.
-The parquet files will contain left-only and right-only rows, respectively, for tables that have primary keys.
-The parquet files will contain the rows that are part of the symmetric difference of the two tables, and also the rows that have matching primary keys but differing non-PK data.
-For tables that do not have primary keys, the parquet files will contain the rows that are part of the symmetric difference of the two tables.
-The schema of the left-only Parquet file must be identical to the schema of the left table, and the schema of the right-only Parquet file must be identical to the schema of the right table.
+The report is written to `pudl_diff_report.json` in the output directory, and is versioned by a `schema_version` field (currently `1.0.0`).
+Before this branch merges we still need to fully document the report schema.
+The JSON does not contain any of either table's actual data.
+Alongside the JSON report we also save a pair of Parquet files for each table that differs.
+The parquet files contain left-only and right-only rows, respectively, for tables that have primary keys.
+The parquet files contain the rows that are part of the symmetric difference of the two tables, and also the rows that have matching primary keys but differing non-PK data.
+For tables that do not have primary keys, the parquet files contain the rows that are part of the symmetric difference of the two tables.
+The schema of the left-only Parquet file is identical to the schema of the left table, and the schema of the right-only Parquet file is identical to the schema of the right table.
 
-The report will contain the following information for each table comparison:
+**Design decisions on the dataset-level structure**
 
-* Report provenance
-  * Report creation timestamp (UTC, ISO-8601), matching the `created` field
-    convention used in PUDL's enriched `datapackage.json`
-  * Left dataset provenance: `id`, `created`, `git_sha`, `git_tags`, read
-    from the left dataset's own `datapackage.json` if present (omitted/null
-    for any field that dataset's descriptor doesn't have, e.g. an older
-    build without git provenance) — `created` here is the left dataset's own
-    build timestamp, distinct from the report creation timestamp above
-  * Right dataset provenance: same four fields, read from the right
-    dataset's `datapackage.json`
+* The tables are a dict keyed by table name, not a list, so consumers can look a table up directly. The key is the table's name in the left dataset; `--right-table` only applies to a single table, so keys can't collide, and each entry still records both names.
+* Report-wide fields (creation time, dataset provenance, success) live once at the top level, and were removed from the per-table reports.
+* A `summary` block does the aggregation across tables (counts, row and column totals, sizes), so downstream consumers, and the CLI, don't have to.
+* Every byte count is stored as an integer alongside a human-readable string (`B`, `KB`, `MB` or `GB`, in decimal units), so the numbers are easy to read in the JSON as well.
+* Derived fields (the size strings, the byte difference and its percentage) are Pydantic computed fields, so they can't disagree with the byte counts they're derived from.
+
+**Top level of the report** (`PudlDiffReport`)
+
+* `schema_version`
+* Report creation timestamp `created` (UTC, ISO-8601), matching the `created` field convention used in PUDL's enriched `datapackage.json`, and `elapsed_seconds` for the whole comparison
+* `left_dataset` and `right_dataset`: the dataset's `root` (local path or URL), plus its provenance `id`, `created`, `git_sha`, `git_tags`, read from its own `datapackage.json` if present (null for any field that dataset's descriptor doesn't have, e.g. an older build without git provenance). `created` here is the dataset's own build timestamp, distinct from the report creation timestamp above.
+* `options`: the settings the comparison ran with: `rtol`, `atol`, `max_compare_rows`, `max_output_rows`, `auto_partition` and `partition_expr`
+* `tables_only_in_left` and `tables_only_in_right`: tables that were not compared because they are in only one dataset
+* `summary` (`PudlDiffSummary`), totals over all the tables:
+  * Counts of tables compared, identical, changed and failed; the names of the failed tables and of those whose schema changed
+  * Total left and right row counts; rows added, changed and removed, summed over the tables that had a row-level comparison; and how many tables (and left rows) had none
+  * Columns added, columns with changed dtypes, and columns removed
+  * Total left and right table size, the difference, and the difference as a percentage of the left size (tables whose size is known on both sides)
+  * Peak memory use of any one table, and which table it was
+* `is_identical`: True only if the run succeeded and every compared table is identical. Tables in only one dataset do not count against it.
+* `success`: True if the run completed and every table's comparison completed. This is distinct from `is_identical`: a comparison can succeed and find differences.
+* `error`: why the run as a whole failed, if it did (e.g. the datasets have no tables in common). It is null when the only failures are of individual tables, which each record their own error.
+* `tables`: the `TableDiffReport` of each table, as described below
+
+**Each table's report** (`TableDiffReport`)
+
 * Table level information
   * Left table name (string)
   * Path to the left table input file (local path or URL)
   * Right table name (string)
   * Path to the right table input file (local path or URL)
-  * Overall table identical boolean (True if the two tables are functionally identical, False otherwise)
+  * Overall table identical boolean (True if the two tables are functionally identical, False otherwise; always False if the comparison failed)
   * Time it took to run the comparison (in seconds)
-  * Peak memory usage during the comparison (in bytes)
-  * Peak CPU utilization during the comparison (percent of one core, e.g.
-    400.0 for four cores kept fully busy at once)
+  * Peak memory usage during the comparison (`peak_rss_bytes`, and `peak_rss`, human-readable)
+  * Peak CPU utilization during the comparison (percent of one core, e.g. 400.0 for four cores kept fully busy at once)
+* Table size, as the bytes of the Parquet file on disk or in S3/GCS (each table is a single file)
+  * `left_table_bytes` and `right_table_bytes`, with `left_table_size` and `right_table_size` as human-readable strings
+  * `bytes_difference`, right minus left, so negative if the table shrank, and `bytes_difference_size`, a signed human-readable string
+  * `bytes_difference_percent`, as a percentage of the left size
+  * Compression algorithms or levels can change these even if the table's contents don't. They are looked up on a best-effort basis even when the comparison failed, and are null when unknown (and the percentage is also null when the left size is 0).
 * Schema comparison results
   * Columns only in left table
   * Columns only in right table
@@ -417,7 +440,7 @@ The report will contain the following information for each table comparison:
 * Row count comparison results
   * Total rows in left table
   * Total rows in right table
-  * Row count difference (left - right)
+  * Row count difference (right - left)
   * Partitioned row counts (if applicable)
     * Partition column name
     * Partition values and their respective row counts in left and right datasets
@@ -437,25 +460,37 @@ The report will contain the following information for each table comparison:
     * Symmetric difference row count (sum of the above two counts)
     * Overall row-level identical boolean (True if the two tables have the same set of rows, False otherwise)
   * If row-level comparison did not run, a reason (too many rows, incompatible dtypes, or mismatched columns without a usable primary key)
-  * Left-only Parquet output: path, `bytes`, `hash` (`"sha256:<hexdigest>"`,
+  * Left-only Parquet output: path, `bytes` (and a human-readable `size`), `hash` (`"sha256:<hexdigest>"`,
     matching PUDL's enriched `datapackage.json` resource convention)
-  * Right-only Parquet output: same three fields
-* Error summary (if any errors occurred during the comparison, including error messages and stack traces)
-* Success boolean (True if the comparison completed successfully, False otherwise)
+  * Right-only Parquet output: same fields
+* Error summary (if the comparison of this table failed to complete, the error message and stack trace)
+* Success boolean (True if the comparison of this table completed, False otherwise)
+
+**Terminal output**
+
+For each table the CLI prints a line with its status (`[IDENTICAL]`, `[CHANGED]` or `[ERROR]`), whether it has a primary key, column and row counts and changes (`+added/~changed/-removed`, in git-diff-like colors), the left and right sizes, the change in size and its percentage of the left size, the elapsed time, and the table name.
+The size change is shown in blue when the table grew and orange when it shrank (gray if unchanged). We chose these, rather than git's green and red, because a change in file size is not inherently good or bad.
+The summary at the end reads its totals from the report's `summary` and shows the number of tables identical, changed and failed, the elapsed time, peak memory, total rows and row changes, total size and change in size, column changes, the tables whose schema changed, tables with errors, and the tables in only one dataset.
 
 #### PUDL Diff CLI Arguments
 
-* Path to the left dataset root (local path or URL, optional, defaults to
+* Table names to compare (zero or more, optional). With none, compares every table that has a Parquet file in both datasets. Duplicates are compared once.
+* `-l`/`--left`: path to the left dataset root (local path or URL, optional, defaults to
   `s3://pudl.catalyst.coop/nightly/`, the reference point most diffs are measured
   against)
-* Path to the right dataset root (local path or URL, optional, defaults to
+* `-r`/`--right`: path to the right dataset root (local path or URL, optional, defaults to
   `$PUDL_OUTPUT/parquet`, so the diff reads as what's changed locally since the last
   nightly build)
-* Left table name to compare (string, required)
-* Right table name to compare (string, optional, defaults to left table name)
-* Output path for the JSON report and Parquet outputs (local path, optional, defaults to current working directory, must be a writable directory, will be created along with parent directories if it does not yet exist)
-* Max table size to compare at the row level (integer, optional, defaults to 100,000,000)
-* Max number of rows to save to each Parquet output file (integer, optional, defaults to all rows)
+* `--right-table`: right table name to compare (string, optional, defaults to the left table name; requires exactly one table name)
+* `-o`/`--output-path`: directory for `pudl_diff_report.json` and the Parquet outputs (local path, optional, defaults to current working directory, will be created along with parent directories if it does not yet exist)
+* `--max-compare-rows`: max table size to compare at the row level (integer, optional, defaults to 100,000,000)
+* `--max-output-rows`: max number of rows to save to each Parquet output file (integer, optional, defaults to all rows)
+* `--rtol` and `--atol`: tolerances for float equality
+* `--partition-expr` and `--no-auto-partition`: the column to group row counts by, or turning off the automatic use of the dbt row-count partition
+* `--color`/`--no-color`: colorize the output (defaults to on if stdout is a terminal)
+* `--loglevel`: minimum severity of log messages shown (defaults to `ERROR`, so they don't interrupt the report)
+
+Exit codes: `0` if every table is identical, `1` if any differ (including any whose row-level comparison was skipped), and `2` if any comparison itself failed or the run failed as a whole. A table that fails does not stop the others from being compared.
 
 #### Approved task breakdown
 
@@ -572,7 +607,8 @@ works; not scheduled as a task yet.
   `--max-output-rows`; `--rtol`/`--atol`;
   `--partition-col`/`--no-auto-partition`.
 * Orchestrates `run_table_diff` → Parquet side-output writing → JSON report
-  serialization → write to `<output-path>/<table_name>_diff.json`.
+  serialization → write to `<output-path>/<table_name>_diff.json`. (Superseded
+  by Task 9: there is now a single report for the whole run.)
 * Exit codes: `0` identical, `1` not identical, `2` error (unknown table,
   dataset load failure not otherwise caught by `run_table_diff`, e.g. bad
   CLI arguments).
@@ -583,7 +619,7 @@ works; not scheduled as a task yet.
   large-table skip, and a simulated error — checking exit codes and the
   written JSON/Parquet files' contents.
 
-**Task 7 — Documentation** (2026-09-18T10:05-06:00)
+**Task 7 — Documentation**
 
 * Confirm the "The PUDL Diff CLI Tool" section of `pudl-diff.md` reflects
   actual usage now that the tool exists (update if behavior diverged during
@@ -593,6 +629,41 @@ works; not scheduled as a task yet.
 * Ensure that `pudl_diff --help` provides 2-3 examples of typical usage, including a
   local vs. nightly comparison and a comparison of two local datasets.
 
+**Task 8 -- Bulk CLI for comparing all tables in two datasets**
+
+* Add --color/--no-color option to the CLI for colorized output (default on if stdout is a TTY, off otherwise).
+* More precision on the runtime of each table comparison, and the total runtime of the bulk comparison.
+* Change --output-path to just --output with a short -o option
+* Add a -l and -r short option for the left and right dataset paths, respectively.
+
+* Output a single JSON report summarizing all table comparisons, with a top-level `is_identical` boolean and a list of per-table reports (same structure as the single-table report above). (Done in Task 9, with a dict rather than a list of per-table reports.)
+* Need to handle the GeoParquet tables which polars barfs on. (Not addressed by the work in Task 9.)
+
+Done: the `--color/--no-color` option, more precise timings, the `-l`, `-r` and `-o` short options, and comparing all the tables in two datasets in one run.
+We kept the long option name `--output-path` rather than renaming it to `--output`.
+
+**Task 9 — Dataset-level report, and table sizes**
+
+Implemented in four commits, so that the move of code could be reviewed separately from the edits to it:
+
+1. Move `_RowSummary` and `_summarize_row_diff` verbatim from the CLI into `pudl.validate.diff`. (`_diff_table` was not moved verbatim, because it returns the CLI-only `_TableOutcome`; it was replaced in commit 3 instead.)
+2. Add the dataset-level report to `pudl.validate.diff`, with its tests:
+   * `PudlDiffReport`, `PudlDiffSummary` (built by `PudlDiffSummary.from_tables`), `DatasetInfo`, `DiffOptions`, and `build_pudl_diff_report()`; `REPORT_SCHEMA_VERSION` is `1.0.0`
+   * `TableDiffReport` loses its dataset-level fields (`created`, `left_dataset`, `right_dataset`)
+   * `SizeComparison`, the base class of `TableDiffReport` and `PudlDiffSummary`, with the byte counts and their derived fields; `PudlDiffDataset.table_bytes()`; and `format_bytes()`. `peak_rss_mb` is replaced by `peak_rss`, and `ParquetOutputSummary` gains a `size`.
+   * `report_table_diff()`, which runs, writes the Parquet outputs and reports on one table, replacing the CLI's `_diff_table`; and `RowChanges.from_summary()`, which was `_summarize_row_diff`
+3. Switch the CLI to the single `pudl_diff_report.json`:
+   * The CLI builds one `PudlDiffReport` (also for single-table runs, which are a report with one table) and reads the totals in its summary from it
+   * If the run fails before any table is compared, e.g. because the datasets have no tables in common, a report with a top-level `error` is still written, and the exit code is `2`
+   * Size columns and summary lines, in blue and orange
+   * `main` split into `_resolve_tables`, `_echo_intro` and `_compare_tables`, to stay under ruff's complexity limit
+4. Update `docs/dev/pudl_diff.rst` for the single report.
+
+Remaining before the PR is ready:
+
+* Fully document the report schema
+* Add release notes to `docs/release_notes.rst`, with the issue and PR numbers
+
 ### The PUDL Diff Marimo Notebook
 
 We are not yet ready to implement the Marimo notebook.
@@ -600,3 +671,37 @@ We are not yet ready to implement the Marimo notebook.
 ### Nightly PUDL Data Diff Reporting
 
 We are not yet ready to implement nightly data diff reporting.
+
+---
+
+## Time Tracking
+
+### Core Functionality:
+
+2026-09-16: 3:38
+
+### Report Structure and CLI:
+
+Started: 2026-09-17 19:46
+Stopped: 2026-09-17 23:34
+Elapsed 3:48
+
+### Performance, CLI & Reporting Refinements:
+
+Resumed: 2026-09-18 10:05
+Stopped: 2026-09-18 10:59
+Elapsed: 0:54
+
+Resumed: 2026-09-18 14:14
+Stopped: 2026-09-18 15:17
+Elapsed: 1:03
+
+Resumed: 2026-09-18 16:22
+Stopped: 2026-09-18 18:13
+Elapsed: 1:51
+
+### Multi-table Reporting and CLI Refinements:
+
+Resumed: 2026-09-18 19:05
+Stopped: 2026-09-18 23:01
+Elapsed: 3:56
