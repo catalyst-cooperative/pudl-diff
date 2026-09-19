@@ -469,7 +469,8 @@ The schema of the left-only Parquet file is identical to the schema of the left 
 **Terminal output**
 
 For each table the CLI prints a line with its status (`[IDENTICAL]`, `[CHANGED]` or `[ERROR]`), whether it has a primary key, column and row counts and changes (`+added/~changed/-removed`, in git-diff-like colors), the left and right sizes, the change in size and its percentage of the left size, the elapsed time, and the table name.
-The size change is shown in blue when the table grew and orange when it shrank (gray if unchanged). We chose these, rather than git's green and red, because a change in file size is not inherently good or bad.
+The size change is shown in green when the table grew and red when it shrank (gray if unchanged), like the `+`/`-` of the row and column counts.
+The header is two lines, so that a column's name (e.g. `LEFT` / `COLS`, or `ROW CHANGES` over `+add/~chg/-del`) needn't make it wider than its values.
 The summary at the end reads its totals from the report's `summary` and shows the number of tables identical, changed and failed, the elapsed time, peak memory, total rows and row changes, total size and change in size, column changes, the tables whose schema changed, tables with errors, and the tables in only one dataset.
 
 #### PUDL Diff CLI Arguments
@@ -655,7 +656,7 @@ Implemented in four commits, so that the move of code could be reviewed separate
 3. Switch the CLI to the single `pudl_diff_report.json`:
    * The CLI builds one `PudlDiffReport` (also for single-table runs, which are a report with one table) and reads the totals in its summary from it
    * If the run fails before any table is compared, e.g. because the datasets have no tables in common, a report with a top-level `error` is still written, and the exit code is `2`
-   * Size columns and summary lines, in blue and orange
+   * Size columns and summary lines, in green and red
    * `main` split into `_resolve_tables`, `_echo_intro` and `_compare_tables`, to stay under ruff's complexity limit
 4. Update `docs/dev/pudl_diff.rst` for the single report.
 
