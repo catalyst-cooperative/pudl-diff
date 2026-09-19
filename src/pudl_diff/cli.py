@@ -13,7 +13,7 @@ from dagster import get_dagster_logger
 
 import pudl
 from pudl.logging_helpers import get_logger
-from pudl.validate import diff
+from pudl.validate.diff import table_report as diff
 from pudl.workspace.setup import PudlPaths
 
 logger = get_logger(__name__)

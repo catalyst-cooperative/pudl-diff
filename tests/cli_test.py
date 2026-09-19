@@ -20,7 +20,7 @@ from pudl.scripts.pudl_diff import (
     _TableOutcome,
     main,
 )
-from pudl.validate import diff
+from pudl.validate.diff import table_report as diff
 
 
 def _write_datapackage(root: Path, resources: list[dict]) -> None:
