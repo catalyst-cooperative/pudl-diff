@@ -2,12 +2,16 @@
 
 import json
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import pydantic
 
+from pudl.validate.diff import table_report
 from pudl.validate.diff.dataset import DatasetProvenance, PudlDiffDataset
-from pudl.validate.diff.formatting import format_bytes
+from pudl.validate.diff.formatting import (
+    format_bytes,
+)
 from pudl.validate.diff.table_report import (
     DiffOptions,
     RowChanges,
@@ -251,4 +255,51 @@ def build_pudl_diff_report(
         is_identical=success and all(r.is_identical for r in tables.values()),
         error=error,
         success=success,
+    )
+
+
+@dataclass(frozen=True)
+class _TableOutcome:
+    """What happened when comparing one table, for display."""
+
+    table_name: str
+    exit_code: int
+    """``0`` if identical, ``1`` if different, ``2`` if the comparison failed."""
+    elapsed_seconds: float | None
+    error: str | None
+    rows: table_report.RowChanges
+    sizes: table_report.SizeComparison
+    left_rows: int | None = None
+    right_rows: int | None = None
+    left_columns: int | None = None
+    columns_added: int | None = None
+    """Columns only in the right table. ``None`` if the comparison failed."""
+    columns_removed: int | None = None
+    """Columns only in the left table."""
+    dtypes_changed: int = 0
+    """Number of shared columns whose dtype differs between the tables."""
+    peak_rss_bytes: int | None = None
+
+
+def _outcome(table_name: str, report: table_report.TableDiffReport) -> _TableOutcome:
+    """Boil a table's report down to what we display."""
+    exit_code = 0 if report.is_identical else 1
+    if not report.success:
+        exit_code = 2
+    row_counts = report.row_count_diff
+    schema = report.schema_diff
+    return _TableOutcome(
+        table_name=table_name,
+        exit_code=exit_code,
+        elapsed_seconds=report.elapsed_seconds,
+        error=report.error,
+        rows=table_report.RowChanges.from_summary(report.row_diff),
+        sizes=report,
+        left_rows=row_counts.left_row_count if row_counts else None,
+        right_rows=row_counts.right_row_count if row_counts else None,
+        left_columns=schema.left_column_count if schema else None,
+        columns_added=len(schema.columns_only_in_right) if schema else None,
+        columns_removed=len(schema.columns_only_in_left) if schema else None,
+        dtypes_changed=len(schema.dtype_changes) if schema else 0,
+        peak_rss_bytes=report.peak_rss_bytes,
     )

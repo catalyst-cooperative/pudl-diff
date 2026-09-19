@@ -14,10 +14,10 @@ from pudl.scripts.pudl_diff import (
     _format_header,
     _format_outcome,
     _set_log_level,
-    _TableOutcome,
     main,
 )
 from pudl.validate.diff import table_report
+from pudl.validate.diff.dataset_report import _TableOutcome
 from pudl.validate.diff.formatting import (
     _format_duration,
     _format_percent,
