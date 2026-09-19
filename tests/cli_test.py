@@ -11,8 +11,6 @@ from click.testing import CliRunner
 from pudl.logging_helpers import get_logger
 from pudl.scripts.pudl_diff import (
     REPORT_FILENAME,
-    _format_header,
-    _format_outcome,
     _set_log_level,
     main,
 )
@@ -23,6 +21,7 @@ from pudl.validate.diff.formatting import (
     _format_percent,
     _format_signed_percent,
 )
+from pudl.validate.diff.terminal import _format_header, _format_outcome
 
 
 def _write_datapackage(root: Path, resources: list[dict]) -> None:
