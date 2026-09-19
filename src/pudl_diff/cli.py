@@ -13,7 +13,7 @@ from dagster import get_dagster_logger
 
 import pudl
 from pudl.logging_helpers import get_logger
-from pudl.validate.diff import table_report as diff
+from pudl.validate.diff import table_report
 from pudl.validate.diff.dataset import PudlDiffDataset
 from pudl.validate.diff.dataset_report import (
     PudlDiffReport,
@@ -60,8 +60,8 @@ class _TableOutcome:
     """``0`` if identical, ``1`` if different, ``2`` if the comparison failed."""
     elapsed_seconds: float | None
     error: str | None
-    rows: diff.RowChanges
-    sizes: diff.SizeComparison
+    rows: table_report.RowChanges
+    sizes: table_report.SizeComparison
     left_rows: int | None = None
     right_rows: int | None = None
     left_columns: int | None = None
@@ -74,7 +74,7 @@ class _TableOutcome:
     peak_rss_bytes: int | None = None
 
 
-def _outcome(table_name: str, report: diff.TableDiffReport) -> _TableOutcome:
+def _outcome(table_name: str, report: table_report.TableDiffReport) -> _TableOutcome:
     """Boil a table's report down to what we display."""
     exit_code = 0 if report.is_identical else 1
     if not report.success:
@@ -86,7 +86,7 @@ def _outcome(table_name: str, report: diff.TableDiffReport) -> _TableOutcome:
         exit_code=exit_code,
         elapsed_seconds=report.elapsed_seconds,
         error=report.error,
-        rows=diff.RowChanges.from_summary(report.row_diff),
+        rows=table_report.RowChanges.from_summary(report.row_diff),
         sizes=report,
         left_rows=row_counts.left_row_count if row_counts else None,
         right_rows=row_counts.right_row_count if row_counts else None,
@@ -233,7 +233,9 @@ def _columns_segments(outcome: _TableOutcome) -> _Segments:
     )
 
 
-def _size_change_segments(sizes: diff.SizeComparison) -> tuple[_Segments, _Segments]:
+def _size_change_segments(
+    sizes: table_report.SizeComparison,
+) -> tuple[_Segments, _Segments]:
     """The size change and its percentage of the left size, colored by direction.
 
     Blank if either size is unknown.
@@ -518,17 +520,17 @@ def _compare_tables(
     output_path: Path,
     *,
     right_table: str | None,
-    options: diff.DiffOptions,
+    options: table_report.DiffOptions,
     show_progress: bool,
-) -> tuple[dict[str, diff.TableDiffReport], list[_TableOutcome]]:
+) -> tuple[dict[str, table_report.TableDiffReport], list[_TableOutcome]]:
     """Compare each table in turn, printing a line about each as it's done."""
-    reports: dict[str, diff.TableDiffReport] = {}
+    reports: dict[str, table_report.TableDiffReport] = {}
     outcomes: list[_TableOutcome] = []
     total = len(tables)
     width = len(str(total))
     click.echo(_format_header(len(f"[{total}/{total}]") if show_progress else 0))
     for i, table in enumerate(tables, start=1):
-        reports[table] = diff.report_table_diff(
+        reports[table] = table_report.report_table_diff(
             left,
             right,
             table,
@@ -713,7 +715,7 @@ def main(
 
     left_dataset = PudlDiffDataset(left_root)
     right_dataset = PudlDiffDataset(right_root)
-    options = diff.DiffOptions(
+    options = table_report.DiffOptions(
         rtol=rtol,
         atol=atol,
         max_compare_rows=max_compare_rows,

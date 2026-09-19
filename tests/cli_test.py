@@ -20,7 +20,7 @@ from pudl.scripts.pudl_diff import (
     _TableOutcome,
     main,
 )
-from pudl.validate.diff import table_report as diff
+from pudl.validate.diff import table_report
 
 
 def _write_datapackage(root: Path, resources: list[dict]) -> None:
@@ -616,7 +616,7 @@ def _outcome(
     removed: int | None = None,
     skipped_reason: str | None = None,
     has_primary_key: bool | None = None,
-    sizes: diff.SizeComparison | None = None,
+    sizes: table_report.SizeComparison | None = None,
     **kwargs,
 ) -> _TableOutcome:
     return _TableOutcome(
@@ -624,14 +624,14 @@ def _outcome(
         exit_code=exit_code,
         elapsed_seconds=1.5,
         error=None,
-        rows=diff.RowChanges(
+        rows=table_report.RowChanges(
             added=added,
             changed=changed,
             removed=removed,
             skipped_reason=skipped_reason,
             has_primary_key=has_primary_key,
         ),
-        sizes=sizes or diff.SizeComparison(),
+        sizes=sizes or table_report.SizeComparison(),
         **kwargs,
     )
 
@@ -858,7 +858,9 @@ def test_format_outcome_sizes_and_their_colors():
     blue, orange, gray = "\x1b[38;5;39m", "\x1b[38;5;208m", "\x1b[90m"
 
     def line(left: int, right: int) -> str:
-        sizes = diff.SizeComparison(left_table_bytes=left, right_table_bytes=right)
+        sizes = table_report.SizeComparison(
+            left_table_bytes=left, right_table_bytes=right
+        )
         return _format_outcome(_outcome(1, sizes=sizes))
 
     grew = line(10_000_000, 10_500_000)
