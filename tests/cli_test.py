@@ -10,15 +10,17 @@ from click.testing import CliRunner
 
 from pudl.logging_helpers import get_logger
 from pudl.scripts.pudl_diff import (
-    _format_bytes,
+    REPORT_FILENAME,
     _format_duration,
     _format_header,
     _format_outcome,
     _format_percent,
+    _format_signed_percent,
     _set_log_level,
     _TableOutcome,
     main,
 )
+from pudl.validate import diff
 
 
 def _write_datapackage(root: Path, resources: list[dict]) -> None:
@@ -89,7 +91,7 @@ def test_identical_table_exits_zero(tmp_path: Path):
     )
 
     assert result.exit_code == 0, result.output
-    report = json.loads((output_path / "table_with_pk_diff.json").read_text())
+    report = _load_report(output_path)["tables"]["table_with_pk"]
     assert report["success"] is True
     assert report["is_identical"] is True
 
@@ -122,7 +124,7 @@ def test_differing_pk_table_exits_one_and_writes_parquet(tmp_path: Path):
     )
 
     assert result.exit_code == 1, result.output
-    report = json.loads((output_path / "table_with_pk_diff.json").read_text())
+    report = _load_report(output_path)["tables"]["table_with_pk"]
     assert report["success"] is True
     assert report["is_identical"] is False
     assert report["row_diff"]["pk_diff"]["changed_row_count"] == 1
@@ -158,7 +160,7 @@ def test_differing_non_pk_table_exits_one(tmp_path: Path):
     )
 
     assert result.exit_code == 1, result.output
-    report = json.loads((output_path / "table_without_pk_diff.json").read_text())
+    report = _load_report(output_path)["tables"]["table_without_pk"]
     assert report["row_diff"]["non_pk_diff"]["symmetric_difference_count"] == 2
 
 
@@ -190,7 +192,7 @@ def test_unknown_table_exits_two(tmp_path: Path):
     )
 
     assert result.exit_code == 2, result.output
-    report = json.loads((output_path / "nonexistent_table_diff.json").read_text())
+    report = _load_report(output_path)["tables"]["nonexistent_table"]
     assert report["success"] is False
     assert "FileNotFoundError" in report["error"]
 
@@ -220,7 +222,7 @@ def test_missing_dataset_exits_two(tmp_path: Path):
     )
 
     assert result.exit_code == 2, result.output
-    report = json.loads((output_path / "table_with_pk_diff.json").read_text())
+    report = _load_report(output_path)["tables"]["table_with_pk"]
     assert report["success"] is False
 
 
@@ -255,7 +257,7 @@ def test_large_table_skip_still_exits_one(tmp_path: Path):
 
     # is_identical is conservatively False since row-level comparison never ran.
     assert result.exit_code == 1, result.output
-    report = json.loads((output_path / "table_with_pk_diff.json").read_text())
+    report = _load_report(output_path)["tables"]["table_with_pk"]
     assert report["success"] is True
     assert report["is_identical"] is False
     assert report["row_diff"]["pk_diff"] == {"skipped_reason": "too_many_rows"}
@@ -301,7 +303,7 @@ def test_max_rows_per_output_parquet(tmp_path: Path):
     assert result.exit_code == 1, result.output
     left_only = pl.read_parquet(output_path / "table_without_pk_left_only.parquet")
     assert len(left_only) == 2
-    report = json.loads((output_path / "table_without_pk_diff.json").read_text())
+    report = _load_report(output_path)["tables"]["table_without_pk"]
     assert report["row_diff"]["non_pk_diff"]["only_in_left_count"] == 5
 
 
@@ -352,14 +354,36 @@ def test_no_table_name_compares_every_table_in_both_datasets(tmp_path: Path):
 
     # One table differs, so the overall exit code is 1.
     assert result.exit_code == 1, result.output
-    assert sorted(p.name for p in output_path.glob("*_diff.json")) == [
-        "changed_table_diff.json",
-        "same_table_diff.json",
-    ]
-    same = json.loads((output_path / "same_table_diff.json").read_text())
-    changed = json.loads((output_path / "changed_table_diff.json").read_text())
-    assert same["is_identical"] is True
-    assert changed["is_identical"] is False
+    # Everything goes in a single report, however many tables are compared.
+    assert [p.name for p in output_path.glob("*.json")] == [REPORT_FILENAME]
+    report = _load_report(output_path)
+    assert report["schema_version"] == "1.0.0"
+    assert report["is_identical"] is False
+    assert report["success"] is True
+    assert report["error"] is None
+    assert list(report["tables"]) == ["changed_table", "same_table"]
+    assert report["tables"]["same_table"]["is_identical"] is True
+    assert report["tables"]["changed_table"]["is_identical"] is False
+    assert report["tables_only_in_left"] == ["left_only_table"]
+    assert report["tables_only_in_right"] == ["right_only_table"]
+    assert report["left_dataset"]["root"] == str(left)
+    assert report["right_dataset"]["root"] == str(right)
+    assert report["options"]["rtol"] == 1e-5
+    summary = report["summary"]
+    assert summary["table_count"] == 2
+    assert summary["identical_table_count"] == 1
+    assert summary["changed_table_count"] == 1
+    assert summary["failed_table_count"] == 0
+    assert summary["left_table_bytes"] == sum(
+        t["left_table_bytes"] for t in report["tables"].values()
+    )
+    for table in report["tables"].values():
+        assert table["left_table_bytes"] > 0
+        assert table["bytes_difference"] == (
+            table["right_table_bytes"] - table["left_table_bytes"]
+        )
+        assert table["left_table_size"].endswith(" B")
+        assert "created" not in table
     assert (output_path / "changed_table_left_only.parquet").exists()
     assert "Identical: 1  Changed: 1  Error: 0" in result.output
     # Changed tables are counted, but not listed by name in the summary.
@@ -416,23 +440,48 @@ def test_no_table_name_failed_comparison_exits_two(tmp_path: Path):
     assert result.exit_code == 2, result.output
     assert "Identical: 1  Changed: 0  Error: 1" in result.output
     assert "Tables with errors: 1\n  a\n" in result.output
-    assert (tmp_path / "out" / "b_diff.json").exists()
-    report = json.loads((tmp_path / "out" / "a_diff.json").read_text())
+    report = _load_report(tmp_path / "out")
     assert report["success"] is False
+    assert report["error"] is None  # only individual tables failed
+    assert report["summary"]["failed_tables"] == ["a"]
+    assert report["tables"]["a"]["success"] is False
+    assert report["tables"]["b"]["success"] is True
 
 
 def test_no_table_name_no_tables_in_common_exits_two(tmp_path: Path):
     df = pl.DataFrame({"x": [1]})
     _make_dataset(tmp_path / "left", [_no_pk_resource("a")], {"a": df})
     _make_dataset(tmp_path / "right", [_no_pk_resource("b")], {"b": df})
+    output_path = tmp_path / "out"
 
     result = CliRunner().invoke(
         main,
-        ["--left", str(tmp_path / "left"), "--right", str(tmp_path / "right")],
+        [
+            "--left",
+            str(tmp_path / "left"),
+            "--right",
+            str(tmp_path / "right"),
+            "--output-path",
+            str(output_path),
+        ],
     )
 
     assert result.exit_code == 2
     assert "No tables found in both" in result.output
+    # The report still records what went wrong.
+    report = _load_report(output_path)
+    assert report["success"] is False
+    assert "No tables found in both" in report["error"]
+    assert report["tables"] == {}
+
+
+def test_summary_shows_total_size_and_change(tmp_path: Path):
+    result = CliRunner().invoke(
+        main, ["same_table", "changed_table", *_two_table_args(tmp_path)]
+    )
+
+    assert re.search(r"Total size: +[\d.]+ K?B left, [\d.]+ K?B right", result.output)
+    assert re.search(r"Size change: +[+-][\d.]+ K?B [+-][\d.]+%", result.output)
 
 
 def test_right_table_and_partition_expr_require_a_table_name(tmp_path: Path):
@@ -475,9 +524,9 @@ def test_multiple_table_names_compares_only_those_tables(tmp_path: Path):
     )
 
     assert result.exit_code == 1, result.output
-    assert sorted(p.name for p in output_path.glob("*_diff.json")) == [
-        "changed_table_diff.json",
-        "same_table_diff.json",
+    assert list(_load_report(output_path)["tables"]) == [
+        "changed_table",
+        "same_table",
     ]
     assert "Comparing 2 tables between" in result.output
     assert "Identical: 1  Changed: 1  Error: 0" in result.output
@@ -509,7 +558,7 @@ def test_multiple_table_names_including_a_missing_table_exits_two(tmp_path: Path
     assert result.exit_code == 2, result.output
     assert "Identical: 1  Changed: 0  Error: 1" in result.output
     assert "Tables with errors: 1\n  left_only_table\n" in result.output
-    assert (output_path / "same_table_diff.json").exists()
+    assert "same_table" in _load_report(output_path)["tables"]
 
 
 def _two_table_args(tmp_path: Path) -> list[str]:
@@ -521,7 +570,7 @@ def test_short_flags(tmp_path: Path):
     result = CliRunner().invoke(main, ["changed_table", *_two_table_args(tmp_path)])
 
     assert result.exit_code == 1, result.output
-    assert (tmp_path / "out" / "changed_table_diff.json").exists()
+    assert "changed_table" in _load_report(tmp_path / "out")["tables"]
 
 
 def test_color_flag_forces_ansi_output(tmp_path: Path):
@@ -555,13 +604,34 @@ def test_progress_shows_sub_second_runtimes_with_millisecond_precision(tmp_path:
     )
 
 
-def _outcome(exit_code: int, **kwargs) -> _TableOutcome:
+def _load_report(output_path: Path) -> dict:
+    return json.loads((output_path / REPORT_FILENAME).read_text())
+
+
+def _outcome(
+    exit_code: int,
+    *,
+    added: int | None = None,
+    changed: int | None = None,
+    removed: int | None = None,
+    skipped_reason: str | None = None,
+    has_primary_key: bool | None = None,
+    sizes: diff.SizeComparison | None = None,
+    **kwargs,
+) -> _TableOutcome:
     return _TableOutcome(
         table_name="some_table",
         exit_code=exit_code,
-        report_path=Path("report.json"),
         elapsed_seconds=1.5,
         error=None,
+        rows=diff.RowChanges(
+            added=added,
+            changed=changed,
+            removed=removed,
+            skipped_reason=skipped_reason,
+            has_primary_key=has_primary_key,
+        ),
+        sizes=sizes or diff.SizeComparison(),
         **kwargs,
     )
 
@@ -776,9 +846,46 @@ def test_format_duration():
     assert _format_duration(3723.0) == "1h 02m 03s"
 
 
-def test_format_bytes():
-    assert _format_bytes(512_000_000) == "512.0 MB"
-    assert _format_bytes(21_394_456_576) == "21.4 GB"
+def test_format_signed_percent():
+    assert _format_signed_percent(0) == "0%"
+    assert _format_signed_percent(1.234) == "+1.23%"
+    assert _format_signed_percent(-1.234) == "-1.23%"
+    assert _format_signed_percent(0.001) == "+<0.01%"
+    assert _format_signed_percent(-0.001) == "-<0.01%"
+
+
+def test_format_outcome_sizes_and_their_colors():
+    blue, orange, gray = "\x1b[38;5;39m", "\x1b[38;5;208m", "\x1b[90m"
+
+    def line(left: int, right: int) -> str:
+        sizes = diff.SizeComparison(left_table_bytes=left, right_table_bytes=right)
+        return _format_outcome(_outcome(1, sizes=sizes))
+
+    grew = line(10_000_000, 10_500_000)
+    assert "10.0 MB" in grew
+    assert "10.5 MB" in grew
+    assert f"{blue}+500.0 KB\x1b[0m" in grew
+    assert f"{blue}+5.00%\x1b[0m" in grew
+
+    shrank = line(10_000_000, 9_000_000)
+    assert f"{orange}-1.0 MB\x1b[0m" in shrank
+    assert f"{orange}-10.00%\x1b[0m" in shrank
+
+    same = line(1_000, 1_000)
+    assert f"{gray}0 B\x1b[0m" in same
+    assert f"{gray}0%\x1b[0m" in same
+
+
+def test_format_outcome_unknown_sizes_are_blank():
+    line = _plain(_format_outcome(_outcome(2)))
+    assert "MB" not in line
+    assert "%" not in line.replace("% OF", "")
+
+
+def test_format_header_names_size_columns():
+    header = _plain(_format_header())
+    for heading in ["LEFT SIZE", "RIGHT SIZE", "SIZE CHANGE", "% SIZE"]:
+        assert heading in header
 
 
 def test_format_outcome_colors():
@@ -842,7 +949,7 @@ def test_cli_shows_header_and_summary_with_paths_time_and_memory(tmp_path: Path)
     assert re.search(r"Elapsed: +\d+\.\d{3}s", result.output)
     # The peak is the highest of any single table's, and names that table.
     assert re.search(
-        r"Peak memory: +\d+\.\d [MG]B \((changed_table|same_table)\)", result.output
+        r"Peak memory: +\d+\.\d [KMG]?B \((changed_table|same_table)\)", result.output
     )
     # Totals: 2 rows in each of the two tables on the left, and the one changed
     # table's 2 changed rows (the same key, but a different value for y).
@@ -1103,7 +1210,7 @@ def test_summary_descriptors_are_bold(tmp_path: Path):
         "% of left rows:",
         "Column changes:",
         "Schema changes:",
-        "Reports written to",
+        "Report written to",
     ]:
         assert f"{bold}{descriptor}" in result.output, descriptor
     # The values aren't bold, and stay aligned once the styling is stripped.

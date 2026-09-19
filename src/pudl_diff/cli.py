@@ -3,6 +3,7 @@
 import logging
 import sys
 import time
+import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,9 @@ from pudl.validate import diff
 from pudl.workspace.setup import PudlPaths
 
 logger = get_logger(__name__)
+
+REPORT_FILENAME = "pudl_diff_report.json"
+"""Name of the JSON report, written to the output directory."""
 
 _EPILOG = """
 \b
@@ -42,27 +46,15 @@ Examples:
 
 @dataclass(frozen=True)
 class _TableOutcome:
-    """What happened when comparing one table, for reporting."""
+    """What happened when comparing one table, for display."""
 
     table_name: str
     exit_code: int
     """``0`` if identical, ``1`` if different, ``2`` if the comparison failed."""
-    report_path: Path
     elapsed_seconds: float | None
     error: str | None
-    added: int | None = None
-    """Rows only in the right table (for a table with a primary key, rows whose
-    primary key is only in the right table). ``None`` unless row-level comparison
-    ran."""
-    changed: int | None = None
-    """Rows whose primary key is in both tables but whose other values changed.
-    ``None`` unless row-level comparison ran on a table with a primary key."""
-    removed: int | None = None
-    """Like :attr:`added`, but for the left table."""
-    skipped_reason: str | None = None
-    """Why row-level comparison was skipped, if it was."""
-    has_primary_key: bool | None = None
-    """``None`` if the comparison failed before this was known."""
+    rows: diff.RowChanges
+    sizes: diff.SizeComparison
     left_rows: int | None = None
     right_rows: int | None = None
     left_columns: int | None = None
@@ -75,91 +67,26 @@ class _TableOutcome:
     peak_rss_bytes: int | None = None
 
 
-def _diff_table(
-    left_dataset: diff.PudlDiffDataset,
-    right_dataset: diff.PudlDiffDataset,
-    table_name: str,
-    *,
-    right_table: str | None,
-    output_path: Path,
-    max_compare_rows: int,
-    max_output_rows: int | None,
-    rtol: float,
-    atol: float,
-    partition_expr: str | None,
-    auto_partition: bool,
-) -> _TableOutcome:
-    """Compare one table and write its JSON report and Parquet outputs."""
-    run = diff.run_table_diff(
-        left_dataset,
-        right_dataset,
-        table_name,
-        right_table_name=right_table,
-        partition_expr=partition_expr,
-        auto_partition=auto_partition,
-        rtol=rtol,
-        atol=atol,
-        max_rows_for_row_level_comparison=max_compare_rows,
-    )
-
-    parquet_outputs = None
-    if run.success and run.result is not None:
-        parquet_outputs = diff.write_row_diff_parquet(
-            run.result.row_diff,
-            output_path,
-            table_name,
-            right_table_name=run.result.right_table_name,
-            max_rows_per_output_parquet=max_output_rows,
-        )
-
-    report = diff.build_table_diff_report(
-        run,
-        left_dataset,
-        right_dataset,
-        table_name,
-        right_table_name=right_table,
-        parquet_outputs=parquet_outputs,
-    )
-
-    output_path.mkdir(parents=True, exist_ok=True)
-    report_path = output_path / f"{table_name}_diff.json"
-    report_path.write_text(report.model_dump_json(indent=2))
-
+def _outcome(table_name: str, report: diff.TableDiffReport) -> _TableOutcome:
+    """Boil a table's report down to what we display."""
     exit_code = 0 if report.is_identical else 1
-    if not run.success:
+    if not report.success:
         exit_code = 2
-    rows = diff.RowChanges.from_summary(report.row_diff)
+    row_counts = report.row_count_diff
+    schema = report.schema_diff
     return _TableOutcome(
         table_name=table_name,
         exit_code=exit_code,
-        report_path=report_path,
         elapsed_seconds=report.elapsed_seconds,
-        error=run.error,
-        added=rows.added,
-        changed=rows.changed,
-        removed=rows.removed,
-        skipped_reason=rows.skipped_reason,
-        has_primary_key=rows.has_primary_key,
-        left_rows=report.row_count_diff.left_row_count
-        if report.row_count_diff
-        else None,
-        right_rows=(
-            report.row_count_diff.right_row_count if report.row_count_diff else None
-        ),
-        left_columns=(
-            report.schema_diff.left_column_count if report.schema_diff else None
-        ),
-        columns_added=(
-            len(report.schema_diff.columns_only_in_right)
-            if report.schema_diff
-            else None
-        ),
-        columns_removed=(
-            len(report.schema_diff.columns_only_in_left) if report.schema_diff else None
-        ),
-        dtypes_changed=len(report.schema_diff.dtype_changes)
-        if report.schema_diff
-        else 0,
+        error=report.error,
+        rows=diff.RowChanges.from_summary(report.row_diff),
+        sizes=report,
+        left_rows=row_counts.left_row_count if row_counts else None,
+        right_rows=row_counts.right_row_count if row_counts else None,
+        left_columns=schema.left_column_count if schema else None,
+        columns_added=len(schema.columns_only_in_right) if schema else None,
+        columns_removed=len(schema.columns_only_in_left) if schema else None,
+        dtypes_changed=len(schema.dtype_changes) if schema else 0,
         peak_rss_bytes=report.peak_rss_bytes,
     )
 
@@ -179,12 +106,20 @@ _LEFT_ROWS_WIDTH = 13
 _ROWS_WIDTH = 30
 _PERCENT_WIDTH = 24
 _ELAPSED_WIDTH = 9
+_SIZE_WIDTH = 9
+_RIGHT_SIZE_WIDTH = 10
+_SIZE_CHANGE_WIDTH = 11
+_PERCENT_CHANGE_WIDTH = 9
 
 _Color = str | int
 """A color name click knows, or an ANSI 256-color code."""
 _HOT_PINK = 205
 _COLUMN_COLORS = ("cyan", _HOT_PINK, "magenta")
 """Colors for columns added, changed (dtype) and removed."""
+_GREW = 39
+_SHRANK = 208
+"""Blue for a table that grew and orange for one that shrank: colors that, unlike
+green and red, don't suggest that either change is good or bad."""
 _Segments = list[tuple[str, _Color | None]]
 """Pieces of text and the color (if any) to show each one in."""
 
@@ -205,13 +140,6 @@ def _format_duration(seconds: float) -> str:
     return f"{minutes}m {secs:04.1f}s"
 
 
-def _format_bytes(num_bytes: int) -> str:
-    """Format a memory size in decimal units, e.g. ``21.4 GB``."""
-    if num_bytes >= 1_000_000_000:
-        return f"{num_bytes / 1_000_000_000:.1f} GB"
-    return f"{num_bytes / 1_000_000:.1f} MB"
-
-
 def _format_percent(count: int, total: int | None) -> str:
     """``count`` as a percentage of ``total``, with useful precision when small."""
     if count == 0:
@@ -226,6 +154,15 @@ def _format_percent(count: int, total: int | None) -> str:
     return f"{percent:.2f}%"
 
 
+def _format_signed_percent(percent: float) -> str:
+    """A percentage change, always signed, with useful precision when small."""
+    if percent == 0:
+        return "0%"
+    if abs(percent) < 0.01:
+        return f"{'+' if percent > 0 else '-'}<0.01%"
+    return f"{percent:+,.2f}%"
+
+
 def _tables(n: int) -> str:
     return f"{n:,} table{'' if n == 1 else 's'}"
 
@@ -237,6 +174,12 @@ def _render(segments: _Segments, width: int = 0) -> str:
         click.style(text, fg=color) if color else text for text, color in segments
     )
     return styled + " " * max(0, width - len(plain))
+
+
+def _render_right(segments: _Segments, width: int) -> str:
+    """Style ``segments``, right-aligned in ``width`` based on their unstyled length."""
+    plain = "".join(text for text, _ in segments)
+    return " " * max(0, width - len(plain)) + _render(segments)
 
 
 def _count(text: str, value: int, color: _Color) -> tuple[str, _Color]:
@@ -283,6 +226,24 @@ def _columns_segments(outcome: _TableOutcome) -> _Segments:
     )
 
 
+def _size_change_segments(sizes: diff.SizeComparison) -> tuple[_Segments, _Segments]:
+    """The size change and its percentage of the left size, colored by direction.
+
+    Blank if either size is unknown.
+    """
+    if sizes.bytes_difference is None or sizes.bytes_difference_size is None:
+        return [], []
+    if sizes.bytes_difference > 0:
+        color: _Color = _GREW
+    else:
+        color = _SHRANK if sizes.bytes_difference < 0 else _GRAY
+    percent = sizes.bytes_difference_percent
+    return (
+        [(sizes.bytes_difference_size, color)],
+        [(_format_signed_percent(percent), color)] if percent is not None else [],
+    )
+
+
 def _row_cells(outcome: _TableOutcome) -> tuple[str, str]:
     """The styled, padded row changes and row change percentage cells.
 
@@ -291,18 +252,19 @@ def _row_cells(outcome: _TableOutcome) -> tuple[str, str]:
     message_width = _ROWS_WIDTH + 2 + _PERCENT_WIDTH
     if outcome.exit_code == 2:
         return _render([("comparison failed", None)], message_width), ""
-    if outcome.skipped_reason is not None:
-        reason = outcome.skipped_reason.replace("_", " ")
+    rows = outcome.rows
+    if rows.skipped_reason is not None:
+        reason = rows.skipped_reason.replace("_", " ")
         return _render([(f"row diff skipped: {reason}", None)], message_width), ""
-    if outcome.added is None or outcome.removed is None:
+    if rows.added is None or rows.removed is None:
         return _render([("no row-level results", None)], message_width), ""
     counts = _change_segments(
-        outcome.added, outcome.changed, outcome.removed, lambda n: f"{n:,}"
+        rows.added, rows.changed, rows.removed, lambda n: f"{n:,}"
     )
     percents = _change_segments(
-        outcome.added,
-        outcome.changed,
-        outcome.removed,
+        rows.added,
+        rows.changed,
+        rows.removed,
         lambda n: _format_percent(n, outcome.left_rows),
     )
     return _render(counts, _ROWS_WIDTH), _render(percents, _PERCENT_WIDTH)
@@ -325,6 +287,10 @@ def _format_header(progress_width: int = 0) -> str:
         "LEFT ROWS".rjust(_LEFT_ROWS_WIDTH),
         "ROWS +add/~chg/-del".ljust(_ROWS_WIDTH),
         "% OF LEFT ROWS".ljust(_PERCENT_WIDTH),
+        "LEFT SIZE".rjust(_SIZE_WIDTH),
+        "RIGHT SIZE".rjust(_RIGHT_SIZE_WIDTH),
+        "SIZE CHANGE".rjust(_SIZE_CHANGE_WIDTH),
+        "% SIZE".rjust(_PERCENT_CHANGE_WIDTH),
         "TIME".rjust(_ELAPSED_WIDTH),
         "TABLE",
     ]
@@ -348,15 +314,20 @@ def _format_outcome(outcome: _TableOutcome, progress: str = "") -> str:
         f"{outcome.left_columns:,}" if outcome.left_columns is not None else ""
     )
     row_counts, row_percents = _row_cells(outcome)
+    size_change, size_percent = _size_change_segments(outcome.sizes)
     parts = [
         progress,
         click.style(tag.ljust(_TAG_WIDTH), fg=color),
-        _format_key(outcome.has_primary_key).ljust(_KEY_WIDTH),
+        _format_key(outcome.rows.has_primary_key).ljust(_KEY_WIDTH),
         left_columns.rjust(_LEFT_COLUMNS_WIDTH),
         _render(_columns_segments(outcome), _COLUMNS_WIDTH),
         left_rows.rjust(_LEFT_ROWS_WIDTH),
         row_counts,
         row_percents,
+        (outcome.sizes.left_table_size or "").rjust(_SIZE_WIDTH),
+        (outcome.sizes.right_table_size or "").rjust(_RIGHT_SIZE_WIDTH),
+        _render_right(size_change, _SIZE_CHANGE_WIDTH),
+        _render_right(size_percent, _PERCENT_CHANGE_WIDTH),
         elapsed.rjust(_ELAPSED_WIDTH),
         outcome.table_name,
     ]
@@ -372,65 +343,74 @@ def _field(label: str, value: str) -> str:
     return f"{click.style(label, bold=True)}{padding}{value}"
 
 
-def _echo_totals(outcomes: list[_TableOutcome]) -> None:
-    """Print row totals and changes summed over all the compared tables."""
-    left_total = sum(o.left_rows or 0 for o in outcomes)
-    right_total = sum(o.right_rows or 0 for o in outcomes)
-    compared = [o for o in outcomes if o.added is not None and o.removed is not None]
-    added = sum(o.added or 0 for o in compared)
-    changed = sum(o.changed or 0 for o in compared)
-    removed = sum(o.removed or 0 for o in compared)
+def _echo_totals(summary: diff.PudlDiffSummary) -> None:
+    """Print row and size totals and changes summed over all the compared tables."""
     click.echo(
         _field(
             "Total rows:",
-            f"{left_total:,} left, {right_total:,} right ({_tables(len(outcomes))})",
+            f"{summary.left_row_count:,} left, {summary.right_row_count:,} right "
+            f"({_tables(summary.table_count)})",
         )
     )
-    counts = _change_segments(added, changed, removed, lambda n: f"{n:,}")
+    counts = _change_segments(
+        summary.rows_added,
+        summary.rows_changed,
+        summary.rows_removed,
+        lambda n: f"{n:,}",
+    )
     click.echo(_field("Row changes:", _render(counts)))
     percents = _change_segments(
-        added, changed, removed, lambda n: _format_percent(n, left_total)
+        summary.rows_added,
+        summary.rows_changed,
+        summary.rows_removed,
+        lambda n: _format_percent(n, summary.left_row_count),
     )
     click.echo(_field("% of left rows:", _render(percents)))
     # Rows in tables we couldn't count changes for still count towards the total
     # above, so say how many there are to make the percentages interpretable.
-    uncompared = [o for o in outcomes if o not in compared]
-    if uncompared:
-        rows = sum(o.left_rows or 0 for o in uncompared)
+    if summary.no_row_diff_table_count:
         click.echo(
             _field(
                 "Not compared:",
-                f"{_tables(len(uncompared))} ({rows:,} left rows) "
+                f"{_tables(summary.no_row_diff_table_count)} "
+                f"({summary.no_row_diff_left_row_count:,} left rows) "
                 "had no row-level comparison",
             )
         )
+    if summary.left_table_size and summary.right_table_size:
+        click.echo(
+            _field(
+                "Total size:",
+                f"{summary.left_table_size} left, {summary.right_table_size} right",
+            )
+        )
+        change, percent = _size_change_segments(summary)
+        click.echo(_field("Size change:", _render([*change, (" ", None), *percent])))
 
 
-def _echo_schema_totals(outcomes: list[_TableOutcome]) -> None:
+def _echo_schema_totals(
+    summary: diff.PudlDiffSummary, outcomes: list[_TableOutcome]
+) -> None:
     """Print columns added, changed (dtype) and removed across all the tables.
 
     Followed by each table whose schema changed, and how its columns changed.
     """
-    with_schema = [o for o in outcomes if o.columns_added is not None]
-    added = sum(o.columns_added or 0 for o in with_schema)
-    changed = sum(o.dtypes_changed for o in with_schema)
-    removed = sum(o.columns_removed or 0 for o in with_schema)
-    changed_tables = [
-        o
-        for o in with_schema
-        if o.columns_added or o.columns_removed or o.dtypes_changed
-    ]
     columns = _change_segments(
-        added, changed, removed, lambda n: f"{n:,}", colors=_COLUMN_COLORS
+        summary.columns_added,
+        summary.columns_changed,
+        summary.columns_removed,
+        lambda n: f"{n:,}",
+        colors=_COLUMN_COLORS,
     )
     click.echo(_field("Column changes:", _render(columns)))
-    click.echo(_field("Schema changes:", _tables(len(changed_tables))))
+    click.echo(_field("Schema changes:", _tables(len(summary.schema_changed_tables))))
     # Schema changes can be disruptive to users, so name every table that has one,
     # with its own column changes, one per line.
-    width = max((len(o.table_name) for o in changed_tables), default=0)
-    for outcome in changed_tables:
-        counts = _render(_columns_segments(outcome))
-        click.echo(f"  {outcome.table_name.ljust(width)}  {counts}")
+    by_name = {o.table_name: o for o in outcomes}
+    width = max((len(name) for name in summary.schema_changed_tables), default=0)
+    for name in summary.schema_changed_tables:
+        counts = _render(_columns_segments(by_name[name]))
+        click.echo(f"  {name.ljust(width)}  {counts}")
 
 
 def _echo_table_list(label: str, table_names: list[str]) -> None:
@@ -442,25 +422,14 @@ def _echo_table_list(label: str, table_names: list[str]) -> None:
 
 
 def _echo_summary(
-    outcomes: list[_TableOutcome],
-    only_in_left: list[str],
-    only_in_right: list[str],
-    *,
-    left_root: str,
-    right_root: str,
-    output_path: Path,
-    elapsed_seconds: float,
+    report: diff.PudlDiffReport, outcomes: list[_TableOutcome], report_path: Path
 ) -> None:
     """Print how the run went: table counts, what was compared, time and memory."""
-
-    def names(exit_code: int) -> list[str]:
-        return [o.table_name for o in outcomes if o.exit_code == exit_code]
-
-    errored = names(2)
+    summary = report.summary
     counts = [
-        ("Identical", len(names(0)), "green"),
-        ("Changed", len(names(1)), "yellow"),
-        ("Error", len(errored), "red"),
+        ("Identical", summary.identical_table_count, "green"),
+        ("Changed", summary.changed_table_count, "yellow"),
+        ("Error", summary.failed_table_count, "red"),
     ]
     click.echo(
         "\n"
@@ -468,24 +437,102 @@ def _echo_summary(
             f"{click.style(label, fg=color)}: {n}" for label, n, color in counts
         )
     )
-    click.echo(_field("Left:", left_root))
-    click.echo(_field("Right:", right_root))
-    click.echo(_field("Elapsed:", _format_duration(elapsed_seconds)))
-    measured = [o for o in outcomes if o.peak_rss_bytes is not None]
-    if measured:
-        peak = max(measured, key=lambda o: o.peak_rss_bytes or 0)
+    click.echo(_field("Left:", report.left_dataset.root))
+    click.echo(_field("Right:", report.right_dataset.root))
+    if report.elapsed_seconds is not None:
+        click.echo(_field("Elapsed:", _format_duration(report.elapsed_seconds)))
+    if summary.peak_rss is not None:
         click.echo(
-            _field(
-                "Peak memory:",
-                f"{_format_bytes(peak.peak_rss_bytes or 0)} ({peak.table_name})",
-            )
+            _field("Peak memory:", f"{summary.peak_rss} ({summary.peak_rss_table})")
         )
-    _echo_totals(outcomes)
-    _echo_schema_totals(outcomes)
-    _echo_table_list("Tables with errors", errored)
-    _echo_table_list("Tables removed (only in left)", only_in_left)
-    _echo_table_list("Tables added (only in right)", only_in_right)
-    click.echo(f"{click.style('Reports written to', bold=True)} {output_path}")
+    _echo_totals(summary)
+    _echo_schema_totals(summary, outcomes)
+    _echo_table_list("Tables with errors", summary.failed_tables)
+    _echo_table_list("Tables removed (only in left)", report.tables_only_in_left)
+    _echo_table_list("Tables added (only in right)", report.tables_only_in_right)
+    click.echo(f"{click.style('Report written to', bold=True)} {report_path}")
+
+
+class _NoTablesError(Exception):
+    """There are no tables to compare."""
+
+
+def _resolve_tables(
+    left: diff.PudlDiffDataset,
+    right: diff.PudlDiffDataset,
+    table_names: tuple[str, ...],
+) -> tuple[list[str], list[str], list[str]]:
+    """Decide which tables to compare.
+
+    Returns:
+        The tables to compare: those given, or else every table with a Parquet
+        file in both datasets. Then the tables found only in the left dataset and
+        those found only in the right dataset, both empty when tables are given.
+
+    Raises:
+        _NoTablesError: If no tables were given, and the datasets have none in
+            common.
+    """
+    if table_names:
+        return list(dict.fromkeys(table_names)), [], []
+    left_tables = left.parquet_table_names()
+    right_tables = right.parquet_table_names()
+    tables = sorted(set(left_tables) & set(right_tables))
+    if not tables:
+        raise _NoTablesError(
+            f"No tables found in both {str(left.root)!r} ({len(left_tables)} tables) "
+            f"and {str(right.root)!r} ({len(right_tables)} tables)."
+        )
+    return (
+        tables,
+        sorted(set(left_tables) - set(right_tables)),
+        sorted(set(right_tables) - set(left_tables)),
+    )
+
+
+def _echo_intro(
+    tables: list[str], left_root: str, right_root: str, *, explicit: bool
+) -> None:
+    """Say which tables are about to be compared, and between what."""
+    if not explicit:
+        click.echo(
+            f"Comparing {len(tables)} tables present in both {left_root!r} and "
+            f"{right_root!r}."
+        )
+        return
+    what = repr(tables[0]) if len(tables) == 1 else f"{len(tables)} tables"
+    click.echo(f"Comparing {what} between {left_root!r} and {right_root!r}.")
+
+
+def _compare_tables(
+    left: diff.PudlDiffDataset,
+    right: diff.PudlDiffDataset,
+    tables: list[str],
+    output_path: Path,
+    *,
+    right_table: str | None,
+    options: diff.DiffOptions,
+    show_progress: bool,
+) -> tuple[dict[str, diff.TableDiffReport], list[_TableOutcome]]:
+    """Compare each table in turn, printing a line about each as it's done."""
+    reports: dict[str, diff.TableDiffReport] = {}
+    outcomes: list[_TableOutcome] = []
+    total = len(tables)
+    width = len(str(total))
+    click.echo(_format_header(len(f"[{total}/{total}]") if show_progress else 0))
+    for i, table in enumerate(tables, start=1):
+        reports[table] = diff.report_table_diff(
+            left,
+            right,
+            table,
+            output_path,
+            right_table_name=right_table,
+            options=options,
+        )
+        outcomes.append(_outcome(table, reports[table]))
+        progress = f"[{i:>{width}}/{total}]" if show_progress else ""
+        click.echo(_format_outcome(outcomes[-1], progress))
+    return reports, outcomes
 
 
 def _set_log_level(level: str) -> Callable[[], None]:
@@ -545,7 +592,8 @@ def _set_log_level(level: str) -> Callable[[], None]:
     "--output-path",
     type=click.Path(file_okay=False, path_type=Path),
     default=None,
-    help="Directory to write the JSON report and Parquet outputs into. "
+    help="Directory to write the JSON report (pudl_diff_report.json) and Parquet "
+    "outputs into. "
     "Created if it doesn't exist. Defaults to the current working directory.",
 )
 @click.option(
@@ -608,7 +656,7 @@ def _set_log_level(level: str) -> Callable[[], None]:
     show_default=True,
     help="Only show log messages at least this severe, so that they don't "
     "interrupt the report. Skipped comparisons and errors are still recorded in "
-    "each table's JSON report.",
+    "the JSON report.",
 )
 @click.pass_context
 def main(
@@ -635,8 +683,8 @@ def main(
     more than one, prints a summary at the end, which for all tables also lists
     those present in only one dataset (they aren't compared).
 
-    Writes a JSON report (and, for differing tables, a pair of Parquet
-    side-output files holding the differing rows) for each table to
+    Writes a single JSON report covering every table (and, for differing tables,
+    a pair of Parquet side-output files holding the differing rows) to
     --output-path, then exits 0 if all the tables are functionally identical,
     1 if any differ, or 2 if any comparison itself failed (e.g. a table doesn't
     exist in one of the datasets, or a dataset's datapackage.json couldn't be
@@ -654,91 +702,83 @@ def main(
     left_root = left or str(pudl.PUDL_NIGHTLY_BUILDS_BASE_PATH)
     right_root = right or str(PudlPaths().parquet_path())
     output_path = output_path or Path.cwd()
+    report_path = output_path / REPORT_FILENAME
 
     left_dataset = diff.PudlDiffDataset(left_root)
     right_dataset = diff.PudlDiffDataset(right_root)
-    diff_options = {
-        "output_path": output_path,
-        "max_compare_rows": max_compare_rows,
-        "max_output_rows": max_output_rows,
-        "rtol": rtol,
-        "atol": atol,
-        "auto_partition": not no_auto_partition,
-    }
+    options = diff.DiffOptions(
+        rtol=rtol,
+        atol=atol,
+        max_compare_rows=max_compare_rows,
+        max_output_rows=max_output_rows,
+        auto_partition=not no_auto_partition,
+        partition_expr=partition_expr,
+    )
 
-    if len(table_names) == 1:
-        (table_name,) = table_names
-        outcome = _diff_table(
-            left_dataset,
-            right_dataset,
-            table_name,
-            right_table=right_table,
-            partition_expr=partition_expr,
-            **diff_options,
-        )
-        click.echo(
-            f"Comparing {table_name!r} between {left_root!r} and {right_root!r}."
-        )
-        click.echo(_format_header())
-        click.echo(_format_outcome(outcome))
-        if outcome.error is not None:
-            click.echo(
-                f"Comparison of {table_name!r} failed: {outcome.error}", err=True
-            )
-        click.echo(f"Report written to {outcome.report_path}")
-        ctx.exit(outcome.exit_code)
+    def write_report(report: diff.PudlDiffReport) -> None:
+        output_path.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(report.model_dump_json(indent=2))
 
-    only_in_left: list[str] = []
-    only_in_right: list[str] = []
-    if table_names:
-        tables = list(dict.fromkeys(table_names))
-        click.echo(
-            f"Comparing {len(tables)} tables between {left_root!r} and {right_root!r}."
+    try:
+        tables, only_in_left, only_in_right = _resolve_tables(
+            left_dataset, right_dataset, table_names
         )
+    except _NoTablesError as e:
+        tables, only_in_left, only_in_right = [], [], []
+        error: str | None = str(e)
+    except Exception:
+        logger.exception("Couldn't list the tables to compare.")
+        tables, only_in_left, only_in_right = [], [], []
+        error = traceback.format_exc()
     else:
-        left_tables = left_dataset.parquet_table_names()
-        right_tables = right_dataset.parquet_table_names()
-        tables = sorted(set(left_tables) & set(right_tables))
-        only_in_left = sorted(set(left_tables) - set(right_tables))
-        only_in_right = sorted(set(right_tables) - set(left_tables))
-        if not tables:
-            click.echo(
-                f"No tables found in both {left_root!r} ({len(left_tables)} tables) "
-                f"and {right_root!r} ({len(right_tables)} tables).",
-                err=True,
+        error = None
+    if error is not None:
+        # There's nothing to compare, but the report still records why.
+        write_report(
+            diff.build_pudl_diff_report(
+                left_dataset,
+                right_dataset,
+                {},
+                options=options,
+                elapsed_seconds=time.perf_counter() - start,
+                error=error,
             )
-            ctx.exit(2)
-        click.echo(
-            f"Comparing {len(tables)} tables present in both {left_root!r} and "
-            f"{right_root!r}."
         )
+        click.echo(f"Comparison failed: {error}", err=True)
+        click.echo(f"Report written to {report_path}")
+        ctx.exit(2)
 
-    outcomes = []
-    progress_width = len(f"[{len(tables)}/{len(tables)}]")
-    click.echo(_format_header(progress_width))
-    for i, table in enumerate(tables, start=1):
-        outcome = _diff_table(
-            left_dataset,
-            right_dataset,
-            table,
-            right_table=None,
-            partition_expr=partition_expr,
-            **diff_options,
-        )
-        outcomes.append(outcome)
-        width = len(str(len(tables)))
-        click.echo(_format_outcome(outcome, f"[{i:>{width}}/{len(tables)}]"))
+    single = len(table_names) == 1
+    _echo_intro(tables, left_root, right_root, explicit=bool(table_names))
+    table_reports, outcomes = _compare_tables(
+        left_dataset,
+        right_dataset,
+        tables,
+        output_path,
+        right_table=right_table,
+        options=options,
+        show_progress=not single,
+    )
 
-    _echo_summary(
-        outcomes,
-        only_in_left,
-        only_in_right,
-        left_root=left_root,
-        right_root=right_root,
-        output_path=output_path,
+    report = diff.build_pudl_diff_report(
+        left_dataset,
+        right_dataset,
+        table_reports,
+        options=options,
+        tables_only_in_left=only_in_left,
+        tables_only_in_right=only_in_right,
         elapsed_seconds=time.perf_counter() - start,
     )
-    ctx.exit(max(o.exit_code for o in outcomes))
+    write_report(report)
+    if single:
+        if outcomes[0].error is not None:
+            click.echo(
+                f"Comparison of {tables[0]!r} failed: {outcomes[0].error}", err=True
+            )
+        click.echo(f"Report written to {report_path}")
+    else:
+        _echo_summary(report, outcomes, report_path)
+    ctx.exit(report.exit_code)
 
 
 if __name__ == "__main__":
