@@ -308,3 +308,67 @@ def test_compare_rows_with_pk_null_vs_value_mismatch():
     right = pl.LazyFrame({"id": [1], "val": [1.0]})
     result = compare_rows_with_pk(left, right, ["id"])
     assert result.column_changes == {"val": 1}
+
+
+def _shuffled(df: pl.DataFrame, seed: int) -> pl.DataFrame:
+    """``df`` with its rows and its columns in a different, random order."""
+    rng = np.random.default_rng(seed)
+    columns = [df.columns[i] for i in rng.permutation(len(df.columns))]
+    return df[rng.permutation(df.height)].select(columns)
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_compare_rows_without_pk_ignores_row_and_column_order(seed: int):
+    rng = np.random.default_rng(seed)
+    n = int(rng.integers(5, 40))
+    # Small value ranges, so there are plenty of duplicate rows.
+    df = pl.DataFrame(
+        {
+            "x": rng.integers(0, 4, n),
+            "y": rng.choice(["a", "b", "c"], n),
+            "z": rng.integers(0, 3, n) / 2,
+        }
+    )
+    result = compare_rows_without_pk(df.lazy(), _shuffled(df, seed + 1).lazy())
+    assert result.is_identical
+    assert result.only_in_left.collect().height == 0
+    assert result.only_in_right.collect().height == 0
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_compare_rows_with_pk_ignores_row_and_column_order(seed: int):
+    rng = np.random.default_rng(seed)
+    n = int(rng.integers(5, 40))
+    df = pl.DataFrame(
+        {
+            "k1": np.repeat(np.arange(n // 2 + 1), 2)[:n],
+            "k2": np.tile(["a", "b"], n)[:n],
+            "val": rng.normal(size=n),
+            "name": rng.choice(["p", "q", "r"], n),
+        }
+    )
+    shuffled = _shuffled(df, seed + 1)
+    for key in (["k1", "k2"], ["k2", "k1"]):
+        result = compare_rows_with_pk(df.lazy(), shuffled.lazy(), key)
+        assert result.is_identical
+        assert result.changed_row_count == 0
+        assert result.column_changes == {}
+        # ...and the same the other way around.
+        assert compare_rows_with_pk(shuffled.lazy(), df.lazy(), key).is_identical
+
+
+def test_compare_rows_with_pk_reordered_tables_still_show_real_changes():
+    left = pl.DataFrame(
+        {"id": [1, 2, 3, 4], "val": [1.0, 2.0, 3.0, 4.0], "name": list("abcd")}
+    )
+    # The same rows, reversed, with the columns reordered, except that row 2's value
+    # changed, row 3 is gone, and there's a new row 5.
+    right = pl.DataFrame(
+        {"id": [5, 4, 2, 1], "val": [5.0, 4.0, 2.5, 1.0], "name": list("edba")}
+    ).select("name", "val", "id")
+    result = compare_rows_with_pk(left.lazy(), right.lazy(), ["id"])
+    assert not result.is_identical
+    assert result.column_changes == {"val": 1}
+    assert result.changed_row_count == 1
+    assert result.pk_diff.only_in_left.collect()["id"].to_list() == [3]
+    assert result.pk_diff.only_in_right.collect()["id"].to_list() == [5]

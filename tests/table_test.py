@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from pudl.validate.diff import table as diff_table
 from pudl.validate.diff.dataset import PudlDiffDataset
@@ -507,3 +508,23 @@ def test_run_table_diff_unknown_table(tmp_path: Path, pk_resource, make_dataset)
     # now comes from Polars failing to find the file itself.
     assert "FileNotFoundError" in run.error
     assert "nonexistent_table.parquet" in run.error
+
+
+@pytest.mark.parametrize("has_pk", [True, False])
+def test_compare_table_ignores_row_and_column_order(
+    has_pk: bool, tmp_path: Path, pk_resource, no_pk_resource, make_dataset
+):
+    resource = pk_resource if has_pk else no_pk_resource
+    resources = [resource("some_table", ["x"]) if has_pk else resource("some_table")]
+    left_df = pl.DataFrame({"x": [1, 2, 3, 4], "y": ["a", "b", "c", "d"]})
+    right_df = left_df.reverse().select("y", "x")
+    left = make_dataset(tmp_path / "left", resources, {"some_table": left_df})
+    right = make_dataset(tmp_path / "right", resources, {"some_table": right_df})
+
+    result = compare_table(left, right, "some_table", auto_partition=False)
+
+    assert result.is_identical
+    assert result.schema_diff.is_identical
+    assert result.row_count_diff.is_identical
+    assert result.row_diff is not None
+    assert result.row_diff.is_identical
