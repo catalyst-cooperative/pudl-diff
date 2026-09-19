@@ -2,8 +2,9 @@
 PUDL Diff
 ===============================================================================
 
-``pudl_diff`` compares a single table between two PUDL Parquet datasets and reports
-whether they're **functionally identical**: same columns, same dtypes, same row
+``pudl_diff`` compares tables between two PUDL Parquet datasets -- one table, or
+every table the two datasets have in common -- and reports whether they're
+**functionally identical**: same columns, same dtypes, same row
 count, and the same row contents (floating point columns are compared with
 tolerance, like :func:`numpy.isclose`). It's useful whenever you need to confirm
 that a change to the PUDL codebase, its dependencies, or the raw input data did --
@@ -31,7 +32,7 @@ Usage
 
 .. code-block:: console
 
-   $ pudl_diff TABLE_NAME [OPTIONS]
+   $ pudl_diff [TABLE_NAME ...] [OPTIONS]
 
 By default, ``pudl_diff`` compares the most recent successful nightly build
 (``s3://pudl.catalyst.coop/nightly/``, the "left"/reference dataset) against your
@@ -40,6 +41,15 @@ diff reads as "what's changed locally since the last nightly build." Override
 ``--left``/``--right`` to compare any two dataset roots instead -- each one is
 either a local directory or a remote URL (e.g. an S3 bucket) containing a full
 PUDL ETL run's Parquet files and a ``datapackage.json`` descriptor.
+
+You can give one or more table names. If you give none, ``pudl_diff`` compares
+**every table that has a Parquet file in both datasets**. Either way, tables are
+compared one at a time in a single process (so PUDL is only imported once), and
+when comparing more than one, a summary is printed at the end. For all tables,
+the summary also lists tables present in only one dataset, which aren't
+compared. ``--right-table`` only makes sense for a single table, so it requires
+exactly one table name; ``--partition-expr`` applies to every table given, so it
+requires at least one.
 
 Run ``pudl_diff --help`` for the full list of options and a few example
 invocations.
@@ -53,6 +63,20 @@ default comparison):
 .. code-block:: console
 
    $ pudl_diff out_eia__yearly_generators
+
+Compare several specific tables:
+
+.. code-block:: console
+
+   $ pudl_diff out_eia__yearly_generators out_eia__yearly_plants
+
+Compare every table present in both datasets, e.g. to see how a local build on
+another branch differs from a copy of the nightly build, writing all the reports
+to a ``diffs`` directory:
+
+.. code-block:: console
+
+   $ pudl_diff --left ~/nightly --right $PUDL_OUTPUT/parquet --output-path diffs
 
 Compare the same table between two arbitrary datasets, local or remote:
 
@@ -74,7 +98,8 @@ on top of its ``core_`` table and doesn't otherwise change its data:
 Interpreting the results
 -------------------------
 
-``pudl_diff`` prints a one-line summary and writes a JSON report to
+``pudl_diff`` prints a one-line summary (in all-tables mode, one line per table
+followed by an overall summary) and writes a JSON report for each table to
 ``<output-path>/<table_name>_diff.json`` (``--output-path`` defaults to the
 current working directory). For a table found to differ, it also writes two
 Parquet side-output files:
@@ -86,6 +111,9 @@ Parquet side-output files:
 
 Exit codes
 ----------
+
+When comparing all tables, the exit code is the highest one of any table, and a
+table that fails doesn't stop the others from being compared.
 
 * ``0`` -- the tables are functionally identical.
 * ``1`` -- the tables differ, or row-level comparison couldn't be completed

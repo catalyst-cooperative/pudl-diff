@@ -291,3 +291,204 @@ def test_max_rows_per_output_parquet(tmp_path: Path):
     assert len(left_only) == 2
     report = json.loads((output_path / "table_without_pk_diff.json").read_text())
     assert report["row_diff"]["non_pk_diff"]["only_in_left_count"] == 5
+
+
+def _all_tables_datasets(tmp_path: Path) -> tuple[Path, Path]:
+    """Two datasets sharing an identical and a changed table, plus one table
+    unique to each side."""
+    resources = [
+        _pk_resource("same_table", ["x"]),
+        _pk_resource("changed_table", ["x"]),
+        _no_pk_resource("left_only_table"),
+        _no_pk_resource("right_only_table"),
+    ]
+    df = pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})
+    left = tmp_path / "left"
+    right = tmp_path / "right"
+    _make_dataset(
+        left,
+        resources,
+        {"same_table": df, "changed_table": df, "left_only_table": df},
+    )
+    _make_dataset(
+        right,
+        resources,
+        {
+            "same_table": df,
+            "changed_table": df.with_columns(y=pl.lit("z")),
+            "right_only_table": df,
+        },
+    )
+    return left, right
+
+
+def test_no_table_name_compares_every_table_in_both_datasets(tmp_path: Path):
+    left, right = _all_tables_datasets(tmp_path)
+    output_path = tmp_path / "out"
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "--left",
+            str(left),
+            "--right",
+            str(right),
+            "--output-path",
+            str(output_path),
+        ],
+    )
+
+    # One table differs, so the overall exit code is 1.
+    assert result.exit_code == 1, result.output
+    assert sorted(p.name for p in output_path.glob("*_diff.json")) == [
+        "changed_table_diff.json",
+        "same_table_diff.json",
+    ]
+    same = json.loads((output_path / "same_table_diff.json").read_text())
+    changed = json.loads((output_path / "changed_table_diff.json").read_text())
+    assert same["is_identical"] is True
+    assert changed["is_identical"] is False
+    assert (output_path / "changed_table_left_only.parquet").exists()
+    assert "Identical: 1  Different: 1  Failed: 0" in result.output
+    assert "Different: changed_table" in result.output
+    assert "Only in left: left_only_table" in result.output
+    assert "Only in right: right_only_table" in result.output
+
+
+def test_no_table_name_all_identical_exits_zero(tmp_path: Path):
+    resources = [_pk_resource("a", ["x"]), _pk_resource("b", ["x"])]
+    df = pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})
+    _make_dataset(tmp_path / "left", resources, {"a": df, "b": df})
+    _make_dataset(tmp_path / "right", resources, {"a": df, "b": df})
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "--left",
+            str(tmp_path / "left"),
+            "--right",
+            str(tmp_path / "right"),
+            "--output-path",
+            str(tmp_path / "out"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Identical: 2  Different: 0  Failed: 0" in result.output
+
+
+def test_no_table_name_failed_comparison_exits_two(tmp_path: Path):
+    """A table that fails to compare is reported, and doesn't stop the others."""
+    resources = [_pk_resource("a", ["x"]), _pk_resource("b", ["x"])]
+    df = pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})
+    _make_dataset(tmp_path / "left", resources, {"a": df, "b": df})
+    _make_dataset(tmp_path / "right", resources, {"a": df, "b": df})
+    # Corrupt one table on the right so that comparing it raises.
+    (tmp_path / "right" / "a.parquet").write_bytes(b"not a parquet file")
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "--left",
+            str(tmp_path / "left"),
+            "--right",
+            str(tmp_path / "right"),
+            "--output-path",
+            str(tmp_path / "out"),
+        ],
+    )
+
+    assert result.exit_code == 2, result.output
+    assert "Identical: 1  Different: 0  Failed: 1" in result.output
+    assert "Failed: a" in result.output
+    assert (tmp_path / "out" / "b_diff.json").exists()
+    report = json.loads((tmp_path / "out" / "a_diff.json").read_text())
+    assert report["success"] is False
+
+
+def test_no_table_name_no_tables_in_common_exits_two(tmp_path: Path):
+    df = pl.DataFrame({"x": [1]})
+    _make_dataset(tmp_path / "left", [_no_pk_resource("a")], {"a": df})
+    _make_dataset(tmp_path / "right", [_no_pk_resource("b")], {"b": df})
+
+    result = CliRunner().invoke(
+        main,
+        ["--left", str(tmp_path / "left"), "--right", str(tmp_path / "right")],
+    )
+
+    assert result.exit_code == 2
+    assert "No tables found in both" in result.output
+
+
+def test_right_table_and_partition_expr_require_a_table_name(tmp_path: Path):
+    left, right = _all_tables_datasets(tmp_path)
+    base = ["--left", str(left), "--right", str(right)]
+
+    # --right-table needs exactly one table: none, or more than one, is an error.
+    result = CliRunner().invoke(main, [*base, "--right-table", "x"])
+    assert result.exit_code == 2
+    assert "--right-table requires exactly one TABLE_NAME" in result.output
+
+    result = CliRunner().invoke(
+        main, [*base, "--right-table", "x", "same_table", "changed_table"]
+    )
+    assert result.exit_code == 2
+    assert "--right-table requires exactly one TABLE_NAME" in result.output
+
+    result = CliRunner().invoke(main, [*base, "--partition-expr", "x"])
+    assert result.exit_code == 2
+    assert "--partition-expr requires at least one TABLE_NAME" in result.output
+
+
+def test_multiple_table_names_compares_only_those_tables(tmp_path: Path):
+    left, right = _all_tables_datasets(tmp_path)
+    output_path = tmp_path / "out"
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "changed_table",
+            "same_table",
+            "changed_table",  # duplicates are only compared once
+            "--left",
+            str(left),
+            "--right",
+            str(right),
+            "--output-path",
+            str(output_path),
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    assert sorted(p.name for p in output_path.glob("*_diff.json")) == [
+        "changed_table_diff.json",
+        "same_table_diff.json",
+    ]
+    assert "Comparing 2 tables between" in result.output
+    assert "Identical: 1  Different: 1  Failed: 0" in result.output
+    # Tables that weren't asked for aren't listed as one-sided.
+    assert "Only in" not in result.output
+
+
+def test_multiple_table_names_including_a_missing_table_exits_two(tmp_path: Path):
+    left, right = _all_tables_datasets(tmp_path)
+    output_path = tmp_path / "out"
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "same_table",
+            "left_only_table",  # missing from the right dataset
+            "--left",
+            str(left),
+            "--right",
+            str(right),
+            "--output-path",
+            str(output_path),
+        ],
+    )
+
+    assert result.exit_code == 2, result.output
+    assert "Identical: 1  Different: 0  Failed: 1" in result.output
+    assert "Failed: left_only_table" in result.output
+    assert (output_path / "same_table_diff.json").exists()
