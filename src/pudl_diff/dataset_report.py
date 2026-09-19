@@ -7,11 +7,8 @@ from datetime import UTC, datetime
 
 import pydantic
 
-from pudl.validate.diff import table_report
 from pudl.validate.diff.dataset import DatasetProvenance, PudlDiffDataset
-from pudl.validate.diff.formatting import (
-    format_bytes,
-)
+from pudl.validate.diff.formatting import format_bytes
 from pudl.validate.diff.table_report import (
     DiffOptions,
     RowChanges,
@@ -259,7 +256,7 @@ def build_pudl_diff_report(
 
 
 @dataclass(frozen=True)
-class _TableOutcome:
+class TableOutcome:
     """What happened when comparing one table, for display."""
 
     table_name: str
@@ -267,8 +264,8 @@ class _TableOutcome:
     """``0`` if identical, ``1`` if different, ``2`` if the comparison failed."""
     elapsed_seconds: float | None
     error: str | None
-    rows: table_report.RowChanges
-    sizes: table_report.SizeComparison
+    rows: RowChanges
+    sizes: SizeComparison
     left_rows: int | None = None
     right_rows: int | None = None
     left_columns: int | None = None
@@ -281,19 +278,19 @@ class _TableOutcome:
     peak_rss_bytes: int | None = None
 
 
-def _outcome(table_name: str, report: table_report.TableDiffReport) -> _TableOutcome:
+def table_outcome(table_name: str, report: TableDiffReport) -> TableOutcome:
     """Boil a table's report down to what we display."""
     exit_code = 0 if report.is_identical else 1
     if not report.success:
         exit_code = 2
     row_counts = report.row_count_diff
     schema = report.schema_diff
-    return _TableOutcome(
+    return TableOutcome(
         table_name=table_name,
         exit_code=exit_code,
         elapsed_seconds=report.elapsed_seconds,
         error=report.error,
-        rows=table_report.RowChanges.from_summary(report.row_diff),
+        rows=RowChanges.from_summary(report.row_diff),
         sizes=report,
         left_rows=row_counts.left_row_count if row_counts else None,
         right_rows=row_counts.right_row_count if row_counts else None,

@@ -12,7 +12,7 @@ from pudl.validate.diff.rows import (
     RowSetDiff,
 )
 from pudl.validate.diff.table import (
-    _row_diff_left_right_frames,
+    row_diff_left_right_frames,
 )
 
 
@@ -115,7 +115,7 @@ def write_row_diff_parquet(
     right_table_name = right_table_name or table_name
     output_path = Path(output_path)
     output_path.mkdir(parents=True, exist_ok=True)
-    (left_lf, left_count), (right_lf, right_count) = _row_diff_left_right_frames(
+    (left_lf, left_count), (right_lf, right_count) = row_diff_left_right_frames(
         row_diff
     )
     return RowDiffParquetOutputs(

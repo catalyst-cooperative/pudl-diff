@@ -8,7 +8,7 @@ from pathlib import Path
 import polars as pl
 
 from pudl.validate.diff.row_counts import (
-    _count_rows,
+    count_rows,
 )
 
 _ROW_KEY_COL = "_pudl_diff_row_key"
@@ -540,7 +540,7 @@ def compare_rows_with_pk(
     return KeyedRowDiff(
         pk_diff=delta.row_set_diff,
         column_changes=column_changes,
-        changed_row_count=_count_rows(changed),
+        changed_row_count=count_rows(changed),
         changed_left=changed_left,
         changed_right=changed_right,
     )

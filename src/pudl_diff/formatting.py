@@ -21,12 +21,12 @@ def format_bytes(num_bytes: int, *, signed: bool = False) -> str:
     return f"+{text}" if signed and num_bytes > 0 else text
 
 
-def _format_elapsed(seconds: float) -> str:
+def format_elapsed(seconds: float) -> str:
     """Format a duration with enough precision to be meaningful for fast tables."""
     return f"{seconds:.3f}s"
 
 
-def _format_duration(seconds: float) -> str:
+def format_duration(seconds: float) -> str:
     """Format the duration of a whole run, which may be minutes or hours long."""
     if seconds < 60:
         return f"{seconds:.3f}s"
@@ -37,7 +37,7 @@ def _format_duration(seconds: float) -> str:
     return f"{minutes}m {secs:04.1f}s"
 
 
-def _format_percent(count: int, total: int | None) -> str:
+def format_percent(count: int, total: int | None) -> str:
     """``count`` as a percentage of ``total``, with useful precision when small."""
     if count == 0:
         return "0%"
@@ -51,7 +51,7 @@ def _format_percent(count: int, total: int | None) -> str:
     return f"{percent:.2f}%"
 
 
-def _format_signed_percent(percent: float) -> str:
+def format_signed_percent(percent: float) -> str:
     """A percentage change, always signed, with useful precision when small."""
     if percent == 0:
         return "0%"

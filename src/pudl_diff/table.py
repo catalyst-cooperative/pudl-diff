@@ -10,7 +10,7 @@ import polars as pl
 
 import pudl.logging_helpers
 from pudl.validate.diff.dataset import PudlDiffDataset
-from pudl.validate.diff.performance import _PerformanceSampler
+from pudl.validate.diff.performance import PerformanceSampler
 from pudl.validate.diff.row_counts import (
     RowCountDiff,
     compare_row_counts,
@@ -78,7 +78,7 @@ class TableDiffResult:
     """Peak resident set size attributable to this comparison: the highest
     whole-process RSS observed while :func:`compare_table` was running, net
     of the process's RSS just before it started. Sampled on a background
-    thread (see :class:`_PerformanceSampler`), so very short, sharp spikes
+    thread (see :class:`PerformanceSampler`), so very short, sharp spikes
     between samples may be missed."""
     peak_cpu_percent: float = 0.0
     """Peak per-interval CPU utilization observed while :func:`compare_table`
@@ -118,12 +118,12 @@ def compare_table(
     """Compare a single table between two PUDL datasets.
 
     Times the comparison and samples this process's peak RSS and CPU
-    utilization while it runs (see :class:`_PerformanceSampler`), recording
+    utilization while it runs (see :class:`PerformanceSampler`), recording
     all three on the returned :class:`TableDiffResult`. See
     :func:`_compare_table` for the comparison logic itself.
     """
     start = time.perf_counter()
-    with _PerformanceSampler() as sampler:
+    with PerformanceSampler() as sampler:
         result = _compare_table(
             left,
             right,
@@ -357,7 +357,7 @@ def run_table_diff(
     return TableDiffRun(success=True, result=result, error=None)
 
 
-def _row_diff_left_right_frames(
+def row_diff_left_right_frames(
     row_diff: RowSetDiff | KeyedRowDiff,
 ) -> tuple[tuple[pl.LazyFrame, int], tuple[pl.LazyFrame, int]]:
     """All differing rows, split by source table, in that table's own schema.

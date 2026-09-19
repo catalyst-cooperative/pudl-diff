@@ -9,13 +9,13 @@ from pudl.validate.diff import table_report
 from pudl.validate.diff.dataset_report import (
     PudlDiffReport,
     PudlDiffSummary,
-    _TableOutcome,
+    TableOutcome,
 )
 from pudl.validate.diff.formatting import (
-    _format_duration,
-    _format_elapsed,
-    _format_percent,
-    _format_signed_percent,
+    format_duration,
+    format_elapsed,
+    format_percent,
+    format_signed_percent,
 )
 
 _GRAY = "bright_black"
@@ -24,7 +24,7 @@ _TAGS = {
     1: ("[CHANGED]", "yellow"),
     2: ("[ERROR]", "red"),
 }
-"""The log-level style tag and its color for each :attr:`_TableOutcome.exit_code`."""
+"""The log-level style tag and its color for each :attr:`TableOutcome.exit_code`."""
 _TAG_WIDTH = 11
 _KEY_WIDTH = 5
 _LEFT_COLUMNS_WIDTH = 9
@@ -97,7 +97,7 @@ def _change_segments(
     return [*segments, _count(f"-{text(removed)}", removed, removed_color)]
 
 
-def _columns_segments(outcome: _TableOutcome) -> _Segments:
+def _columns_segments(outcome: TableOutcome) -> _Segments:
     """Summary of column changes: ``+added/changed/-removed``.
 
     Here ``changed`` counts the columns whose dtype changed. Cyan, hot pink and
@@ -130,11 +130,11 @@ def _size_change_segments(
     percent = sizes.bytes_difference_percent
     return (
         [(sizes.bytes_difference_size, color)],
-        [(_format_signed_percent(percent), color)] if percent is not None else [],
+        [(format_signed_percent(percent), color)] if percent is not None else [],
     )
 
 
-def _row_cells(outcome: _TableOutcome) -> tuple[str, str]:
+def _row_cells(outcome: TableOutcome) -> tuple[str, str]:
     """The styled, padded row changes and row change percentage cells.
 
     If there are no row changes to show, the explanation spans both cells.
@@ -155,7 +155,7 @@ def _row_cells(outcome: _TableOutcome) -> tuple[str, str]:
         rows.added,
         rows.changed,
         rows.removed,
-        lambda n: _format_percent(n, outcome.left_rows),
+        lambda n: format_percent(n, outcome.left_rows),
     )
     return _render(counts, _ROWS_WIDTH), _render(percents, _PERCENT_WIDTH)
 
@@ -166,8 +166,8 @@ def _format_key(has_primary_key: bool | None) -> str:
     return "PK" if has_primary_key else "no-PK"
 
 
-def _format_header(progress_width: int = 0) -> str:
-    """The column headings for the lines made by :func:`_format_outcome`."""
+def format_header(progress_width: int = 0) -> str:
+    """The column headings for the lines made by :func:`format_outcome`."""
     parts = [
         " " * progress_width,
         "STATUS".ljust(_TAG_WIDTH),
@@ -187,7 +187,7 @@ def _format_header(progress_width: int = 0) -> str:
     return click.style("  ".join(part for part in parts if part), bold=True)
 
 
-def _format_outcome(outcome: _TableOutcome, progress: str = "") -> str:
+def format_outcome(outcome: TableOutcome, progress: str = "") -> str:
     """One line summarizing a table's comparison.
 
     The table name goes last, so that the (variable length) names don't disturb
@@ -195,7 +195,7 @@ def _format_outcome(outcome: _TableOutcome, progress: str = "") -> str:
     """
     tag, color = _TAGS[outcome.exit_code]
     elapsed = (
-        _format_elapsed(outcome.elapsed_seconds)
+        format_elapsed(outcome.elapsed_seconds)
         if outcome.elapsed_seconds is not None
         else ""
     )
@@ -253,7 +253,7 @@ def _echo_totals(summary: PudlDiffSummary) -> None:
         summary.rows_added,
         summary.rows_changed,
         summary.rows_removed,
-        lambda n: _format_percent(n, summary.left_row_count),
+        lambda n: format_percent(n, summary.left_row_count),
     )
     click.echo(_field("% of left rows:", _render(percents)))
     # Rows in tables we couldn't count changes for still count towards the total
@@ -278,9 +278,7 @@ def _echo_totals(summary: PudlDiffSummary) -> None:
         click.echo(_field("Size change:", _render([*change, (" ", None), *percent])))
 
 
-def _echo_schema_totals(
-    summary: PudlDiffSummary, outcomes: list[_TableOutcome]
-) -> None:
+def _echo_schema_totals(summary: PudlDiffSummary, outcomes: list[TableOutcome]) -> None:
     """Print columns added, changed (dtype) and removed across all the tables.
 
     Followed by each table whose schema changed, and how its columns changed.
@@ -311,8 +309,8 @@ def _echo_table_list(label: str, table_names: list[str]) -> None:
             click.echo(f"  {table_name}")
 
 
-def _echo_summary(
-    report: PudlDiffReport, outcomes: list[_TableOutcome], report_path: Path
+def echo_summary(
+    report: PudlDiffReport, outcomes: list[TableOutcome], report_path: Path
 ) -> None:
     """Print how the run went: table counts, what was compared, time and memory."""
     summary = report.summary
@@ -330,7 +328,7 @@ def _echo_summary(
     click.echo(_field("Left:", report.left_dataset.root))
     click.echo(_field("Right:", report.right_dataset.root))
     if report.elapsed_seconds is not None:
-        click.echo(_field("Elapsed:", _format_duration(report.elapsed_seconds)))
+        click.echo(_field("Elapsed:", format_duration(report.elapsed_seconds)))
     if summary.peak_rss is not None:
         click.echo(
             _field("Peak memory:", f"{summary.peak_rss} ({summary.peak_rss_table})")
@@ -343,7 +341,7 @@ def _echo_summary(
     click.echo(f"{click.style('Report written to', bold=True)} {report_path}")
 
 
-def _echo_intro(
+def echo_intro(
     tables: list[str], left_root: str, right_root: str, *, explicit: bool
 ) -> None:
     """Say which tables are about to be compared, and between what."""

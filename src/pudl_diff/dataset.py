@@ -208,11 +208,11 @@ class PudlDiffDataset:
         )
 
 
-class _NoTablesError(Exception):
+class NoTablesError(Exception):
     """There are no tables to compare."""
 
 
-def _resolve_tables(
+def resolve_tables(
     left: PudlDiffDataset,
     right: PudlDiffDataset,
     table_names: tuple[str, ...],
@@ -225,7 +225,7 @@ def _resolve_tables(
         those found only in the right dataset, both empty when tables are given.
 
     Raises:
-        _NoTablesError: If no tables were given, and the datasets have none in
+        NoTablesError: If no tables were given, and the datasets have none in
             common.
     """
     if table_names:
@@ -234,7 +234,7 @@ def _resolve_tables(
     right_tables = right.parquet_table_names()
     tables = sorted(set(left_tables) & set(right_tables))
     if not tables:
-        raise _NoTablesError(
+        raise NoTablesError(
             f"No tables found in both {str(left.root)!r} ({len(left_tables)} tables) "
             f"and {str(right.root)!r} ({len(right_tables)} tables)."
         )

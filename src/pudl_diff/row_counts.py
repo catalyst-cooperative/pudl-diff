@@ -49,7 +49,8 @@ class RowCountDiff:
 _PARTITION_COL_NAME = "__partition__"
 
 
-def _count_rows(lf: pl.LazyFrame) -> int:
+def count_rows(lf: pl.LazyFrame) -> int:
+    """Count the rows of ``lf``, streaming so that it needn't fit in memory."""
     return lf.select(pl.len()).collect(engine="streaming").item()
 
 
@@ -57,7 +58,7 @@ def _partition_counts(
     lf: pl.LazyFrame, partition_expr: str | pl.Expr | None
 ) -> dict[Any, int]:
     if partition_expr is None:
-        return {NO_PARTITION: _count_rows(lf)}
+        return {NO_PARTITION: count_rows(lf)}
     expr = pl.col(partition_expr) if isinstance(partition_expr, str) else partition_expr
     counts = (
         lf.group_by(expr.alias(_PARTITION_COL_NAME))

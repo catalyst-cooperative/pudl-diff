@@ -15,13 +15,13 @@ from pudl.scripts.pudl_diff import (
     main,
 )
 from pudl.validate.diff import table_report
-from pudl.validate.diff.dataset_report import _TableOutcome
+from pudl.validate.diff.dataset_report import TableOutcome
 from pudl.validate.diff.formatting import (
-    _format_duration,
-    _format_percent,
-    _format_signed_percent,
+    format_duration,
+    format_percent,
+    format_signed_percent,
 )
-from pudl.validate.diff.terminal import _format_header, _format_outcome
+from pudl.validate.diff.terminal import format_header, format_outcome
 
 
 def _write_datapackage(root: Path, resources: list[dict]) -> None:
@@ -609,7 +609,7 @@ def _load_report(output_path: Path) -> dict:
     return json.loads((output_path / REPORT_FILENAME).read_text())
 
 
-def _outcome(
+def table_outcome(
     exit_code: int,
     *,
     added: int | None = None,
@@ -619,8 +619,8 @@ def _outcome(
     has_primary_key: bool | None = None,
     sizes: table_report.SizeComparison | None = None,
     **kwargs,
-) -> _TableOutcome:
-    return _TableOutcome(
+) -> TableOutcome:
+    return TableOutcome(
         table_name="some_table",
         exit_code=exit_code,
         elapsed_seconds=1.5,
@@ -644,7 +644,7 @@ def _plain(line: str) -> str:
 
 def test_format_outcome_table_with_primary_key():
     line = _plain(
-        _format_outcome(_outcome(1, added=1_234_567, changed=221, removed=764))
+        format_outcome(table_outcome(1, added=1_234_567, changed=221, removed=764))
     )
     assert line.startswith("[CHANGED]")
     assert "+1,234,567/221/-764" in line
@@ -652,32 +652,32 @@ def test_format_outcome_table_with_primary_key():
 
 
 def test_format_outcome_table_without_primary_key_has_no_middle_count():
-    line = _plain(_format_outcome(_outcome(1, added=50, removed=30)))
+    line = _plain(format_outcome(table_outcome(1, added=50, removed=30)))
     assert "+50/-30" in line
 
 
 def test_format_outcome_identical_and_progress_prefix():
     line = _plain(
-        _format_outcome(_outcome(0, added=0, changed=0, removed=0), "[ 3/378]")
+        format_outcome(table_outcome(0, added=0, changed=0, removed=0), "[ 3/378]")
     )
     assert line.startswith("[ 3/378]  [IDENTICAL]")
     assert "+0/0/-0" in line
 
 
 def test_format_outcome_skipped_and_error_messages():
-    skipped = _plain(_format_outcome(_outcome(1, skipped_reason="too_many_rows")))
+    skipped = _plain(format_outcome(table_outcome(1, skipped_reason="too_many_rows")))
     assert "[CHANGED]" in skipped
     assert "row diff skipped: too many rows" in skipped
 
-    error = _plain(_format_outcome(_outcome(2)))
+    error = _plain(format_outcome(table_outcome(2)))
     assert "[ERROR]" in error
     assert "comparison failed" in error
 
 
 def test_format_outcome_column_changes():
     line = _plain(
-        _format_outcome(
-            _outcome(
+        format_outcome(
+            table_outcome(
                 1,
                 added=0,
                 changed=0,
@@ -697,16 +697,16 @@ def test_format_outcome_column_colors():
     gray, cyan, hot_pink, magenta = "\x1b[90m", "\x1b[36m", "\x1b[38;5;205m", "\x1b[35m"
     kwargs = {"added": 0, "changed": 0, "removed": 0}
 
-    changed = _format_outcome(
-        _outcome(1, columns_added=2, columns_removed=1, dtypes_changed=3, **kwargs)
+    changed = format_outcome(
+        table_outcome(1, columns_added=2, columns_removed=1, dtypes_changed=3, **kwargs)
     )
     assert cyan in changed
     assert hot_pink in changed
     assert magenta in changed
 
     # Zero column counts are gray, like zero row counts.
-    unchanged = _format_outcome(
-        _outcome(0, columns_added=0, columns_removed=0, **kwargs)
+    unchanged = format_outcome(
+        table_outcome(0, columns_added=0, columns_removed=0, **kwargs)
     )
     assert cyan not in unchanged
     assert hot_pink not in unchanged
@@ -715,15 +715,15 @@ def test_format_outcome_column_colors():
 
 
 def test_format_outcome_error_has_no_column_counts():
-    line = _plain(_format_outcome(_outcome(2)))
+    line = _plain(format_outcome(table_outcome(2)))
     assert "+0/0/-0" not in line
 
 
 def test_format_outcome_left_columns():
     kwargs = {"added": 0, "changed": 0, "removed": 0}
     line = _plain(
-        _format_outcome(
-            _outcome(
+        format_outcome(
+            table_outcome(
                 0,
                 columns_added=1,
                 columns_removed=0,
@@ -737,7 +737,7 @@ def test_format_outcome_left_columns():
 
 
 def test_format_header_names_each_column():
-    header = _plain(_format_header(len("[3/378]")))
+    header = _plain(format_header(len("[3/378]")))
     for heading in [
         "STATUS",
         "KEY",
@@ -752,8 +752,8 @@ def test_format_header_names_each_column():
         assert heading in header
     # The headings line up with the values in the rows below.
     row = _plain(
-        _format_outcome(
-            _outcome(
+        format_outcome(
+            table_outcome(
                 0,
                 added=0,
                 changed=0,
@@ -782,28 +782,28 @@ def test_format_header_names_each_column():
 
 def test_format_outcome_key_and_left_rows():
     pk = _plain(
-        _format_outcome(
-            _outcome(
+        format_outcome(
+            table_outcome(
                 1, added=1, changed=1, removed=1, has_primary_key=True, left_rows=1_500
             )
         )
     )
     assert re.search(r"\bPK\b.*\b1,500\b", pk)
     no_pk = _plain(
-        _format_outcome(
-            _outcome(1, added=1, removed=1, has_primary_key=False, left_rows=1_500)
+        format_outcome(
+            table_outcome(1, added=1, removed=1, has_primary_key=False, left_rows=1_500)
         )
     )
     assert "no-PK" in no_pk
     # An error means we don't know either.
-    error = _plain(_format_outcome(_outcome(2)))
+    error = _plain(format_outcome(table_outcome(2)))
     assert "PK" not in error
 
 
 def test_format_outcome_percentages_are_relative_to_left_rows():
     line = _plain(
-        _format_outcome(
-            _outcome(
+        format_outcome(
+            table_outcome(
                 1,
                 added=50,
                 changed=221,
@@ -819,8 +819,8 @@ def test_format_outcome_percentages_are_relative_to_left_rows():
 
 def test_format_outcome_skipped_row_diff_still_shows_left_rows_but_no_percentages():
     line = _plain(
-        _format_outcome(
-            _outcome(
+        format_outcome(
+            table_outcome(
                 1, skipped_reason="too_many_rows", has_primary_key=True, left_rows=99
             )
         )
@@ -831,28 +831,28 @@ def test_format_outcome_skipped_row_diff_still_shows_left_rows_but_no_percentage
 
 
 def test_format_percent():
-    assert _format_percent(0, 100) == "0%"
-    assert _format_percent(0, 0) == "0%"
-    assert _format_percent(1, 0) == "n/a"
-    assert _format_percent(1, 100) == "1.00%"
-    assert _format_percent(1, 1_000_000) == "<0.01%"
-    assert _format_percent(250, 100) == "250%"
-    assert _format_percent(12_345, 100_000) == "12.35%"
+    assert format_percent(0, 100) == "0%"
+    assert format_percent(0, 0) == "0%"
+    assert format_percent(1, 0) == "n/a"
+    assert format_percent(1, 100) == "1.00%"
+    assert format_percent(1, 1_000_000) == "<0.01%"
+    assert format_percent(250, 100) == "250%"
+    assert format_percent(12_345, 100_000) == "12.35%"
 
 
 def test_format_duration():
-    assert _format_duration(0.0432) == "0.043s"
-    assert _format_duration(38.0) == "38.000s"
-    assert _format_duration(125.4) == "2m 05.4s"
-    assert _format_duration(3723.0) == "1h 02m 03s"
+    assert format_duration(0.0432) == "0.043s"
+    assert format_duration(38.0) == "38.000s"
+    assert format_duration(125.4) == "2m 05.4s"
+    assert format_duration(3723.0) == "1h 02m 03s"
 
 
 def test_format_signed_percent():
-    assert _format_signed_percent(0) == "0%"
-    assert _format_signed_percent(1.234) == "+1.23%"
-    assert _format_signed_percent(-1.234) == "-1.23%"
-    assert _format_signed_percent(0.001) == "+<0.01%"
-    assert _format_signed_percent(-0.001) == "-<0.01%"
+    assert format_signed_percent(0) == "0%"
+    assert format_signed_percent(1.234) == "+1.23%"
+    assert format_signed_percent(-1.234) == "-1.23%"
+    assert format_signed_percent(0.001) == "+<0.01%"
+    assert format_signed_percent(-0.001) == "-<0.01%"
 
 
 def test_format_outcome_sizes_and_their_colors():
@@ -862,7 +862,7 @@ def test_format_outcome_sizes_and_their_colors():
         sizes = table_report.SizeComparison(
             left_table_bytes=left, right_table_bytes=right
         )
-        return _format_outcome(_outcome(1, sizes=sizes))
+        return format_outcome(table_outcome(1, sizes=sizes))
 
     grew = line(10_000_000, 10_500_000)
     assert "10.0 MB" in grew
@@ -880,13 +880,13 @@ def test_format_outcome_sizes_and_their_colors():
 
 
 def test_format_outcome_unknown_sizes_are_blank():
-    line = _plain(_format_outcome(_outcome(2)))
+    line = _plain(format_outcome(table_outcome(2)))
     assert "MB" not in line
     assert "%" not in line.replace("% OF", "")
 
 
 def test_format_header_names_size_columns():
-    header = _plain(_format_header())
+    header = _plain(format_header())
     for heading in ["LEFT SIZE", "RIGHT SIZE", "SIZE CHANGE", "% SIZE"]:
         assert heading in header
 
@@ -894,12 +894,12 @@ def test_format_header_names_size_columns():
 def test_format_outcome_colors():
     gray, green, yellow, red = "\x1b[90m", "\x1b[32m", "\x1b[33m", "\x1b[31m"
 
-    mixed = _format_outcome(_outcome(1, added=5, changed=6, removed=7))
+    mixed = format_outcome(table_outcome(1, added=5, changed=6, removed=7))
     for code in (green, yellow, red):
         assert code in mixed
 
     # Zero counts are gray rather than colored.
-    zeros = _format_outcome(_outcome(0, added=0, changed=0, removed=0))
+    zeros = format_outcome(table_outcome(0, added=0, changed=0, removed=0))
     assert gray in zeros
     assert yellow not in zeros
     assert red not in zeros

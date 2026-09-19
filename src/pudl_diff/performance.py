@@ -5,7 +5,7 @@ import threading
 import psutil
 
 
-class _PerformanceSampler:
+class PerformanceSampler:
     """Tracks peak whole-process RSS and CPU utilization during a ``with`` block.
 
     Polls :func:`psutil.Process.memory_info` and :func:`psutil.Process.cpu_percent`
@@ -19,6 +19,7 @@ class _PerformanceSampler:
     """
 
     def __init__(self, interval_seconds: float = 0.05):
+        """Sample memory and CPU use every ``interval_seconds``."""
         self._interval_seconds = interval_seconds
         self._process = psutil.Process()
         self._stop_event = threading.Event()
@@ -27,7 +28,8 @@ class _PerformanceSampler:
         self._peak_rss = 0
         self._peak_cpu_percent = 0.0
 
-    def __enter__(self) -> _PerformanceSampler:
+    def __enter__(self) -> PerformanceSampler:
+        """Record the baseline RSS and start sampling on a background thread."""
         self._baseline_rss = self._process.memory_info().rss
         self._peak_rss = self._baseline_rss
         # cpu_percent()'s first call after a Process handle is created always
@@ -42,6 +44,7 @@ class _PerformanceSampler:
         return self
 
     def __exit__(self, *exc_info: object) -> None:
+        """Stop sampling, after taking one last sample."""
         self._stop_event.set()
         if self._thread is not None:
             self._thread.join()

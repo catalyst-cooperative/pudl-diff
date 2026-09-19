@@ -13,7 +13,7 @@ from dagster import get_dagster_logger
 import pudl
 from pudl.logging_helpers import get_logger
 from pudl.validate.diff import table_report
-from pudl.validate.diff.dataset import PudlDiffDataset, _NoTablesError, _resolve_tables
+from pudl.validate.diff.dataset import NoTablesError, PudlDiffDataset, resolve_tables
 from pudl.validate.diff.dataset_report import (
     PudlDiffReport,
     build_pudl_diff_report,
@@ -21,8 +21,8 @@ from pudl.validate.diff.dataset_report import (
 from pudl.validate.diff.runner import _compare_tables
 from pudl.validate.diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON
 from pudl.validate.diff.terminal import (
-    _echo_intro,
-    _echo_summary,
+    echo_intro,
+    echo_summary,
 )
 from pudl.workspace.setup import PudlPaths
 
@@ -239,10 +239,10 @@ def main(
         report_path.write_text(report.model_dump_json(indent=2))
 
     try:
-        tables, only_in_left, only_in_right = _resolve_tables(
+        tables, only_in_left, only_in_right = resolve_tables(
             left_dataset, right_dataset, table_names
         )
-    except _NoTablesError as e:
+    except NoTablesError as e:
         tables, only_in_left, only_in_right = [], [], []
         error: str | None = str(e)
     except Exception:
@@ -268,7 +268,7 @@ def main(
         ctx.exit(2)
 
     single = len(table_names) == 1
-    _echo_intro(tables, left_root, right_root, explicit=bool(table_names))
+    echo_intro(tables, left_root, right_root, explicit=bool(table_names))
     table_reports, outcomes = _compare_tables(
         left_dataset,
         right_dataset,
@@ -296,7 +296,7 @@ def main(
             )
         click.echo(f"Report written to {report_path}")
     else:
-        _echo_summary(report, outcomes, report_path)
+        echo_summary(report, outcomes, report_path)
     ctx.exit(report.exit_code)
 
 
