@@ -909,3 +909,24 @@ def test_summary_descriptors_are_bold(tmp_path: Path, all_tables_datasets):
     # The values aren't bold, and stay aligned once the styling is stripped.
     assert re.search(r"^Left: {12}\S", _plain(result.output), re.MULTILINE)
     assert re.search(r"^Elapsed: {9}\S", _plain(result.output), re.MULTILINE)
+
+
+def test_summary_headline_is_bold_and_separated_from_the_rest(
+    tmp_path: Path, all_tables_datasets
+):
+    left, right = all_tables_datasets
+
+    result = CliRunner().invoke(
+        main,
+        ["-l", str(left), "-r", str(right), "-o", str(tmp_path / "out"), "--color"],
+    )
+
+    bold, reset = "\x1b[1m", "\x1b[0m"
+    assert f"\x1b[32m{bold}Identical{reset}: {bold}1{reset}" in result.output
+    assert f"\x1b[33m{bold}Changed{reset}: {bold}1{reset}" in result.output
+    assert f"\x1b[31m{bold}Error{reset}: {bold}0{reset}" in result.output
+    # A line under the headline sets it apart from the rest of the summary.
+    lines = _plain(result.output).splitlines()
+    headline = lines.index("Identical: 1  Changed: 1  Error: 0")
+    assert set(lines[headline + 1]) == {"─"}
+    assert lines[headline + 2].startswith("Left:")

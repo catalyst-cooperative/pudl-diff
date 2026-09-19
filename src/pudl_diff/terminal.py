@@ -28,11 +28,11 @@ _TAGS = {
 """The log-level style tag and its color for each :attr:`~.TableOutcome.exit_code`."""
 _TAG_WIDTH = 11
 _KEY_WIDTH = 5
-_LEFT_COLUMNS_WIDTH = 9
-_COLUMNS_WIDTH = 19
+_LEFT_COLUMNS_WIDTH = 4
+_COLUMNS_WIDTH = 14
 _LEFT_ROWS_WIDTH = 13
-_ROWS_WIDTH = 30
-_PERCENT_WIDTH = 24
+_ROWS_WIDTH = 24
+_PERCENT_WIDTH = 22
 _ELAPSED_WIDTH = 9
 _SIZE_WIDTH = 9
 _RIGHT_SIZE_WIDTH = 10
@@ -44,10 +44,6 @@ _Color = str | int
 _HOT_PINK = 205
 _COLUMN_COLORS = ("cyan", _HOT_PINK, "magenta")
 """Colors for columns added, changed (dtype) and removed."""
-_GREW = 39
-_SHRANK = 208
-"""Blue for a table that grew and orange for one that shrank: colors that, unlike
-green and red, don't suggest that either change is good or bad."""
 _Segments = list[tuple[str, _Color | None]]
 """Pieces of text and the color (if any) to show each one in."""
 
@@ -124,10 +120,12 @@ def _size_change_segments(
     """
     if sizes.bytes_difference is None or sizes.bytes_difference_size is None:
         return [], []
+    # Green for a table that grew and red for one that shrank, like the +/- of the
+    # row and column counts.
     if sizes.bytes_difference > 0:
-        color: _Color = _GREW
+        color: _Color = "green"
     else:
-        color = _SHRANK if sizes.bytes_difference < 0 else _GRAY
+        color = "red" if sizes.bytes_difference < 0 else _GRAY
     percent = sizes.bytes_difference_percent
     return (
         [(sizes.bytes_difference_size, color)],
@@ -168,24 +166,38 @@ def _format_key(has_primary_key: bool | None) -> str:
 
 
 def format_header(progress_width: int = 0) -> str:
-    """The column headings for the lines made by :func:`format_outcome`."""
-    parts = [
-        " " * progress_width,
-        "STATUS".ljust(_TAG_WIDTH),
-        "KEY".ljust(_KEY_WIDTH),
-        "LEFT COLS".rjust(_LEFT_COLUMNS_WIDTH),
-        "COLS +add/~chg/-del".ljust(_COLUMNS_WIDTH),
-        "LEFT ROWS".rjust(_LEFT_ROWS_WIDTH),
-        "ROWS +add/~chg/-del".ljust(_ROWS_WIDTH),
-        "% OF LEFT ROWS".ljust(_PERCENT_WIDTH),
-        "LEFT SIZE".rjust(_SIZE_WIDTH),
-        "RIGHT SIZE".rjust(_RIGHT_SIZE_WIDTH),
-        "SIZE CHANGE".rjust(_SIZE_CHANGE_WIDTH),
-        "% SIZE".rjust(_PERCENT_CHANGE_WIDTH),
-        "TIME".rjust(_ELAPSED_WIDTH),
-        "TABLE",
+    """The two lines of column headings for the lines made by :func:`format_outcome`.
+
+    A heading may name its column on the first line and say what it holds on the
+    second, so that it needn't be wider than the values below it. The second line is
+    the one that sits directly above the values.
+    """
+    # Each column's two lines of heading, its width, and whether it's right-aligned.
+    columns = [
+        (("", "STATUS"), _TAG_WIDTH, False),
+        (("", "KEY"), _KEY_WIDTH, False),
+        (("LEFT", "COLS"), _LEFT_COLUMNS_WIDTH, True),
+        (("COL CHANGES", "+add/~chg/-del"), _COLUMNS_WIDTH, False),
+        (("LEFT", "ROWS"), _LEFT_ROWS_WIDTH, True),
+        (("ROW CHANGES", "+add/~chg/-del"), _ROWS_WIDTH, False),
+        (("% OF LEFT ROWS", "+add/~chg/-del"), _PERCENT_WIDTH, False),
+        (("", "LEFT SIZE"), _SIZE_WIDTH, True),
+        (("", "RIGHT SIZE"), _RIGHT_SIZE_WIDTH, True),
+        (("", "SIZE CHANGE"), _SIZE_CHANGE_WIDTH, True),
+        (("", "% SIZE"), _PERCENT_CHANGE_WIDTH, True),
+        (("", "TIME"), _ELAPSED_WIDTH, True),
+        (("", "TABLE"), 0, False),
     ]
-    return click.style("  ".join(part for part in parts if part), bold=True)
+    lines = []
+    for line in (0, 1):
+        parts: list[str] = [" " * progress_width]
+        for headings, width, right_aligned in columns:
+            heading = headings[line]
+            parts.append(
+                heading.rjust(width) if right_aligned else heading.ljust(width)
+            )
+        lines.append(click.style("  ".join(p for p in parts if p).rstrip(), bold=True))
+    return "\n".join(lines)
 
 
 def format_outcome(outcome: TableOutcome, progress: str = "") -> str:
@@ -226,6 +238,8 @@ def format_outcome(outcome: TableOutcome, progress: str = "") -> str:
 
 
 _LABEL_WIDTH = 17
+_RULE_WIDTH = 60
+"""Width of the line under the summary's headline."""
 
 
 def _field(label: str, value: str) -> str:
@@ -323,9 +337,11 @@ def echo_summary(
     click.echo(
         "\n"
         + "  ".join(
-            f"{click.style(label, fg=color)}: {n}" for label, n, color in counts
+            f"{click.style(label, fg=color, bold=True)}: {click.style(str(n), bold=True)}"
+            for label, n, color in counts
         )
     )
+    click.echo("─" * _RULE_WIDTH)
     click.echo(_field("Left:", report.left_dataset.root))
     click.echo(_field("Right:", report.right_dataset.root))
     if report.elapsed_seconds is not None:

@@ -114,22 +114,24 @@ to differ, it also writes two Parquet side-output files:
   whose primary key matches but whose other data differs).
 * ``<right_table_name>_right_only.parquet`` -- the same, for the right dataset.
 
-Under a header naming each column, each table's line starts with a status tag for
-the comparison as a whole (including its schema): ``[IDENTICAL]`` (green),
+Under a two-line header naming each column, each table's line starts with a status tag
+for the comparison as a whole (including its schema): ``[IDENTICAL]`` (green),
 ``[CHANGED]`` (yellow) or ``[ERROR]`` (red, the comparison itself failed). It's
-followed by whether the table has a primary key (``PK`` or ``no-PK``), the
-number of columns in the left table and how many were added, changed (had their
-dtype change) and removed, the number of rows in the left table, a
-summary of the row-level changes in the style of ``git diff`` (as counts and as
-percentages of the left table's rows), the time taken, and the table name:
+followed by whether the table has a primary key (``PK`` or ``no-PK``), the number of
+columns in the left table and how many were added, changed (had their dtype change)
+and removed, the number of rows in the left table, a summary of the row-level changes
+in the style of ``git diff`` (as counts and as percentages of the left table's rows),
+the size of each table's Parquet file and how it changed, the time taken, and the
+table name:
 
 .. code-block:: text
 
-   STATUS       KEY    LEFT COLS  COLS +add/~chg/-del      LEFT ROWS  ROWS +add/~chg/-del             % OF LEFT ROWS                 TIME  TABLE
-   [IDENTICAL]  PK            25  +0/0/-0                    408,860  +0/0/-0                         +0%/0%/-0%                   0.043s  core_eia861__yearly_sales
-   [CHANGED]    PK            18  +0/0/-0                     12,450  +50/221/-764                    +0.40%/1.78%/-6.14%          0.512s  core_eia860__scd_utilities
-   [CHANGED]    no-PK         41  +2/3/-1                     61,320  +0/-0                           +0%/-0%                      1.204s  core_eia923__monthly_fuel
-   [CHANGED]    PK            12  +0/0/-0              1,017,748,176  row diff skipped: too many rows                              2.310s  core_epacems__hourly_emissions
+                       LEFT  COL CHANGES              LEFT  ROW CHANGES               % OF LEFT ROWS
+   STATUS       KEY    COLS  +add/~chg/-del           ROWS  +add/~chg/-del            +add/~chg/-del          LEFT SIZE  RIGHT SIZE  SIZE CHANGE     % SIZE       TIME  TABLE
+   [IDENTICAL]  PK       25  +0/0/-0               408,860  +0/0/-0                   +0%/0%/-0%                31.4 MB     31.4 MB          0 B         0%     0.043s  core_eia861__yearly_sales
+   [CHANGED]    PK       18  +0/0/-0                12,450  +50/221/-764              +0.40%/1.78%/-6.14%        1.6 MB      1.5 MB    -110.0 KB     -6.67%     0.512s  core_eia860__scd_utilities
+   [CHANGED]    no-PK    41  +2/3/-1                61,320  +0/-0                     +0%/-0%                    5.2 MB      5.8 MB    +600.0 KB    +11.54%     1.204s  core_eia923__monthly_fuel
+   [CHANGED]    PK       12  +0/0/-0         1,017,748,176  row diff skipped: too many rows                      9.4 GB      9.4 GB          0 B         0%     2.310s  core_epacems__hourly_emissions
 
 * Left columns: the number of columns in the left table.
 * Column changes: the number of columns only in the right table (``+``, cyan), the
@@ -144,20 +146,23 @@ percentages of the left table's rows), the time taken, and the table name:
   left table.
 * Percentages: each of those counts as a percentage of the left table's rows.
   Very small ones are shown as ``<0.01%``.
+* Sizes: the size of the Parquet file in each dataset, then the change in size and
+  as a percentage of the left size. Like the row counts, it is green if the table grew
+  (``+``) and red if it shrank (``-``), and gray if it didn't change.
 
 Zero counts are shown in gray. For a table with no primary key, rows are
 compared as a multiset, so a row that appears a different number of times counts
 towards ``+`` or ``-``. If row-level comparison was skipped, the rows column
 says so (e.g. ``row diff skipped: too many rows``) instead of showing counts.
 
-After the last table, ``pudl_diff`` prints how many tables were identical,
-changed and errored, the left and right datasets that were compared, the total
-time taken, and the peak memory used (the highest of any single table's, along
-with which table it was). It also totals the rows in all the tables, left and
-right, and the rows added, changed and removed across all of them, in counts and
-as percentages of the total left rows. Tables with no row-level comparison
-still count towards the total left rows, so a separate line says how many tables
-and rows that applies to.
+After the last table, ``pudl_diff`` prints how many tables were identical, changed and
+errored (in bold, above a horizontal line), the left and right datasets that were
+compared, the total time taken, and the peak memory used (the highest of any single
+table's, along with which table it was). It also totals the rows in all the tables, left
+and right, and the rows added, changed and removed across all of them, in counts and as
+percentages of the total left rows. Tables with no row-level comparison still count
+towards the total left rows, so a separate line says how many tables and rows that
+applies to.
 
 The summary totals the schema changes in the same colors as the per-table
 lines: the columns added, changed (dtype) and removed across all the tables, and

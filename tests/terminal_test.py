@@ -136,20 +136,20 @@ def test_format_outcome_left_columns():
     assert re.search(r"\b1,234 +\+1/0/-0\b", line)
 
 
-def test_format_header_names_each_column():
-    header = _plain(format_header(len("[3/378]")))
+def test_format_header_has_two_lines_naming_each_column():
+    first, second = _plain(format_header(len("[3/378]"))).splitlines()
+    for heading in ["LEFT", "COL CHANGES", "ROW CHANGES", "% OF LEFT ROWS"]:
+        assert heading in first
     for heading in [
         "STATUS",
         "KEY",
-        "LEFT COLS",
-        "COLS +add/~chg/-del",
-        "LEFT ROWS",
-        "ROWS +add/~chg/-del",
-        "% OF LEFT ROWS",
+        "COLS",
+        "ROWS",
         "TIME",
         "TABLE",
     ]:
-        assert heading in header
+        assert heading in second
+    assert second.count("+add/~chg/-del") == 3
     # The headings line up with the values in the rows below.
     row = _plain(
         format_outcome(
@@ -168,16 +168,16 @@ def test_format_header_names_each_column():
             "[3/378]",
         )
     )
-    assert header.index("STATUS") == row.index("[IDENTICAL]")
-    assert header.index("KEY") == row.index("PK")
+    assert second.index("STATUS") == row.index("[IDENTICAL]")
+    assert second.index("KEY") == row.index("PK")
     # Column counts are right-aligned too.
-    assert header.index("LEFT COLS") + len("LEFT COLS") == row.index("42") + 2
-    assert header.index("COLS +add") == row.index("+1/3/-2")
+    assert second.index("COLS") + len("COLS") == row.index("42") + 2
+    assert first.index("COL CHANGES") == row.index("+1/3/-2")
     # Row counts are right-aligned.
-    assert header.index("LEFT ROWS") + len("LEFT ROWS") == row.index("1,234") + 5
-    assert header.index("ROWS +add") == row.index("+0/0/-0")
-    assert header.index("% OF LEFT ROWS") == row.index("+0%/0%/-0%")
-    assert header.index("TABLE") == row.index("some_table")
+    assert second.index("ROWS") + len("ROWS") == row.index("1,234") + 5
+    assert first.index("ROW CHANGES") == row.index("+0/0/-0")
+    assert first.index("% OF LEFT ROWS") == row.index("+0%/0%/-0%")
+    assert second.index("TABLE") == row.index("some_table")
 
 
 def test_format_outcome_key_and_left_rows():
@@ -231,7 +231,7 @@ def test_format_outcome_skipped_row_diff_still_shows_left_rows_but_no_percentage
 
 
 def test_format_outcome_sizes_and_their_colors():
-    blue, orange, gray = "\x1b[38;5;39m", "\x1b[38;5;208m", "\x1b[90m"
+    green, red, gray = "\x1b[32m", "\x1b[31m", "\x1b[90m"
 
     def line(left: int, right: int) -> str:
         sizes = table_report.SizeComparison(
@@ -242,12 +242,12 @@ def test_format_outcome_sizes_and_their_colors():
     grew = line(10_000_000, 10_500_000)
     assert "10.0 MB" in grew
     assert "10.5 MB" in grew
-    assert f"{blue}+500.0 KB\x1b[0m" in grew
-    assert f"{blue}+5.00%\x1b[0m" in grew
+    assert f"{green}+500.0 KB\x1b[0m" in grew
+    assert f"{green}+5.00%\x1b[0m" in grew
 
     shrank = line(10_000_000, 9_000_000)
-    assert f"{orange}-1.0 MB\x1b[0m" in shrank
-    assert f"{orange}-10.00%\x1b[0m" in shrank
+    assert f"{red}-1.0 MB\x1b[0m" in shrank
+    assert f"{red}-10.00%\x1b[0m" in shrank
 
     same = line(1_000, 1_000)
     assert f"{gray}0 B\x1b[0m" in same
@@ -298,7 +298,8 @@ def test_terminal_progress_prints_a_numbered_line_per_table(
 
     lines = capsys.readouterr().out.splitlines()
     assert lines[0] == "Comparing 2 tables present in both 'left' and 'right'."
-    assert lines[1].split()[0] == "STATUS"
-    assert re.match(r"\[1/2\]\s+\[IDENTICAL\].*table_a$", lines[2])
-    assert re.match(r"\[2/2\]\s+\[IDENTICAL\].*table_b$", lines[3])
+    # A two-line header
+    assert lines[2].split()[0] == "STATUS"
+    assert re.match(r"\[1/2\]\s+\[IDENTICAL\].*table_a$", lines[3])
+    assert re.match(r"\[2/2\]\s+\[IDENTICAL\].*table_b$", lines[4])
     assert [o.table_name for o in progress.outcomes] == ["table_a", "table_b"]
