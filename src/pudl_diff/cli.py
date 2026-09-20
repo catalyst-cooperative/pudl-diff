@@ -7,15 +7,14 @@ from pathlib import Path
 
 import click
 
-import pudl
 from pudl.validate.diff import table_report
 from pudl.validate.diff.dataset import PudlDiffDataset
 from pudl.validate.diff.dataset_report import REPORT_FILENAME, PudlDiffReport
+from pudl.validate.diff.defaults import default_right_root, nightly_root
 from pudl.validate.diff.logs import LOGGER_NAME
 from pudl.validate.diff.runner import run_dataset_diff
 from pudl.validate.diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON
 from pudl.validate.diff.terminal import TerminalProgress, echo_summary
-from pudl.workspace.setup import PudlPaths
 
 _EPILOG = """
 \b
@@ -293,8 +292,11 @@ def main(
     ctx.call_on_close(_set_log_level(loglevel))
     # click.echo consults the context's color setting, so this covers all output.
     ctx.color = sys.stdout.isatty() if color is None else color
-    left_root = left or str(pudl.PUDL_NIGHTLY_BUILDS_BASE_PATH)
-    right_root = right or str(PudlPaths().parquet_path())
+    try:
+        left_root = left or str(nightly_root())
+        right_root = right or str(default_right_root())
+    except RuntimeError as e:
+        raise click.UsageError(str(e)) from e
     output_path = output_path or Path.cwd()
     report_path = output_path / REPORT_FILENAME
 

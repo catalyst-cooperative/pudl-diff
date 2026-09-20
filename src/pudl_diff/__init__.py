@@ -13,6 +13,10 @@ the JSON report. The ``pudl_diff`` command line tool is a thin wrapper around it
 
 The modules are layered, each importing only from those before it in this list:
 
+* :mod:`~pudl.validate.diff.logs` and :mod:`~pudl.validate.diff.defaults`: standard
+  library logging, and the few things the tool knows about PUDL (its nightly build,
+  and where its metadata is), which are all optional so that the tool doesn't depend
+  on the rest of PUDL.
 * :mod:`~pudl.validate.diff.base`, :mod:`~pudl.validate.diff.formatting`,
   :mod:`~pudl.validate.diff.dataset` and :mod:`~pudl.validate.diff.performance`: the
   base class of the report's models, formatting sizes and durations, access to a

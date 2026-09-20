@@ -7,17 +7,15 @@ from collections.abc import Sequence
 import polars as pl
 from upath import UPath
 
-from pudl.metadata.classes import PUDL_PACKAGE
 from pudl.validate.diff.base import ReportModel
+from pudl.validate.diff.defaults import (
+    PUDL_CATALYST_COOP_DESCRIPTOR_NAME,
+    PUDL_CATALYST_COOP_HOST,
+    fallback_primary_key,
+)
 from pudl.validate.diff.logs import get_logger
 
 logger = get_logger(__name__)
-
-
-# PUDL's deployed public outputs (S3/GCS) name the descriptor after the asset that
-# produces it rather than "datapackage.json"; this is only true for that bucket.
-_PUDL_CATALYST_COOP_HOST = "pudl.catalyst.coop"
-_PUDL_CATALYST_COOP_DESCRIPTOR_NAME = "pudl_parquet_datapackage.json"
 
 
 class DatasetProvenance(ReportModel):
@@ -96,11 +94,11 @@ class PudlDiffDataset:
         # UPath("s3://pudl.catalyst.coop/nightly").drive == "pudl.catalyst.coop".
         # Path-style HTTPS URLs instead put it as the first path segment, e.g.
         # "https://s3.us-west-2.amazonaws.com/pudl.catalyst.coop/nightly".
-        is_pudl_catalyst_coop = root.drive == _PUDL_CATALYST_COOP_HOST or (
-            root.protocol == "https" and root.parts[1:2] == (_PUDL_CATALYST_COOP_HOST,)
+        is_pudl_catalyst_coop = root.drive == PUDL_CATALYST_COOP_HOST or (
+            root.protocol == "https" and root.parts[1:2] == (PUDL_CATALYST_COOP_HOST,)
         )
         if is_pudl_catalyst_coop:
-            return _PUDL_CATALYST_COOP_DESCRIPTOR_NAME
+            return PUDL_CATALYST_COOP_DESCRIPTOR_NAME
         return "datapackage.json"
 
     @property
@@ -150,18 +148,17 @@ class PudlDiffDataset:
         """The primary key columns of ``table_name``, or an empty list if none.
 
         Read from this dataset's own datapackage descriptor if it's present,
-        readable, and lists ``table_name``. Otherwise falls back to PUDL's
-        own metadata (:data:`pudl.metadata.classes.PUDL_PACKAGE`), which is
-        always available from the installed package regardless of what's on
-        disk at :attr:`root` - important for local development outputs,
-        which may lack a datapackage.json entirely, or have one that's
+        readable, and lists ``table_name``. Otherwise falls back on other metadata
+        (see :func:`~.fallback_primary_key`): PUDL's own if it's installed, or else
+        the last nightly build's datapackage. This matters for local development
+        outputs, which may lack a datapackage.json entirely, or have one that's
         stale relative to the Parquet files actually sitting alongside it
         (e.g. a `$PUDL_OUTPUT/parquet` assembled by materializing individual
         assets across branches and sessions, rather than a single full ETL
-        run). This is a best-effort fallback: if the local output is stale
-        enough that this table's primary key has since changed upstream, the
-        codebase's current definition may not exactly match what's in the
-        file - logged when it happens so it's not silent.
+        run). This is a best-effort fallback, logged when it's used so it's not
+        silent: if the local output is stale enough that this table's primary key
+        has since changed, the fallback's definition may not exactly match the file.
+        If no primary key can be found anywhere, the table is treated as having none.
         """
         try:
             schema = self.get_resource(table_name)["schema"]
@@ -169,9 +166,16 @@ class PudlDiffDataset:
         except ValueError, OSError, json.JSONDecodeError:
             logger.warning(
                 f"Couldn't read {table_name!r}'s primary key from the datapackage "
-                f"at {self.root}; falling back to PUDL's own metadata for it."
+                f"at {self.root}; falling back to other metadata for it."
             )
-            return list(PUDL_PACKAGE.get_resource(table_name).schema.primary_key)
+        primary_key = fallback_primary_key(table_name)
+        if primary_key is None:
+            logger.warning(
+                f"Couldn't find a primary key for {table_name!r} anywhere; treating "
+                "it as having none."
+            )
+            return []
+        return primary_key
 
     def field_names(self, table_name: str) -> list[str]:
         """The column names of ``table_name``, in datapackage order."""

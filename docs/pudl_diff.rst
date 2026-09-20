@@ -259,7 +259,8 @@ corresponding to the three kinds of comparison ``pudl_diff`` runs:
 * ``row_diff`` -- the row-level comparison, with a ``pk_diff`` and a
   ``non_pk_diff`` entry, only one of which is a full report. For a table with a
   primary key (looked up from the dataset's own ``datapackage.json``, or falling
-  back to PUDL's own metadata if that's missing or stale), ``pk_diff`` reports
+  back to PUDL's own metadata, or else the last nightly build's datapackage, if
+  that's missing or stale), ``pk_diff`` reports
   whether the two tables share the same set of primary keys, and, for shared
   keys, a per-column count of how many rows have changed non-primary-key
   values. For a table without one, ``non_pk_diff`` reports the symmetric

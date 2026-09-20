@@ -14,11 +14,10 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from pudl import PUDL_DOCS_PATH
 from pudl.validate.diff.dataset_report import PudlDiffReport
 
-SCHEMA_PATH = PUDL_DOCS_PATH / "_static/pudl_diff_report.schema.json"
-"""Where the committed copy of the report's JSON Schema is."""
+SCHEMA_PATH = Path(__file__).with_name("report.schema.json")
+"""Where the committed copy of the report's JSON Schema is, next to this module."""
 
 _SPHINX_ROLE = re.compile(r":(?:class|func|attr|data|exc|meth|obj|mod):`~?\.?([^`]+)`")
 _ROOT_MODEL = "PudlDiffReport"

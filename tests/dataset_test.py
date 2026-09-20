@@ -41,23 +41,40 @@ def test_primary_key(dataset: PudlDiffDataset):
     assert dataset.primary_key("table_without_pk") == []
 
 
-def test_primary_key_falls_back_to_pudl_package_when_table_missing(
-    dataset: PudlDiffDataset,
+def test_primary_key_falls_back_when_the_table_is_missing_from_the_datapackage(
+    dataset: PudlDiffDataset, mocker
 ):
-    """A table absent from the local datapackage falls back to PUDL's metadata.
+    """A table absent from the local datapackage uses the fallback metadata."""
+    fallback = mocker.patch(
+        "pudl.validate.diff.dataset.fallback_primary_key", return_value=["code"]
+    )
 
-    Simulates a local dev output that's missing (or never had) a table in
-    its datapackage.json, using a real PUDL table name so the fallback to
-    ``pudl.metadata.classes.PUDL_PACKAGE`` has something to find.
-    """
-    assert dataset.primary_key("core_eia__codes_wet_dry_bottom") == ["code"]
+    assert dataset.primary_key("some_other_table") == ["code"]
+    fallback.assert_called_once_with("some_other_table")
 
 
-def test_primary_key_falls_back_to_pudl_package_when_datapackage_missing(
+def test_primary_key_falls_back_when_the_datapackage_is_missing(tmp_path: Path, mocker):
+    """A dataset with no datapackage.json at all also falls back cleanly."""
+    mocker.patch(
+        "pudl.validate.diff.dataset.fallback_primary_key", return_value=["code"]
+    )
+
+    assert PudlDiffDataset(tmp_path).primary_key("some_table") == ["code"]
+
+
+def test_primary_key_is_empty_if_no_fallback_finds_one(tmp_path: Path, mocker):
+    mocker.patch("pudl.validate.diff.dataset.fallback_primary_key", return_value=None)
+
+    assert PudlDiffDataset(tmp_path).primary_key("some_table") == []
+
+
+def test_primary_key_falls_back_to_pudls_metadata_when_pudl_is_installed(
     tmp_path: Path,
 ):
-    """A dataset with no datapackage.json at all also falls back cleanly."""
+    pytest.importorskip("pudl.metadata.classes")
+
     dataset = PudlDiffDataset(tmp_path)
+
     assert dataset.primary_key("core_eia__codes_wet_dry_bottom") == ["code"]
 
 

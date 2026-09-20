@@ -26,7 +26,7 @@ A field marked *derived* is calculated from the others: it is written to the rep
 for convenience, but ignored when a report is loaded. The version of the report format
 is in its ``schema_version`` field, which follows the ``major.minor.patch`` convention.
 
-The copy of the schema in the repository, ``docs/_static/pudl_diff_report.schema.json``,
+The copy of the schema in the repository, ``src/pudl/validate/diff/report.schema.json``,
 is kept up to date by the ``pudl-diff-schema`` pre-commit hook, which rewrites it when
 the code in ``pudl.validate.diff`` changes, and checked by a unit test. To update it by
 hand, run ``pixi run python -m pudl.validate.diff.report_schema``.
