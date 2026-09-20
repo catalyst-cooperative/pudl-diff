@@ -173,3 +173,27 @@ def test_pudl_diff_report_with_an_error_round_trips_through_json(
     assert loaded == report
     assert loaded.error == report.error
     assert loaded.exit_code == 2
+
+
+def test_derived_fields_are_recomputed_when_a_report_is_loaded(
+    tmp_path: Path, write_two_datasets
+):
+    left, right = write_two_datasets(
+        tmp_path, {"table_a": ["a", "b"]}, {"table_a": ["a", "c"]}
+    )
+    report = run_dataset_diff(left, right, tmp_path / "out")
+    assert not report.is_identical
+    document = json.loads(report.model_dump_json())
+    # The derived fields are in the JSON...
+    assert document["is_identical"] is False
+    assert document["success"] is True
+    assert document["tables"]["table_a"]["is_identical"] is False
+
+    # ...but a loaded report doesn't take them on trust.
+    document["is_identical"] = True
+    document["tables"]["table_a"]["is_identical"] = True
+    loaded = PudlDiffReport.model_validate(document)
+
+    assert not loaded.is_identical
+    assert not loaded.tables["table_a"].is_identical
+    assert loaded == report

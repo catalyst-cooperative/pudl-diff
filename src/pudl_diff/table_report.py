@@ -48,7 +48,16 @@ class SchemaDiffSummary(pydantic.BaseModel):
     names, e.g. ``("Int64", "Int32")``."""
     left_column_count: int
     right_column_count: int
-    is_identical: bool
+
+    @pydantic.computed_field
+    @property
+    def is_identical(self) -> bool:
+        """Whether the two schemas have the same columns and dtypes."""
+        return not (
+            self.columns_only_in_left
+            or self.columns_only_in_right
+            or self.dtype_changes
+        )
 
     @classmethod
     def from_schema_diff(cls, schema_diff: SchemaDiff) -> SchemaDiffSummary:
@@ -65,7 +74,6 @@ class SchemaDiffSummary(pydantic.BaseModel):
             },
             left_column_count=schema_diff.left_column_count,
             right_column_count=schema_diff.right_column_count,
-            is_identical=schema_diff.is_identical,
         )
 
 
@@ -112,7 +120,12 @@ class RowCountDiffSummary(pydantic.BaseModel):
     partitioning there's only ever one (whole-table) count to compare, and
     that's already captured by :attr:`left_row_count`/:attr:`right_row_count`
     above."""
-    is_identical: bool
+
+    @pydantic.computed_field
+    @property
+    def is_identical(self) -> bool:
+        """Whether the row counts match, overall and in every partition."""
+        return self.left_row_count == self.right_row_count and not self.changes
 
     @classmethod
     def from_row_count_diff(cls, row_count_diff: RowCountDiff) -> RowCountDiffSummary:
@@ -145,7 +158,6 @@ class RowCountDiffSummary(pydantic.BaseModel):
                 else None
             ),
             changes=changes,
-            is_identical=row_count_diff.is_identical,
         )
 
 
@@ -194,12 +206,22 @@ class PkRowDiffSummary(pydantic.BaseModel):
     primary_key_columns: list[str]
     only_in_left_count: int
     only_in_right_count: int
-    primary_keys_identical: bool
     changed_row_count: int
     """Number of shared-primary-key rows with at least one differing
     non-primary-key value."""
     column_changes: dict[str, int]
-    is_identical: bool
+
+    @pydantic.computed_field
+    @property
+    def primary_keys_identical(self) -> bool:
+        """Whether both tables have the same set of primary keys."""
+        return self.only_in_left_count == 0 and self.only_in_right_count == 0
+
+    @pydantic.computed_field
+    @property
+    def is_identical(self) -> bool:
+        """Whether the primary keys match and no shared-key row has changed."""
+        return self.primary_keys_identical and not self.column_changes
 
 
 class NonPkRowDiffSummary(pydantic.BaseModel):
@@ -213,7 +235,12 @@ class NonPkRowDiffSummary(pydantic.BaseModel):
     multiplicity_changed_row_count: int
     """Number of distinct rows present in both tables, but a different number
     of times."""
-    is_identical: bool
+
+    @pydantic.computed_field
+    @property
+    def is_identical(self) -> bool:
+        """Whether every row in one table has a matching row in the other."""
+        return self.only_in_left_count == 0 and self.only_in_right_count == 0
 
 
 class RowDiffSummary(pydantic.BaseModel):
@@ -247,10 +274,8 @@ def _build_row_diff_summary(
             primary_key_columns=list(pk_cols),
             only_in_left_count=row_diff.pk_diff.only_in_left_count,
             only_in_right_count=row_diff.pk_diff.only_in_right_count,
-            primary_keys_identical=row_diff.pk_diff.is_identical,
             changed_row_count=row_diff.changed_row_count,
             column_changes=row_diff.column_changes,
-            is_identical=row_diff.is_identical,
         )
         non_pk_diff_summary = RowDiffSectionSkipped(
             skipped_reason="primary_key_available"
@@ -264,7 +289,6 @@ def _build_row_diff_summary(
                 row_diff.only_in_left_count + row_diff.only_in_right_count
             ),
             multiplicity_changed_row_count=row_diff.multiplicity_changed_row_count,
-            is_identical=row_diff.is_identical,
         )
     else:
         if skipped_reason is None:
@@ -421,9 +445,6 @@ class TableDiffReport(SizeComparison):
     left_table_path: str
     right_table_name: str
     right_table_path: str
-    is_identical: bool
-    """Conservatively ``False`` whenever :attr:`success` is ``False``, since
-    a failed comparison can't establish that the tables are identical."""
     elapsed_seconds: float | None = None
     peak_rss_bytes: int | None = None
     peak_cpu_percent: float | None = None
@@ -435,10 +456,46 @@ class TableDiffReport(SizeComparison):
     error: str | None = None
     """Exception message plus traceback, if the comparison failed to
     complete. ``None`` if :attr:`success` is ``True``."""
-    success: bool
-    """Whether the comparison completed at all, successfully or not - see
-    :class:`~.TableDiffRun`. Distinct from :attr:`is_identical`: a
-    comparison can succeed and still find the tables different."""
+
+    @pydantic.computed_field
+    @property
+    def success(self) -> bool:
+        """Whether the comparison completed at all, successfully or not.
+
+        See :class:`~.TableDiffRun`. Distinct from :attr:`is_identical`: a
+        comparison can succeed and still find the tables different.
+        """
+        return self.error is None
+
+    @pydantic.computed_field
+    @property
+    def is_identical(self) -> bool:
+        """Whether the table is functionally identical between the two datasets.
+
+        Conservatively ``False`` whenever :attr:`success` is ``False``, since a
+        failed comparison can't establish that the tables are identical, and
+        whenever the row-level comparison didn't run (it was skipped), since then
+        the rows are unverified even if the schema and row counts match.
+        """
+        row_diff = self.row_diff
+        return (
+            self.success
+            and self.schema_diff is not None
+            and self.schema_diff.is_identical
+            and self.row_count_diff is not None
+            and self.row_count_diff.is_identical
+            and row_diff is not None
+            and (
+                (
+                    isinstance(row_diff.pk_diff, PkRowDiffSummary)
+                    and row_diff.pk_diff.is_identical
+                )
+                or (
+                    isinstance(row_diff.non_pk_diff, NonPkRowDiffSummary)
+                    and row_diff.non_pk_diff.is_identical
+                )
+            )
+        )
 
     @pydantic.computed_field
     @property
@@ -501,9 +558,7 @@ def build_table_diff_report(
             right_table_name=right_table_name,
             right_table_path=_table_path(right, right_table_name),
             right_table_bytes=_table_bytes(right, right_table_name),
-            is_identical=False,
             error=run.error,
-            success=False,
         )
 
     result = run.result
@@ -518,7 +573,6 @@ def build_table_diff_report(
         right_table_name=result.right_table_name,
         right_table_path=_table_path(right, result.right_table_name),
         right_table_bytes=_table_bytes(right, result.right_table_name),
-        is_identical=result.is_identical,
         elapsed_seconds=result.elapsed_seconds,
         peak_rss_bytes=result.peak_rss_bytes,
         peak_cpu_percent=result.peak_cpu_percent,
@@ -526,7 +580,6 @@ def build_table_diff_report(
         row_count_diff=RowCountDiffSummary.from_row_count_diff(result.row_count_diff),
         row_diff=row_diff_summary,
         error=None,
-        success=True,
     )
 
 

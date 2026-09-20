@@ -181,17 +181,29 @@ class PudlDiffReport(pydantic.BaseModel):
     tables: dict[str, TableDiffReport]
     """Each compared table's report, keyed by its name in the left dataset."""
 
-    is_identical: bool
-    """Whether :attr:`success` is ``True`` and every compared table is identical.
-    Tables found in only one dataset don't count against this."""
     error: str | None = None
     """Why the comparison as a whole failed, e.g. no tables could be listed. This
     is ``None`` when the only failures are of individual tables, which each
     record their own :attr:`~.TableDiffReport.error`."""
-    success: bool
-    """Whether the comparison completed: :attr:`error` is ``None`` and so is
-    every table's. Distinct from :attr:`is_identical`: a comparison can succeed
-    and still find differences."""
+
+    @pydantic.computed_field
+    @property
+    def success(self) -> bool:
+        """Whether the comparison completed.
+
+        That is, :attr:`error` is ``None`` and so is every table's. Distinct from
+        :attr:`is_identical`: a comparison can succeed and still find differences.
+        """
+        return self.error is None and all(t.success for t in self.tables.values())
+
+    @pydantic.computed_field
+    @property
+    def is_identical(self) -> bool:
+        """Whether every compared table is identical, and :attr:`success` is ``True``.
+
+        Tables found in only one dataset don't count against this.
+        """
+        return self.success and all(t.is_identical for t in self.tables.values())
 
     @property
     def exit_code(self) -> int:
@@ -238,7 +250,6 @@ def build_pudl_diff_report(
             provenance = DatasetProvenance()
         return DatasetInfo(root=str(dataset.root), **provenance.model_dump())
 
-    success = error is None and all(report.success for report in tables.values())
     return PudlDiffReport(
         created=datetime.now(UTC).isoformat(),
         elapsed_seconds=elapsed_seconds,
@@ -249,9 +260,7 @@ def build_pudl_diff_report(
         tables_only_in_right=sorted(tables_only_in_right),
         summary=PudlDiffSummary.from_tables(tables),
         tables=tables,
-        is_identical=success and all(r.is_identical for r in tables.values()),
         error=error,
-        success=success,
     )
 
 

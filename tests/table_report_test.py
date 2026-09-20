@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from pudl.validate.diff import table as diff_table
 from pudl.validate.diff import table_report
@@ -14,7 +15,7 @@ from pudl.validate.diff.outputs import write_row_diff_parquet
 from pudl.validate.diff.row_counts import (
     compare_row_counts,
 )
-from pudl.validate.diff.table import run_table_diff
+from pudl.validate.diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON, run_table_diff
 
 
 def test_report_partition_expr_is_the_dbt_sql_expression(
@@ -366,3 +367,97 @@ def test_size_comparison_with_unknown_or_empty_left_size():
     empty_left = table_report.SizeComparison(left_table_bytes=0, right_table_bytes=10)
     assert empty_left.bytes_difference == 10
     assert empty_left.bytes_difference_percent is None
+
+
+@pytest.mark.parametrize("has_pk", [True, False], ids=["pk", "no_pk"])
+@pytest.mark.parametrize(
+    ("right", "max_rows"),
+    [
+        (pl.DataFrame({"x": [1, 2, 3], "y": ["a", "b", "c"]}), None),  # identical
+        (pl.DataFrame({"x": [1, 2, 3], "y": ["a", "b", "z"]}), None),  # a value changed
+        (pl.DataFrame({"x": [1, 2, 3, 4], "y": list("abcd")}), None),  # a row added
+        (pl.DataFrame({"x": [1, 2], "y": ["a", "b"]}), None),  # a row removed
+        (pl.DataFrame({"x": [1, 2, 3], "z": list("abc")}), None),  # columns changed
+        (pl.DataFrame({"x": [1, 2, 3], "y": ["a", "b", "c"]}), 1),  # rows not compared
+    ],
+    ids=["identical", "changed", "added", "removed", "columns", "not_compared"],
+)
+def test_table_report_derived_fields_agree_with_the_comparison(
+    has_pk: bool,
+    right: pl.DataFrame,
+    max_rows: int | None,
+    tmp_path: Path,
+    pk_resource,
+    no_pk_resource,
+    make_dataset,
+):
+    """``is_identical`` and ``success`` are derived from the report's other fields."""
+    resource = pk_resource("t", ["x"]) if has_pk else no_pk_resource("t")
+    left_df = pl.DataFrame({"x": [1, 2, 3], "y": ["a", "b", "c"]})
+    left = make_dataset(tmp_path / "left", [resource], {"t": left_df})
+    right_ds = make_dataset(tmp_path / "right", [resource], {"t": right})
+    run = run_table_diff(
+        left,
+        right_ds,
+        "t",
+        auto_partition=False,
+        max_rows_for_row_level_comparison=max_rows or MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
+    )
+    report = table_report.build_table_diff_report(run, left, right_ds, "t")
+
+    assert run.result is not None
+    assert report.success
+    assert report.is_identical == run.result.is_identical
+    assert report.schema_diff is not None
+    assert report.schema_diff.is_identical == run.result.schema_diff.is_identical
+    assert report.row_count_diff is not None
+    assert report.row_count_diff.is_identical == run.result.row_count_diff.is_identical
+    if run.result.row_diff is not None:
+        assert report.row_diff is not None
+        summary = report.row_diff.pk_diff if has_pk else report.row_diff.non_pk_diff
+        assert isinstance(
+            summary,
+            table_report.PkRowDiffSummary | table_report.NonPkRowDiffSummary,
+        )
+        assert summary.is_identical == run.result.row_diff.is_identical
+    else:
+        # Without a row-level comparison, the report can't call the table identical.
+        assert not report.is_identical
+
+
+def test_table_report_of_a_failed_comparison_is_not_a_success(
+    tmp_path: Path, pk_resource, make_dataset
+):
+    left = make_dataset(
+        tmp_path / "left", [pk_resource("t", ["x"])], {"t": pl.DataFrame({"x": [1]})}
+    )
+    right = PudlDiffDataset(tmp_path / "nowhere")
+    run = run_table_diff(left, right, "t")
+
+    report = table_report.build_table_diff_report(run, left, right, "t")
+
+    assert report.error is not None
+    assert not report.success
+    assert not report.is_identical
+
+
+def test_row_count_summary_is_identical_only_if_the_totals_and_partitions_match():
+    def summary(
+        left: int, right: int, changes: list
+    ) -> table_report.RowCountDiffSummary:
+        return table_report.RowCountDiffSummary(
+            left_row_count=left,
+            right_row_count=right,
+            row_count_difference=right - left,
+            partition_expr=None,
+            changes=changes,
+        )
+
+    change = table_report.PartitionRowCountChange(
+        partition=2020, left_row_count=1, right_row_count=2, row_count_difference=1
+    )
+    assert summary(5, 5, []).is_identical
+    # Without a partition expression, `changes` is empty, so the totals decide.
+    assert not summary(5, 6, []).is_identical
+    # A partition can differ even when the totals match.
+    assert not summary(5, 5, [change]).is_identical
