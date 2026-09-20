@@ -11,12 +11,7 @@ import polars as pl
 import pudl.logging_helpers
 from pudl.validate.diff.dataset import PudlDiffDataset
 from pudl.validate.diff.performance import PerformanceSampler
-from pudl.validate.diff.row_counts import (
-    RowCountDiff,
-    compare_row_counts,
-    dbt_partition_expr_to_polars,
-    get_dbt_partition_expr,
-)
+from pudl.validate.diff.row_counts import RowCountDiff, compare_row_counts
 from pudl.validate.diff.rows import (
     KeyedRowDiff,
     RowSetDiff,
@@ -109,8 +104,6 @@ def compare_table(
     table_name: str,
     *,
     right_table_name: str | None = None,
-    partition_expr: str | pl.Expr | None = None,
-    auto_partition: bool = True,
     rtol: float = 1e-5,
     atol: float = 1e-8,
     max_rows_for_row_level_comparison: int = MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
@@ -129,8 +122,6 @@ def compare_table(
             right,
             table_name,
             right_table_name=right_table_name,
-            partition_expr=partition_expr,
-            auto_partition=auto_partition,
             rtol=rtol,
             atol=atol,
             max_rows_for_row_level_comparison=max_rows_for_row_level_comparison,
@@ -149,8 +140,6 @@ def _compare_table(
     table_name: str,
     *,
     right_table_name: str | None = None,
-    partition_expr: str | pl.Expr | None = None,
-    auto_partition: bool = True,
     rtol: float = 1e-5,
     atol: float = 1e-8,
     max_rows_for_row_level_comparison: int = MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
@@ -169,19 +158,9 @@ def _compare_table(
         right_table_name: Name of the table to compare in ``right``, if it
             differs from ``table_name`` - e.g. comparing a `core_` table
             against the `out_` table built from it. Defaults to ``table_name``.
-            The primary key and dbt partition configuration are still looked
-            up under ``table_name``, so this assumes ``right_table_name``'s
-            schema is compatible enough to share them (e.g. sharing the same
-            primary key columns).
-        partition_expr: Column name or Polars expression to group row counts by.
-            If not given and ``auto_partition`` is ``True`` (the default), it's
-            derived from PUDL's dbt row-count test configuration via
-            :func:`~.get_partition_expr_for_table`; if that table has no such
-            test, row counts are compared as a single whole-table total.
-        auto_partition: Whether to look up ``partition_expr`` automatically as
-            described above when it isn't given explicitly. Set to ``False``
-            to compare whole-table row counts even for a table that has a dbt
-            partition configured.
+            The primary key is still looked up under ``table_name``, so this
+            assumes ``right_table_name``'s schema is compatible enough to
+            share it (e.g. sharing the same primary key columns).
         rtol: Relative tolerance used to treat two floating point values as
             equal, matching :func:`numpy.isclose`'s default.
         atol: Absolute tolerance used to treat two floating point values as
@@ -204,21 +183,7 @@ def _compare_table(
 
     schema_diff = compare_schemas(left_schema, right_schema)
 
-    resolved_partition_expr = partition_expr
-    partition_label = None
-    if resolved_partition_expr is None and auto_partition:
-        # Report the dbt SQL expression itself, so it can be traced back to the
-        # dbt schema file it came from.
-        partition_label = get_dbt_partition_expr(table_name)
-        if partition_label is not None:
-            partition_label = partition_label.strip()
-            resolved_partition_expr = dbt_partition_expr_to_polars(partition_label)
-    row_count_diff = compare_row_counts(
-        left_lf,
-        right_lf,
-        partition_expr=resolved_partition_expr,
-        partition_label=partition_label,
-    )
+    row_count_diff = compare_row_counts(left_lf, right_lf)
 
     row_diff: RowSetDiff | KeyedRowDiff | None = None
     skip_reason: RowComparisonSkipReason | None = None
@@ -325,8 +290,6 @@ def run_table_diff(
     table_name: str,
     *,
     right_table_name: str | None = None,
-    partition_expr: str | pl.Expr | None = None,
-    auto_partition: bool = True,
     rtol: float = 1e-5,
     atol: float = 1e-8,
     max_rows_for_row_level_comparison: int = MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
@@ -345,8 +308,6 @@ def run_table_diff(
             right,
             table_name,
             right_table_name=right_table_name,
-            partition_expr=partition_expr,
-            auto_partition=auto_partition,
             rtol=rtol,
             atol=atol,
             max_rows_for_row_level_comparison=max_rows_for_row_level_comparison,

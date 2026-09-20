@@ -455,9 +455,7 @@ def test_summary_shows_total_size_and_change(tmp_path: Path, two_table_args):
     assert re.search(r"Size change: +[+-][\d.]+ K?B [+-][\d.]+%", result.output)
 
 
-def test_right_table_and_partition_expr_require_a_table_name(
-    tmp_path: Path, all_tables_datasets
-):
+def test_right_table_requires_a_table_name(tmp_path: Path, all_tables_datasets):
     left, right = all_tables_datasets
     base = ["--left", str(left), "--right", str(right)]
 
@@ -471,10 +469,6 @@ def test_right_table_and_partition_expr_require_a_table_name(
     )
     assert result.exit_code == 2
     assert "--right-table requires exactly one TABLE_NAME" in result.output
-
-    result = CliRunner().invoke(main, [*base, "--partition-expr", "x"])
-    assert result.exit_code == 2
-    assert "--partition-expr requires at least one TABLE_NAME" in result.output
 
 
 def test_multiple_table_names_compares_only_those_tables(

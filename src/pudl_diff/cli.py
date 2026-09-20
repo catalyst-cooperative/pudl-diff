@@ -78,8 +78,6 @@ _COMPARISON_OPTIONS = (
     "max_output_rows",
     "rtol",
     "atol",
-    "partition_expr",
-    "no_auto_partition",
 )
 
 
@@ -219,22 +217,6 @@ def _set_log_level(level: str) -> Callable[[], None]:
     help="Absolute tolerance for float equality, matching numpy.isclose.",
 )
 @click.option(
-    "--partition-expr",
-    type=str,
-    default=None,
-    help="Column to group row counts by when comparing them. Defaults to "
-    "PUDL's dbt row-count test configuration for this table, if any (see "
-    "--no-auto-partition). Applies to every table given, so requires at least "
-    "one TABLE_NAME.",
-)
-@click.option(
-    "--no-auto-partition",
-    is_flag=True,
-    default=False,
-    help="Compare whole-table row counts even if a dbt partition is "
-    "configured for this table. Ignored if --partition-expr is given.",
-)
-@click.option(
     "--from-report",
     type=click.Path(exists=True, path_type=Path),
     default=None,
@@ -271,8 +253,6 @@ def main(
     max_output_rows: int | None,
     rtol: float,
     atol: float,
-    partition_expr: str | None,
-    no_auto_partition: bool,
     from_report: Path | None,
     color: bool | None,
     loglevel: str,
@@ -302,8 +282,6 @@ def main(
         ctx.exit(_show_saved_report(from_report))
     if right_table is not None and len(table_names) != 1:
         raise click.UsageError("--right-table requires exactly one TABLE_NAME.")
-    if partition_expr is not None and not table_names:
-        raise click.UsageError("--partition-expr requires at least one TABLE_NAME.")
 
     ctx.call_on_close(_set_log_level(loglevel))
     # click.echo consults the context's color setting, so this covers all output.
@@ -320,8 +298,6 @@ def main(
         atol=atol,
         max_compare_rows=max_compare_rows,
         max_output_rows=max_output_rows,
-        auto_partition=not no_auto_partition,
-        partition_expr=partition_expr,
     )
 
     def write_report(report: PudlDiffReport) -> None:

@@ -2,13 +2,11 @@
 
 import contextlib
 import json
-from datetime import date
 from pathlib import Path
 
 import polars as pl
 import pytest
 
-from pudl.validate.diff import table as diff_table
 from pudl.validate.diff import table_report
 from pudl.validate.diff.dataset import PudlDiffDataset
 from pudl.validate.diff.formatting import format_bytes
@@ -19,97 +17,16 @@ from pudl.validate.diff.row_counts import (
 from pudl.validate.diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON, run_table_diff
 
 
-def test_report_partition_expr_is_the_dbt_sql_expression(
-    tmp_path: Path, mocker, no_pk_resource, make_dataset
-):
-    """The report should name the dbt SQL expression, not Polars' rendering of it."""
-    resources = [no_pk_resource("table_without_pk")]
-    left = make_dataset(
-        tmp_path / "left",
-        resources,
-        {
-            "table_without_pk": pl.DataFrame(
-                {"ts": [date(2020, 1, 1), date(2021, 1, 1)], "y": [1, 2]}
-            )
-        },
-    )
-    right = make_dataset(
-        tmp_path / "right",
-        resources,
-        {"table_without_pk": pl.DataFrame({"ts": [date(2020, 1, 1)], "y": [1]})},
-    )
-    mocker.patch.object(
-        diff_table, "get_dbt_partition_expr", return_value=" EXTRACT(YEAR FROM ts) "
-    )
-    run = run_table_diff(left, right, "table_without_pk")
-    report = table_report.build_table_diff_report(run, left, right, "table_without_pk")
-
-    assert report.row_count_diff is not None
-    assert report.row_count_diff.partition_expr == "EXTRACT(YEAR FROM ts)"
-    assert [c.partition for c in report.row_count_diff.changes] == [2021]
-
-
-def test_row_count_summary_per_partition_fields():
+def test_row_count_summary_fields():
     left = pl.LazyFrame({"year": [2020, 2020, 2020, 2021]})
-    right = pl.LazyFrame({"year": [2020, 2021, 2021, 2022]})
+    right = pl.LazyFrame({"year": [2020, 2021, 2021]})
     summary = table_report.RowCountDiffSummary.from_row_count_diff(
-        compare_row_counts(left, right, partition_expr="year")
+        compare_row_counts(left, right)
     )
-    by_partition = {change.partition: change for change in summary.changes}
-    assert by_partition[2020].model_dump() == {
-        "partition": 2020,
-        "left_row_count": 3,
-        "right_row_count": 1,
-        "row_count_difference": -2,
-    }
-    assert by_partition[2021].row_count_difference == 1
-    # A partition missing from one side counts as having no rows there.
-    assert by_partition[2022].model_dump() == {
-        "partition": 2022,
-        "left_row_count": None,
-        "right_row_count": 1,
-        "row_count_difference": 1,
-    }
-
-
-def test_row_count_summary_partition_values_use_native_json_types():
-    left = pl.LazyFrame(
-        {
-            "state": ["CO", "NM"],
-            "day": [date(2020, 1, 1), date(2020, 1, 2)],
-            "flag": [True, False],
-        }
-    )
-    right = left.head(0)
-    summaries = {
-        column: table_report.RowCountDiffSummary.from_row_count_diff(
-            compare_row_counts(left, right, partition_expr=column)
-        )
-        for column in ["state", "day", "flag"]
-    }
-    assert {c.partition for c in summaries["state"].changes} == {"CO", "NM"}
-    assert {c.partition for c in summaries["day"].changes} == {
-        "2020-01-01",
-        "2020-01-02",
-    }
-    flags = {c.partition for c in summaries["flag"].changes}
-    assert flags == {False, True}
-    assert all(isinstance(flag, bool) for flag in flags)
-    parsed = json.loads(summaries["flag"].model_dump_json())
-    assert {c["partition"] for c in parsed["changes"]} == {True, False}
-
-
-def test_report_partition_expr_for_explicit_column_and_expression():
-    left = pl.LazyFrame({"x": [1, 2]})
-    right = pl.LazyFrame({"x": [1]})
-    by_column = table_report.RowCountDiffSummary.from_row_count_diff(
-        compare_row_counts(left, right, partition_expr="x")
-    )
-    assert by_column.partition_expr == "x"
-    by_expr = table_report.RowCountDiffSummary.from_row_count_diff(
-        compare_row_counts(left, right, partition_expr=pl.col("x") // 2)
-    )
-    assert by_expr.partition_expr == str(pl.col("x") // 2)
+    assert summary.left_row_count == 4
+    assert summary.right_row_count == 3
+    assert summary.row_count_difference == -1
+    assert not summary.is_identical
 
 
 def test_build_table_diff_report_identical_pk_table(
@@ -126,7 +43,7 @@ def test_build_table_diff_report_identical_pk_table(
         resources,
         {"table_with_pk": pl.DataFrame({"x": [2, 1], "y": ["b", "a"]})},
     )
-    run = run_table_diff(left, right, "table_with_pk", auto_partition=False)
+    run = run_table_diff(left, right, "table_with_pk")
     report = table_report.build_table_diff_report(run, left, right, "table_with_pk")
 
     assert report.success
@@ -176,7 +93,7 @@ def test_build_table_diff_report_differing_pk_table(
         resources,
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "changed"]})},
     )
-    run = run_table_diff(left, right, "table_with_pk", auto_partition=False)
+    run = run_table_diff(left, right, "table_with_pk")
     assert run.result is not None
     outputs = write_row_diff_parquet(
         run.result.row_diff, tmp_path / "out", "table_with_pk"
@@ -212,7 +129,7 @@ def test_build_table_diff_report_differing_non_pk_table(
         resources,
         {"table_without_pk": pl.DataFrame({"x": [1, 3], "y": ["a", "c"]})},
     )
-    run = run_table_diff(left, right, "table_without_pk", auto_partition=False)
+    run = run_table_diff(left, right, "table_without_pk")
     report = table_report.build_table_diff_report(run, left, right, "table_without_pk")
 
     assert report.success
@@ -265,7 +182,7 @@ def test_build_table_diff_report_schema_mismatch(
         right_resources,
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"], "z": [1, 2]})},
     )
-    run = run_table_diff(left, right, "table_with_pk", auto_partition=False)
+    run = run_table_diff(left, right, "table_with_pk")
     report = table_report.build_table_diff_report(run, left, right, "table_with_pk")
 
     assert report.success
@@ -293,7 +210,6 @@ def test_build_table_diff_report_skipped_large_table(
         left,
         right,
         "table_with_pk",
-        auto_partition=False,
         max_rows_for_row_level_comparison=1,
     )
     report = table_report.build_table_diff_report(run, left, right, "table_with_pk")
@@ -318,7 +234,7 @@ def test_build_table_diff_report_error_case(tmp_path: Path, pk_resource, make_da
         [pk_resource("table_with_pk", ["x"])],
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})},
     )
-    run = run_table_diff(left, right, "table_with_pk", auto_partition=False)
+    run = run_table_diff(left, right, "table_with_pk")
     report = table_report.build_table_diff_report(run, left, right, "table_with_pk")
 
     assert not report.success
@@ -401,7 +317,6 @@ def test_table_report_derived_fields_agree_with_the_comparison(
         left,
         right_ds,
         "t",
-        auto_partition=False,
         max_rows_for_row_level_comparison=max_rows or MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
     )
     report = table_report.build_table_diff_report(run, left, right_ds, "t")
@@ -442,26 +357,16 @@ def test_table_report_of_a_failed_comparison_is_not_a_success(
     assert not report.is_identical
 
 
-def test_row_count_summary_is_identical_only_if_the_totals_and_partitions_match():
-    def summary(
-        left: int, right: int, changes: list
-    ) -> table_report.RowCountDiffSummary:
+def test_row_count_summary_is_identical_only_if_the_totals_match():
+    def summary(left: int, right: int) -> table_report.RowCountDiffSummary:
         return table_report.RowCountDiffSummary(
             left_row_count=left,
             right_row_count=right,
             row_count_difference=right - left,
-            partition_expr=None,
-            changes=changes,
         )
 
-    change = table_report.PartitionRowCountChange(
-        partition=2020, left_row_count=1, right_row_count=2, row_count_difference=1
-    )
-    assert summary(5, 5, []).is_identical
-    # Without a partition expression, `changes` is empty, so the totals decide.
-    assert not summary(5, 6, []).is_identical
-    # A partition can differ even when the totals match.
-    assert not summary(5, 5, [change]).is_identical
+    assert summary(5, 5).is_identical
+    assert not summary(5, 6).is_identical
 
 
 def test_parquet_output_paths_are_relative_to_the_report_directory(

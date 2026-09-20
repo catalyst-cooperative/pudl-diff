@@ -107,34 +107,13 @@
           "default": null,
           "description": "Cap on the rows written to each Parquet side-output file, or ``none`` to write every differing row.",
           "title": "Max Output Rows"
-        },
-        "auto_partition": {
-          "default": true,
-          "description": "Whether row counts are grouped by the partition from PUDL's dbt row-count tests, where a table has one.",
-          "title": "Auto Partition",
-          "type": "boolean"
-        },
-        "partition_expr": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Column to group row counts by, for every table, overriding the dbt configured partitions.",
-          "title": "Partition Expr"
         }
       },
       "required": [
         "rtol",
         "atol",
         "max_compare_rows",
-        "max_output_rows",
-        "auto_partition",
-        "partition_expr"
+        "max_output_rows"
       ],
       "title": "DiffOptions",
       "type": "object"
@@ -219,69 +198,6 @@
         "size"
       ],
       "title": "ParquetOutputSummary",
-      "type": "object"
-    },
-    "PartitionRowCountChange": {
-      "description": "A single partition's row-count change, for the JSON report.",
-      "properties": {
-        "partition": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "number"
-            },
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "The partition value, as a native JSON type where there is one (e.g. the integer ``2026`` for a year partition), and as its ``str()`` otherwise (e.g. an ISO-formatted date). ``none`` only for a genuinely null partition value (e.g. a table with nulls in its partition column), never to mean \"no partitioning\" - see ``RowCountDiffSummary.changes``.",
-          "title": "Partition"
-        },
-        "left_row_count": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "``none`` if this partition is missing entirely from the left table.",
-          "title": "Left Row Count"
-        },
-        "right_row_count": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "``none`` if this partition is missing entirely from the right table.",
-          "title": "Right Row Count"
-        },
-        "row_count_difference": {
-          "description": "``right_row_count - left_row_count`` for this partition, counting a partition missing from one side as having no rows there.",
-          "title": "Row Count Difference",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "partition",
-        "left_row_count",
-        "right_row_count",
-        "row_count_difference"
-      ],
-      "title": "PartitionRowCountChange",
       "type": "object"
     },
     "PkRowDiffSummary": {
@@ -620,28 +536,8 @@
           "title": "Row Count Difference",
           "type": "integer"
         },
-        "partition_expr": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "The partition column/expression used, or ``none`` if row counts were compared as a single whole-table total. For a partition looked up from dbt, this is the SQL expression from the dbt schema file, e.g. ``EXTRACT(YEAR FROM report_date)``.",
-          "title": "Partition Expr"
-        },
-        "changes": {
-          "description": "Empty whenever ``partition_expr`` is ``none``: with no partitioning there's only ever one (whole-table) count to compare, and that's already captured by ``left_row_count``/``right_row_count`` above.",
-          "items": {
-            "$ref": "#/$defs/PartitionRowCountChange"
-          },
-          "title": "Changes",
-          "type": "array"
-        },
         "is_identical": {
-          "description": "Whether the row counts match, overall and in every partition.",
+          "description": "Whether the row counts match.",
           "readOnly": true,
           "title": "Is Identical",
           "type": "boolean"
@@ -651,8 +547,6 @@
         "left_row_count",
         "right_row_count",
         "row_count_difference",
-        "partition_expr",
-        "changes",
         "is_identical"
       ],
       "title": "RowCountDiffSummary",

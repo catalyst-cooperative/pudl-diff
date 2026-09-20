@@ -7,9 +7,6 @@ import pytest
 
 from pudl.validate.diff import table as diff_table
 from pudl.validate.diff.dataset import PudlDiffDataset
-from pudl.validate.diff.row_counts import (
-    NO_PARTITION,
-)
 from pudl.validate.diff.rows import (
     KeyedRowDiff,
     RowSetDiff,
@@ -54,7 +51,7 @@ def test_run_table_diff_succeeds_without_left_datapackage(tmp_path: Path, make_d
         },
     )
 
-    run = run_table_diff(left, right, table_name, auto_partition=False)
+    run = run_table_diff(left, right, table_name)
     assert run.success
     assert run.result is not None
     assert isinstance(run.result.row_diff, KeyedRowDiff)
@@ -75,7 +72,7 @@ def test_compare_table_records_elapsed_time_and_performance_stats(
         resources,
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})},
     )
-    result = compare_table(left, right, "table_with_pk", auto_partition=False)
+    result = compare_table(left, right, "table_with_pk")
     assert result.elapsed_seconds > 0
     assert result.peak_rss_bytes >= 0
     assert result.peak_cpu_percent >= 0.0
@@ -93,7 +90,7 @@ def test_compare_table_identical_with_pk(tmp_path: Path, pk_resource, make_datas
         resources,
         {"table_with_pk": pl.DataFrame({"x": [2, 1], "y": ["b", "a"]})},
     )
-    result = compare_table(left, right, "table_with_pk", auto_partition=False)
+    result = compare_table(left, right, "table_with_pk")
     assert result.is_identical
     assert result.table_name == "table_with_pk"
     assert result.right_table_name == "table_with_pk"
@@ -122,7 +119,7 @@ def test_compare_table_incompatible_dtypes_skip_reason(
         "compare_rows_with_pk",
         side_effect=pl.exceptions.PolarsError("boom"),
     )
-    result = compare_table(left, right, "table_with_pk", auto_partition=False)
+    result = compare_table(left, right, "table_with_pk")
     assert result.row_diff is None
     assert result.row_diff_skipped_reason == "incompatible_dtypes"
     assert not result.is_identical
@@ -143,7 +140,7 @@ def test_compare_table_mismatched_key_dtypes_skip_row_diff(
         resources,
         {"table_with_pk": pl.DataFrame({"x": pl.Series([1, 2], dtype=pl.Int32)})},
     )
-    result = compare_table(left, right, "table_with_pk", auto_partition=False)
+    result = compare_table(left, right, "table_with_pk")
     assert result.row_diff is None
     assert result.row_diff_skipped_reason == "incompatible_dtypes"
 
@@ -175,9 +172,7 @@ def test_compare_table_different_right_table_name(
         right_resources,
         {"out_table": pl.DataFrame({"x": [1, 2], "y": ["a", "b"], "z": [10, 20]})},
     )
-    result = compare_table(
-        left, right, "core_table", right_table_name="out_table", auto_partition=False
-    )
+    result = compare_table(left, right, "core_table", right_table_name="out_table")
     assert result.table_name == "core_table"
     assert result.right_table_name == "out_table"
     assert not result.schema_diff.is_identical
@@ -201,7 +196,7 @@ def test_compare_table_differing_with_pk(tmp_path: Path, pk_resource, make_datas
         resources,
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "changed"]})},
     )
-    result = compare_table(left, right, "table_with_pk", auto_partition=False)
+    result = compare_table(left, right, "table_with_pk")
     assert not result.is_identical
     assert result.row_count_diff.is_identical
     assert isinstance(result.row_diff, KeyedRowDiff)
@@ -222,7 +217,7 @@ def test_compare_table_identical_without_pk(
         resources,
         {"table_without_pk": pl.DataFrame({"x": [2, 1], "y": ["b", "a"]})},
     )
-    result = compare_table(left, right, "table_without_pk", auto_partition=False)
+    result = compare_table(left, right, "table_without_pk")
     assert result.is_identical
     assert isinstance(result.row_diff, RowSetDiff)
 
@@ -241,7 +236,7 @@ def test_compare_table_differing_without_pk(
         resources,
         {"table_without_pk": pl.DataFrame({"x": [1, 3], "y": ["a", "c"]})},
     )
-    result = compare_table(left, right, "table_without_pk", auto_partition=False)
+    result = compare_table(left, right, "table_without_pk")
     assert not result.is_identical
     assert isinstance(result.row_diff, RowSetDiff)
     assert not result.row_diff.is_identical
@@ -291,7 +286,7 @@ def test_compare_table_differing_schema_with_pk_falls_back_to_shared_columns(
             )
         },
     )
-    result = compare_table(left, right, "table_with_pk", auto_partition=False)
+    result = compare_table(left, right, "table_with_pk")
     assert not result.is_identical
     assert not result.schema_diff.is_identical
     assert isinstance(result.row_diff, KeyedRowDiff)
@@ -322,7 +317,7 @@ def test_compare_table_differing_schema_missing_pk_column(
         right_resources,
         {"table_with_pk": pl.DataFrame({"z": [1, 2]})},
     )
-    result = compare_table(left, right, "table_with_pk", auto_partition=False)
+    result = compare_table(left, right, "table_with_pk")
     assert not result.is_identical
     assert not result.schema_diff.is_identical
     assert result.row_diff is None
@@ -354,17 +349,16 @@ def test_compare_table_differing_schema_without_pk_skips_row_diff(
         right_resources,
         {"table_without_pk": pl.DataFrame({"x": [1, 2], "z": [1, 2]})},
     )
-    result = compare_table(left, right, "table_without_pk", auto_partition=False)
+    result = compare_table(left, right, "table_without_pk")
     assert not result.is_identical
     assert not result.schema_diff.is_identical
     assert result.row_diff is None
     assert result.row_diff_skipped_reason == "mismatched_columns"
 
 
-def test_compare_table_auto_partition_no_dbt_config(
+def test_compare_table_compares_row_counts(
     tmp_path: Path, no_pk_resource, make_dataset
 ):
-    """A table with no dbt row-count test falls back to a whole-table count."""
     resources = [no_pk_resource("table_without_pk")]
     left = make_dataset(
         tmp_path / "left",
@@ -377,25 +371,9 @@ def test_compare_table_auto_partition_no_dbt_config(
         {"table_without_pk": pl.DataFrame({"x": [1], "y": ["a"]})},
     )
     result = compare_table(left, right, "table_without_pk")
-    assert result.row_count_diff.changes == {NO_PARTITION: (2, 1)}
-
-
-def test_compare_table_explicit_partition_expr(
-    tmp_path: Path, no_pk_resource, make_dataset
-):
-    resources = [no_pk_resource("table_without_pk")]
-    left = make_dataset(
-        tmp_path / "left",
-        resources,
-        {"table_without_pk": pl.DataFrame({"x": [2020, 2020, 2021], "y": [1, 2, 3]})},
-    )
-    right = make_dataset(
-        tmp_path / "right",
-        resources,
-        {"table_without_pk": pl.DataFrame({"x": [2020, 2021, 2021], "y": [1, 2, 3]})},
-    )
-    result = compare_table(left, right, "table_without_pk", partition_expr="x")
-    assert result.row_count_diff.changes == {2020: (2, 1), 2021: (1, 2)}
+    assert result.row_count_diff.left_row_count == 2
+    assert result.row_count_diff.right_row_count == 1
+    assert not result.row_count_diff.is_identical
 
 
 def test_compare_table_skips_row_diff_above_max_rows(
@@ -416,7 +394,6 @@ def test_compare_table_skips_row_diff_above_max_rows(
         left,
         right,
         "table_with_pk",
-        auto_partition=False,
         max_rows_for_row_level_comparison=1,
     )
     assert result.row_diff is None
@@ -443,7 +420,7 @@ def test_compare_table_default_max_rows_for_row_level_comparison(
         resources,
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})},
     )
-    result = compare_table(left, right, "table_with_pk", auto_partition=False)
+    result = compare_table(left, right, "table_with_pk")
     assert result.row_diff is not None
     assert result.row_diff_skipped_reason is None
 
@@ -460,7 +437,7 @@ def test_run_table_diff_success(tmp_path: Path, pk_resource, make_dataset):
         resources,
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})},
     )
-    run = run_table_diff(left, right, "table_with_pk", auto_partition=False)
+    run = run_table_diff(left, right, "table_with_pk")
     assert run.success
     assert run.error is None
     assert isinstance(run.result, TableDiffResult)
@@ -480,7 +457,7 @@ def test_run_table_diff_missing_datapackage(tmp_path: Path, pk_resource, make_da
         {"table_with_pk": pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})},
     )
 
-    run = run_table_diff(left, right, "table_with_pk", auto_partition=False)
+    run = run_table_diff(left, right, "table_with_pk")
     assert not run.success
     assert run.result is None
     assert run.error is not None
@@ -521,7 +498,7 @@ def test_compare_table_ignores_row_and_column_order(
     left = make_dataset(tmp_path / "left", resources, {"some_table": left_df})
     right = make_dataset(tmp_path / "right", resources, {"some_table": right_df})
 
-    result = compare_table(left, right, "some_table", auto_partition=False)
+    result = compare_table(left, right, "some_table")
 
     assert result.is_identical
     assert result.schema_diff.is_identical

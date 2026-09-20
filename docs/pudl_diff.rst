@@ -49,8 +49,7 @@ compared one at a time in a single process (so PUDL is only imported once), and
 when comparing more than one, a summary is printed at the end. For all tables,
 the summary also lists tables present in only one dataset, which aren't
 compared. ``--right-table`` only makes sense for a single table, so it requires
-exactly one table name; ``--partition-expr`` applies to every table given, so it
-requires at least one.
+exactly one table name.
 
 ``-l``, ``-r`` and ``-o`` are shorthand for ``--left``, ``--right`` and
 ``--output-path``. Output is colorized when stdout is a terminal; use
@@ -230,8 +229,8 @@ holds:
   (and the paths of its tables) is always an absolute path with any symlinks resolved,
   however it was given, so it doesn't depend on the directory ``pudl_diff`` was run
   from.
-* ``options`` -- the settings the comparison was run with (tolerances, row
-  limits and partitioning).
+* ``options`` -- the settings the comparison was run with (tolerances and row
+  limits).
 * ``tables_only_in_left`` and ``tables_only_in_right`` -- tables that weren't
   compared because they're in only one dataset.
 * ``summary`` -- totals over all the tables: how many were identical, changed or
@@ -255,12 +254,8 @@ corresponding to the three kinds of comparison ``pudl_diff`` runs:
   doesn't matter.
 * ``row_count_diff`` -- total row counts for each side, the change in row count
   from the left (reference) table to the right one (``row_count_difference``,
-  positive if the right table has more rows), and (if the table has a
-  `dbt row-count-per-partition test
-  <https://docs.getdbt.com/best-practices/writing-custom-generic-tests>`__
-  configured, e.g. by report year) a per-partition breakdown of any changes.
-  Use ``--partition-expr`` to specify a different partition column or expression, or
-  ``--no-auto-partition`` to always compare whole-table row counts.
+  positive if the right table has more rows). To see which rows are responsible for
+  a change in row count, look at the left-only and right-only Parquet outputs.
 * ``row_diff`` -- the row-level comparison, with a ``pk_diff`` and a
   ``non_pk_diff`` entry, only one of which is a full report. For a table with a
   primary key (looked up from the dataset's own ``datapackage.json``, or falling
@@ -306,17 +301,6 @@ in a few situations, recorded as the ``skipped_reason`` of whichever of
 A table whose row-level comparison was skipped is conservatively reported as
 **not** identical (exit code ``1``), even if its schema and row counts match,
 since row content hasn't actually been verified.
-
--------------------------
-Comparing dbt row counts
--------------------------
-
-``pudl_diff``'s row-count comparison reimplements the same logic as dbt's
-``check_row_counts_per_partition`` test (see
-:doc:`data_validation_reference`), so a partitioned row-count change reported
-by ``pudl_diff`` should match what that dbt test would report for the same two
-datasets. Unlike the dbt test, ``pudl_diff`` doesn't require a dedicated seed of
-expected row counts -- it compares two live datasets directly.
 
 ------------------------------
 PUDL Diff in the build process

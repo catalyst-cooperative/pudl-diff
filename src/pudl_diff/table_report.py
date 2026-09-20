@@ -9,7 +9,7 @@ import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 import pydantic
 
@@ -83,31 +83,6 @@ class SchemaDiffSummary(ReportModel):
         )
 
 
-def _json_partition(partition: Any) -> int | float | bool | str | None:
-    """A partition value as a native JSON type if it has one, else its ``str()``."""
-    if partition is None or isinstance(partition, int | float | bool | str):
-        return partition
-    return str(partition)
-
-
-class PartitionRowCountChange(ReportModel):
-    """A single partition's row-count change, for the JSON report."""
-
-    partition: int | float | bool | str | None
-    """The partition value, as a native JSON type where there is one (e.g. the
-    integer ``2026`` for a year partition), and as its ``str()`` otherwise (e.g.
-    an ISO-formatted date). ``None`` only for a genuinely null partition value
-    (e.g. a table with nulls in its partition column), never to mean "no
-    partitioning" - see :attr:`RowCountDiffSummary.changes`."""
-    left_row_count: int | None
-    """``None`` if this partition is missing entirely from the left table."""
-    right_row_count: int | None
-    """``None`` if this partition is missing entirely from the right table."""
-    row_count_difference: int
-    """``right_row_count - left_row_count`` for this partition, counting a
-    partition missing from one side as having no rows there."""
-
-
 class RowCountDiffSummary(ReportModel):
     """The JSON-report form of :class:`~.RowCountDiff`."""
 
@@ -118,54 +93,22 @@ class RowCountDiffSummary(ReportModel):
     row_count_difference: int
     """``right_row_count - left_row_count``: the change in row count from the
     reference (left) table to the right table."""
-    partition_expr: str | None
-    """The partition column/expression used, or ``None`` if row counts were
-    compared as a single whole-table total. For a partition looked up from dbt,
-    this is the SQL expression from the dbt schema file, e.g.
-    ``EXTRACT(YEAR FROM report_date)``."""
-    changes: list[PartitionRowCountChange]
-    """Empty whenever :attr:`partition_expr` is ``None``: with no
-    partitioning there's only ever one (whole-table) count to compare, and
-    that's already captured by :attr:`left_row_count`/:attr:`right_row_count`
-    above."""
 
     @pydantic.computed_field
     @property
     def is_identical(self) -> bool:
-        """Whether the row counts match, overall and in every partition."""
-        return self.left_row_count == self.right_row_count and not self.changes
+        """Whether the row counts match."""
+        return self.left_row_count == self.right_row_count
 
     @classmethod
     def from_row_count_diff(cls, row_count_diff: RowCountDiff) -> RowCountDiffSummary:
         """Build from a :class:`~.RowCountDiff`."""
-        changes = (
-            [
-                PartitionRowCountChange(
-                    partition=_json_partition(partition),
-                    left_row_count=left_row_count,
-                    right_row_count=right_row_count,
-                    row_count_difference=(right_row_count or 0) - (left_row_count or 0),
-                )
-                for partition, (
-                    left_row_count,
-                    right_row_count,
-                ) in row_count_diff.changes.items()
-            ]
-            if row_count_diff.partition_expr is not None
-            else []
-        )
         return cls(
             left_row_count=row_count_diff.left_row_count,
             right_row_count=row_count_diff.right_row_count,
             row_count_difference=(
                 row_count_diff.right_row_count - row_count_diff.left_row_count
             ),
-            partition_expr=(
-                row_count_diff.partition_label or str(row_count_diff.partition_expr)
-                if row_count_diff.partition_expr is not None
-                else None
-            ),
-            changes=changes,
         )
 
 
@@ -698,12 +641,6 @@ class DiffOptions(ReportModel):
     max_output_rows: int | None = None
     """Cap on the rows written to each Parquet side-output file, or ``None`` to
     write every differing row."""
-    auto_partition: bool = True
-    """Whether row counts are grouped by the partition from PUDL's dbt row-count
-    tests, where a table has one."""
-    partition_expr: str | None = None
-    """Column to group row counts by, for every table, overriding the dbt
-    configured partitions."""
 
 
 def report_table_diff(
@@ -736,8 +673,6 @@ def report_table_diff(
         right,
         table_name,
         right_table_name=right_table_name,
-        partition_expr=options.partition_expr,
-        auto_partition=options.auto_partition,
         rtol=options.rtol,
         atol=options.atol,
         max_rows_for_row_level_comparison=options.max_compare_rows,
