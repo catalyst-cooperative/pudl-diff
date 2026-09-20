@@ -854,6 +854,29 @@ We want to make `pudl-diff` an integral part of the nightly PUDL data build so w
   * `v2026.9.0-uuid-vs-nightly-2026-09-16-uuid` for a comparison between the current nightly build and the previous stable release.
   * `v2026.9.0-uuid-vs-v2026.10.0-uuid` for a comparison between the current stable release and the previous stable release.
 
+#### Approved design and decisions
+
+* Planning (`src/pudl/deploy/pudl_diff.py`): branch and nightly builds compare against
+  both `nightly/` and `stable/` in the `pudl_diff` Dagster asset (depends only on
+  `pudl_datapackage`; enabled by `dg_nightly.yml`, or locally by `PUDL_DIFF_RUN=true` /
+  `pudl_diff: {run: true}` config, with `PUDL_DIFF_LEFT_ROOT` overriding the baseline).
+  Baselines are read from public S3 (anonymous, free egress); the public GCS bucket is
+  requester-pays, which Polars can't read.
+* Stable-tag builds make no report in the ETL: a stable deploy may reuse a nightly
+  build's outputs, and a report against ephemeral paths would break the release-to-
+  release provenance. `pudl_deploy` instead diffs the prepared outputs against the
+  previous stable release (found by listing `vX.Y.Z` prefixes in the public bucket)
+  and records the permanent versioned paths as the dataset roots, using the new
+  `PudlDiffDataset(display_root=...)`. This fails the deploy if it can't be made;
+  reports carried in the build outputs are replaced.
+* Directory names are `<left git tag>-vs-<right git tag or build ID>`. Branch builds
+  have no tag, so use the build ID; a baseline with no tag falls back to a short `id`.
+* Reports live in `$PUDL_OUTPUT/pudl_diff/`, so they reach the builds bucket and the
+  public buckets with the other outputs. They are excluded from the `eel-hole` path,
+  and archived as `pudl_diff.zip`, which the Zenodo release picks up (it ignores
+  subdirectories).
+* Not yet addressed: EPA CEMS diff peak RSS (~64 GB) vs the deploy VM's 32 GB.
+
 ### The PUDL Diff Marimo Notebook
 
 We are not yet ready to implement the Marimo notebook.
