@@ -5,11 +5,11 @@ import os
 from collections.abc import Sequence
 
 import polars as pl
-import pydantic
 from upath import UPath
 
 import pudl.logging_helpers
 from pudl.metadata.classes import PUDL_PACKAGE
+from pudl.validate.diff.base import ReportModel
 
 logger = pudl.logging_helpers.get_logger(__name__)
 
@@ -20,7 +20,7 @@ _PUDL_CATALYST_COOP_HOST = "pudl.catalyst.coop"
 _PUDL_CATALYST_COOP_DESCRIPTOR_NAME = "pudl_parquet_datapackage.json"
 
 
-class DatasetProvenance(pydantic.BaseModel):
+class DatasetProvenance(ReportModel):
     """A PUDL dataset's own provenance, as recorded in its ``datapackage.json``.
 
     All fields are ``None`` when the dataset's descriptor doesn't have them
@@ -31,11 +31,13 @@ class DatasetProvenance(pydantic.BaseModel):
     id: str | None = None
     """The dataset's build UUID."""
     created: str | None = None
-    """UTC ISO-8601 timestamp of when this dataset was built - distinct from
-    a :class:`~.PudlDiffReport`'s own :attr:`~.PudlDiffReport.created`, which
-    is when the *comparison* was run."""
+    """UTC ISO-8601 timestamp of when this dataset was built - distinct from the
+    report's own :attr:`~.PudlDiffReport.created`, which is when the *comparison*
+    was run."""
     git_sha: str | None = None
+    """The git commit SHA of the PUDL code that built the dataset."""
     git_tags: list[str] | None = None
+    """The git tags on that commit, e.g. release versions like ``v2026.1.0``."""
 
 
 class PudlDiffDataset:

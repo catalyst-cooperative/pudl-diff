@@ -13,8 +13,9 @@ the JSON report. The ``pudl_diff`` command line tool is a thin wrapper around it
 
 The modules are layered, each importing only from those before it in this list:
 
-* :mod:`~pudl.validate.diff.formatting`, :mod:`~pudl.validate.diff.dataset` and
-  :mod:`~pudl.validate.diff.performance`: formatting sizes and durations, access to a
+* :mod:`~pudl.validate.diff.base`, :mod:`~pudl.validate.diff.formatting`,
+  :mod:`~pudl.validate.diff.dataset` and :mod:`~pudl.validate.diff.performance`: the
+  base class of the report's models, formatting sizes and durations, access to a
   dataset and its tables, and sampling memory and CPU use.
 * :mod:`~pudl.validate.diff.schema`, :mod:`~pudl.validate.diff.row_counts` and
   :mod:`~pudl.validate.diff.rows`: the three comparisons of a pair of tables, from

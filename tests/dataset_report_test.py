@@ -1,13 +1,20 @@
 """Unit tests for pudl.validate.diff.dataset_report."""
 
 import json
+import re
 from pathlib import Path
 
 import polars as pl
+import pydantic
+import pytest
 
 from pudl.validate.diff import table_report
 from pudl.validate.diff.dataset import PudlDiffDataset
-from pudl.validate.diff.dataset_report import PudlDiffReport, build_pudl_diff_report
+from pudl.validate.diff.dataset_report import (
+    PudlDiffReport,
+    build_pudl_diff_report,
+    report_json_schema,
+)
 from pudl.validate.diff.runner import run_dataset_diff
 
 
@@ -197,3 +204,105 @@ def test_derived_fields_are_recomputed_when_a_report_is_loaded(
     assert not loaded.is_identical
     assert not loaded.tables["table_a"].is_identical
     assert loaded == report
+
+
+def _schema_objects(schema: dict) -> dict[str, dict]:
+    """The report's schema, and each of the models it refers to, by name."""
+    return {"PudlDiffReport": schema, **schema["$defs"]}
+
+
+def test_every_field_of_the_report_schema_is_described():
+    schema = report_json_schema()
+
+    undescribed = [
+        f"{model}.{field}"
+        for model, definition in _schema_objects(schema).items()
+        for field, spec in definition.get("properties", {}).items()
+        if not spec.get("description", "").strip()
+    ]
+
+    assert not undescribed
+
+
+def test_report_schema_descriptions_are_plain_text():
+    descriptions = [
+        node["description"]
+        for node in _walk(report_json_schema())
+        if isinstance(node.get("description"), str)
+    ]
+
+    assert descriptions
+    for description in descriptions:
+        # No Sphinx roles...
+        assert not re.search(r":(class|func|attr|data|meth|obj|exc):`", description)
+        # ...and no line breaks within a paragraph, other than between bullet points.
+        for paragraph in description.split("\n\n"):
+            assert all(line.startswith("* ") for line in paragraph.splitlines()[1:]), (
+                paragraph
+            )
+
+
+def _walk(node):
+    if isinstance(node, dict):
+        yield node
+        for child in node.values():
+            yield from _walk(child)
+    elif isinstance(node, list):
+        for child in node:
+            yield from _walk(child)
+
+
+def test_report_schema_requires_every_field_and_marks_derived_ones_read_only():
+    schema = report_json_schema()
+
+    # Fields with defaults, like schema_version and error, are always written.
+    assert {"schema_version", "error", "success", "is_identical"} <= set(
+        schema["required"]
+    )
+    assert schema["properties"]["is_identical"]["readOnly"] is True
+    assert "readOnly" not in schema["properties"]["created"]
+
+
+def test_the_row_diff_sections_are_discriminated_by_status():
+    schema = report_json_schema()
+    row_diff = schema["$defs"]["RowDiffSummary"]["properties"]
+
+    for section, compared in [
+        ("pk_diff", "PkRowDiffSummary"),
+        ("non_pk_diff", "NonPkRowDiffSummary"),
+    ]:
+        assert row_diff[section]["discriminator"] == {
+            "propertyName": "status",
+            "mapping": {
+                "compared": f"#/$defs/{compared}",
+                "skipped": "#/$defs/RowDiffSectionSkipped",
+            },
+        }
+
+
+def test_row_diff_sections_load_as_the_variant_their_status_names(
+    tmp_path: Path, write_two_datasets
+):
+    left, right = write_two_datasets(
+        tmp_path, {"table_a": ["a", "b"]}, {"table_a": ["a", "c"]}
+    )
+    report = run_dataset_diff(left, right, tmp_path / "out")
+    document = json.loads(report.model_dump_json())
+    row_diff = document["tables"]["table_a"]["row_diff"]
+    assert row_diff["pk_diff"]["status"] == "compared"
+    assert row_diff["non_pk_diff"] == {
+        "status": "skipped",
+        "skipped_reason": "primary_key_available",
+    }
+
+    loaded = PudlDiffReport.model_validate(document)
+    assert loaded == report
+    loaded_row_diff = loaded.tables["table_a"].row_diff
+    assert loaded_row_diff is not None
+    assert isinstance(loaded_row_diff.pk_diff, table_report.PkRowDiffSummary)
+    assert isinstance(loaded_row_diff.non_pk_diff, table_report.RowDiffSectionSkipped)
+
+    # The status is what decides, so one that isn't a variant of the section is an error.
+    row_diff["pk_diff"]["status"] = "unknown"
+    with pytest.raises(pydantic.ValidationError, match="does not match any of the"):
+        PudlDiffReport.model_validate(document)

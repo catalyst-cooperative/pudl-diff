@@ -216,9 +216,13 @@ def test_large_table_skip_still_exits_one(tmp_path: Path, pk_resource, make_data
     report = _load_report(output_path)["tables"]["table_with_pk"]
     assert report["success"] is True
     assert report["is_identical"] is False
-    assert report["row_diff"]["pk_diff"] == {"skipped_reason": "too_many_rows"}
+    assert report["row_diff"]["pk_diff"] == {
+        "status": "skipped",
+        "skipped_reason": "too_many_rows",
+    }
     assert report["row_diff"]["non_pk_diff"] == {
-        "skipped_reason": "primary_key_available"
+        "status": "skipped",
+        "skipped_reason": "primary_key_available",
     }
     assert not (output_path / "table_with_pk_left_only.parquet").exists()
 

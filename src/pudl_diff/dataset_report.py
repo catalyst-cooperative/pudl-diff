@@ -1,12 +1,15 @@
 """The dataset-level report, summarizing all the tables compared."""
 
 import json
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 import pydantic
 
+from pudl.validate.diff.base import ReportModel
 from pudl.validate.diff.dataset import DatasetProvenance, PudlDiffDataset
 from pudl.validate.diff.formatting import format_bytes
 from pudl.validate.diff.table_report import (
@@ -39,17 +42,20 @@ class PudlDiffSummary(SizeComparison):
     table_count: int
     """Number of tables compared, including any whose comparison failed."""
     identical_table_count: int
+    """Tables whose comparison completed and found no differences."""
     changed_table_count: int
     """Tables whose comparison completed and found differences."""
     failed_table_count: int
     """Tables whose comparison failed to complete."""
     failed_tables: list[str]
+    """The names of the tables whose comparison failed."""
     schema_changed_tables: list[str]
     """Tables with columns added or removed, or with changed dtypes."""
 
     left_row_count: int
     """Total rows in the left tables, over all tables that could be counted."""
     right_row_count: int
+    """Total rows in the right tables, over all tables that could be counted."""
     rows_added: int
     """Rows only in the right table, summed over tables with a row-level
     comparison."""
@@ -57,6 +63,8 @@ class PudlDiffSummary(SizeComparison):
     """Rows with the same primary key but changed values, summed over tables
     with a row-level comparison and a primary key."""
     rows_removed: int
+    """Rows only in the left table, summed over tables with a row-level
+    comparison."""
     no_row_diff_table_count: int
     """Tables with no row-level comparison, whether skipped or failed. Their rows
     count towards the row totals, but not the rows added, changed or removed."""
@@ -64,9 +72,11 @@ class PudlDiffSummary(SizeComparison):
     """Total rows in the left side of those tables."""
 
     columns_added: int
+    """Columns only in the right table, summed over all the tables."""
     columns_changed: int
-    """Shared columns whose dtype changed."""
+    """Shared columns whose dtype changed, summed over all the tables."""
     columns_removed: int
+    """Columns only in the left table, summed over all the tables."""
 
     peak_rss_bytes: int | None = None
     """The highest :attr:`~.TableDiffReport.peak_rss_bytes` of any table."""
@@ -158,7 +168,7 @@ class PudlDiffSummary(SizeComparison):
         )
 
 
-class PudlDiffReport(pydantic.BaseModel):
+class PudlDiffReport(ReportModel):
     """The full comparison of two PUDL datasets: the saved JSON report.
 
     Built by :func:`build_pudl_diff_report`. Holds everything that pertains to the
@@ -172,12 +182,18 @@ class PudlDiffReport(pydantic.BaseModel):
     elapsed_seconds: float | None = None
     """Wall-clock time the whole comparison took."""
     left_dataset: DatasetInfo
+    """The reference dataset, e.g. the last nightly build. Additions, removals and
+    changes are all measured from it to the right dataset."""
     right_dataset: DatasetInfo
+    """The dataset that was compared against the left one, e.g. a local build."""
     options: DiffOptions
+    """The settings the comparison was run with."""
     tables_only_in_left: list[str]
     """Tables found only in the left dataset, which aren't compared."""
     tables_only_in_right: list[str]
+    """Tables found only in the right dataset, which aren't compared."""
     summary: PudlDiffSummary
+    """Totals over all the compared tables."""
     tables: dict[str, TableDiffReport]
     """Each compared table's report, keyed by its name in the left dataset."""
 
@@ -215,6 +231,55 @@ class PudlDiffReport(pydantic.BaseModel):
         if not self.success:
             return 2
         return 0 if self.is_identical else 1
+
+
+_SPHINX_ROLE = re.compile(r":(?:class|func|attr|data|exc|meth|obj|mod):`~?\.?([^`]+)`")
+
+
+def _plain_description(description: str) -> str:
+    """A docstring as the description of a JSON Schema property.
+
+    The Sphinx roles (like ``:attr:`success```) become plain code spans, and the
+    lines of each paragraph are joined, so that the text reads well without being
+    rendered as reStructuredText, and isn't broken at the docstring's line width.
+    Bullet points keep their own lines.
+    """
+    text = _SPHINX_ROLE.sub(r"``\1``", description)
+    paragraphs = []
+    for paragraph in text.split("\n\n"):
+        lines: list[str] = []
+        for line in paragraph.splitlines():
+            if lines and not line.lstrip().startswith("* "):
+                lines[-1] += " " + line.strip()
+            else:
+                lines.append(line.strip())
+        paragraphs.append("\n".join(lines))
+    return "\n\n".join(paragraphs)
+
+
+def report_json_schema() -> dict[str, Any]:
+    """The JSON Schema of the JSON report, which every ``PudlDiffReport`` conforms to.
+
+    Generated from the report's models, so that the schema and the descriptions of
+    what each field means always match the code. It describes the report as it is
+    written (its ``serialization`` schema): fields that have a default value are
+    still always present, and fields derived from others, like
+    :attr:`PudlDiffReport.is_identical`, are listed and marked read-only.
+    """
+    schema = PudlDiffReport.model_json_schema(mode="serialization")
+
+    def clean(node: Any) -> None:
+        if isinstance(node, dict):
+            if isinstance(node.get("description"), str):
+                node["description"] = _plain_description(node["description"])
+            for child in node.values():
+                clean(child)
+        elif isinstance(node, list):
+            for child in node:
+                clean(child)
+
+    clean(schema)
+    return schema
 
 
 def build_pudl_diff_report(
