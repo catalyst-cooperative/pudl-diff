@@ -877,6 +877,33 @@ We want to make `pudl-diff` an integral part of the nightly PUDL data build so w
   subdirectories).
 * Not yet addressed: EPA CEMS diff peak RSS (~64 GB) vs the deploy VM's 32 GB.
 
+### Preparing to extract the tool into its own package
+
+We are going to move the tool out of the PUDL repository into its own independently
+installable package, so that it is useful beyond PUDL, doesn't add 8,000 lines to
+PUDL's review, and can be installed by scheduled jobs that archive every nightly and
+stable report. In this branch we first make `pudl.validate.diff` independent of PUDL:
+
+* Dropped the dbt row-count partitioning entirely (`--partition-expr`,
+  `--no-auto-partition`, the partition report fields): it was brittle, tied the tool to
+  PUDL's repo layout, and was noisy. The left-only and right-only Parquet outputs show
+  what is behind a row-count change. The report schema version stays `1.0.0`, since no
+  report has been published.
+* Standard library logging under `pudl_diff.*` loggers. PUDL's `configure_root_logger`
+  also configures the `pudl_diff` logger.
+* `defaults.py` is the only module that refers to PUDL, lazily and optionally: the
+  nightly root, the local outputs directory, and a primary-key fallback chain (the
+  dataset's own datapackage, then `PUDL_PACKAGE` if importable, then the last nightly
+  build's datapackage). A table with no primary key found anywhere is treated as
+  keyless with a warning. A unit test keeps every other module free of PUDL imports.
+* The report's JSON Schema lives beside the code, and the docs build copies it to
+  `_static`. The diff test fixtures and CLI tests moved into `tests/unit/validate/diff`.
+
+Extraction itself: `git filter-repo` with the path list and `--path-rename`, rename the
+package to `pudl_diff` in a separate commit, scaffold from the Catalyst template, rewrite
+bare `#123` references to `catalyst-cooperative/pudl#123`, then integrate into PUDL on a
+fresh branch holding only the glue (deploy planning, asset, `dg_nightly.yml`).
+
 ### The PUDL Diff Marimo Notebook
 
 We are not yet ready to implement the Marimo notebook.
