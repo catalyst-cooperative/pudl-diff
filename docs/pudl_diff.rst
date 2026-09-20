@@ -252,7 +252,8 @@ corresponding to the three kinds of comparison ``pudl_diff`` runs:
   difference of whole rows, counted as a multiset: a row that appears a
   different number of times in the two tables is a difference, and
   ``multiplicity_changed_row_count`` says how many distinct rows that applies
-  to. The other entry contains only a ``skipped_reason``:
+  to. Each entry has a ``status`` that says which it is: ``"compared"`` for a full
+  report, or ``"skipped"`` for one that contains only a ``skipped_reason``:
   ``primary_key_available`` for ``non_pk_diff`` on a table with a primary key,
   or ``no_primary_key`` for ``pk_diff`` on one without. See
   :ref:`pudl-diff-skipped-comparisons` below for other reasons a comparison
