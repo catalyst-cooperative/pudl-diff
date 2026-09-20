@@ -56,7 +56,14 @@ def _write_parquet_output(
 ) -> ParquetOutput:
     if max_rows_per_output_parquet is not None:
         lf = lf.head(max_rows_per_output_parquet)
-    lf.sink_parquet(path, engine="streaming")
+    lf.sink_parquet(
+        path,
+        engine="streaming",
+        # TODO: Update to pudl.PARQUET_COMPRESSION
+        compression="zstd",
+        # TODO: Update to pudl.PARQUET_COMPRESSION_LEVEL
+        compression_level=3,
+    )
     rows_written = (
         total_row_count
         if max_rows_per_output_parquet is None
