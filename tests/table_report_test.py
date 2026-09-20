@@ -1,5 +1,6 @@
 """Unit tests for pudl.validate.diff.table_report."""
 
+import contextlib
 import json
 from datetime import date
 from pathlib import Path
@@ -461,3 +462,60 @@ def test_row_count_summary_is_identical_only_if_the_totals_and_partitions_match(
     assert not summary(5, 6, []).is_identical
     # A partition can differ even when the totals match.
     assert not summary(5, 5, [change]).is_identical
+
+
+def test_parquet_output_paths_are_relative_to_the_report_directory(
+    tmp_path: Path, pk_resource, make_dataset
+):
+    resources = [pk_resource("t", ["x"])]
+    make_dataset(tmp_path / "left", resources, {"t": pl.DataFrame({"x": [1, 2]})})
+    make_dataset(tmp_path / "right", resources, {"t": pl.DataFrame({"x": [2, 3]})})
+
+    with contextlib.chdir(tmp_path):
+        # The datasets and the output directory are all given relative to the
+        # working directory, which is not where the report will be.
+        report = table_report.report_table_diff(
+            PudlDiffDataset("left"), PudlDiffDataset("right"), "t", "some/out"
+        )
+
+    assert report.row_diff is not None
+    assert report.row_diff.left_only_parquet is not None
+    assert report.row_diff.right_only_parquet is not None
+    assert report.row_diff.left_only_parquet.path == "t_left_only.parquet"
+    assert report.row_diff.right_only_parquet.path == "t_right_only.parquet"
+    assert (tmp_path / "some/out" / "t_left_only.parquet").exists()
+    # The dataset paths, though, are absolute.
+    assert Path(report.left_table_path) == (tmp_path / "left" / "t.parquet").resolve()
+    assert Path(report.right_table_path) == (tmp_path / "right" / "t.parquet").resolve()
+
+
+def test_parquet_output_paths_are_relative_to_a_report_directory_above_them(
+    tmp_path: Path, pk_resource, make_dataset
+):
+    resources = [pk_resource("t", ["x"])]
+    left = make_dataset(
+        tmp_path / "left", resources, {"t": pl.DataFrame({"x": [1, 2]})}
+    )
+    right = make_dataset(
+        tmp_path / "right", resources, {"t": pl.DataFrame({"x": [2, 3]})}
+    )
+    run = run_table_diff(left, right, "t")
+    assert run.result is not None
+    outputs = write_row_diff_parquet(
+        run.result.row_diff, tmp_path / "out" / "files", "t"
+    )
+
+    report = table_report.build_table_diff_report(
+        run, left, right, "t", parquet_outputs=outputs, report_dir=tmp_path / "out"
+    )
+
+    assert report.row_diff is not None
+    assert report.row_diff.left_only_parquet is not None
+    assert report.row_diff.left_only_parquet.path == "files/t_left_only.parquet"
+    # Without being told, they're taken to be in the report's directory.
+    report = table_report.build_table_diff_report(
+        run, left, right, "t", parquet_outputs=outputs
+    )
+    assert report.row_diff is not None
+    assert report.row_diff.left_only_parquet is not None
+    assert report.row_diff.left_only_parquet.path == "t_left_only.parquet"

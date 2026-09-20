@@ -1,5 +1,7 @@
 """Unit tests for pudl.validate.diff.dataset."""
 
+import contextlib
+import os
 from pathlib import Path
 
 import polars as pl
@@ -159,3 +161,45 @@ def test_explicit_descriptor_name_overrides_default():
         "s3://pudl.catalyst.coop/nightly", descriptor_name="datapackage.json"
     )
     assert dataset.descriptor_name == "datapackage.json"
+
+
+def test_a_relative_local_root_becomes_an_absolute_path(tmp_path: Path):
+    (tmp_path / "some" / "dir").mkdir(parents=True)
+
+    with contextlib.chdir(tmp_path):
+        dataset = PudlDiffDataset("some/../some/dir")
+        table_path = dataset.table_path("a_table")
+
+    assert dataset.root.path == str((tmp_path / "some" / "dir").resolve())
+    assert Path(table_path.path).is_absolute()
+    assert table_path.path.endswith("/some/dir/a_table.parquet")
+
+
+def test_a_local_root_has_its_symlinks_resolved(tmp_path: Path):
+    real = tmp_path / "real"
+    real.mkdir()
+    (tmp_path / "link").symlink_to(real)
+
+    dataset = PudlDiffDataset(tmp_path / "link")
+
+    assert dataset.root.path == str(real.resolve())
+
+
+def test_a_local_root_has_its_home_directory_expanded(tmp_path: Path, mocker):
+    mocker.patch.dict(os.environ, {"HOME": str(tmp_path)})
+
+    dataset = PudlDiffDataset("~/nightly")
+
+    assert dataset.root.path == str((tmp_path / "nightly").resolve())
+
+
+def test_a_file_url_root_is_resolved_too(tmp_path: Path):
+    dataset = PudlDiffDataset(f"file://{tmp_path}/a/../dataset")
+
+    assert dataset.root.path == str((tmp_path / "dataset").resolve())
+
+
+def test_a_remote_root_is_left_as_it_is():
+    dataset = PudlDiffDataset("s3://some-bucket/some/dir")
+
+    assert str(dataset.root) == "s3://some-bucket/some/dir"

@@ -54,7 +54,9 @@ class PudlDiffDataset:
 
         Args:
             root: Path to the directory containing the Parquet files and the
-                datapackage descriptor. May be a local path or a remote path
+                datapackage descriptor. A local path is made absolute, with any
+                symlinks resolved, so that it doesn't depend on the working
+                directory. May be a local path or a remote path
                 (e.g. ``s3://...``) understood by :class:`upath.UPath`. If
                 credentials or other filesystem options (e.g. ``anon=True`` for
                 a public S3 bucket) are required, construct a
@@ -66,7 +68,14 @@ class PudlDiffDataset:
                 ``pudl.catalyst.coop``, which instead name it
                 ``pudl_parquet_datapackage.json``.
         """
-        self.root: UPath = UPath(root)
+        dataset_root = UPath(root)
+        if dataset_root.protocol in ("", "file", "local"):
+            # A dataset on the local filesystem is always identified by its absolute
+            # path, so that it doesn't depend on the directory this was run from.
+            if dataset_root.protocol == "":
+                dataset_root = dataset_root.expanduser()
+            dataset_root = dataset_root.resolve()
+        self.root: UPath = dataset_root
         self.descriptor_name = descriptor_name or self._default_descriptor_name(
             self.root
         )

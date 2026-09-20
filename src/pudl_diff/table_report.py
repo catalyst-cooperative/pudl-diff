@@ -8,6 +8,7 @@ compares a table and builds its report.
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import pydantic
@@ -172,7 +173,9 @@ class ParquetOutputSummary(ReportModel):
     """The JSON-report form of a single :class:`~.ParquetOutput`."""
 
     path: str
-    """Where the file was written, under the comparison's output directory."""
+    """Where the file is, relative to the directory that contains the report
+    (``pudl_diff_report.json``), so that the directory can be moved. Always written
+    with ``/`` separators."""
     bytes: int
     """Size of the file in bytes."""
     hash: str
@@ -186,9 +189,18 @@ class ParquetOutputSummary(ReportModel):
         return format_bytes(self.bytes)
 
     @classmethod
-    def from_parquet_output(cls, output: ParquetOutput) -> ParquetOutputSummary:
-        """Build from a :class:`~.ParquetOutput`."""
-        return cls(path=str(output.path), bytes=output.bytes, hash=output.hash)
+    def from_parquet_output(
+        cls, output: ParquetOutput, report_dir: str | os.PathLike[str]
+    ) -> ParquetOutputSummary:
+        """Build from a :class:`~.ParquetOutput`.
+
+        Args:
+            output: The file that was written.
+            report_dir: The directory that the report will be in, which the file's
+                path in the summary is relative to.
+        """
+        path = Path(os.path.relpath(output.path, report_dir)).as_posix()
+        return cls(path=path, bytes=output.bytes, hash=output.hash)
 
 
 #: Reasons one *section* of the JSON report's ``row_diff`` (``pk_diff`` or
@@ -318,6 +330,7 @@ def _build_row_diff_summary(
     pk_cols: Sequence[str],
     skipped_reason: RowComparisonSkipReason | None,
     parquet_outputs: RowDiffParquetOutputs | None,
+    report_dir: Path,
 ) -> RowDiffSummary:
     pk_diff_summary: PkRowDiffSummary | RowDiffSectionSkipped
     non_pk_diff_summary: NonPkRowDiffSummary | RowDiffSectionSkipped
@@ -359,12 +372,12 @@ def _build_row_diff_summary(
         pk_diff=pk_diff_summary,
         non_pk_diff=non_pk_diff_summary,
         left_only_parquet=(
-            ParquetOutputSummary.from_parquet_output(parquet_outputs.left)
+            ParquetOutputSummary.from_parquet_output(parquet_outputs.left, report_dir)
             if parquet_outputs is not None
             else None
         ),
         right_only_parquet=(
-            ParquetOutputSummary.from_parquet_output(parquet_outputs.right)
+            ParquetOutputSummary.from_parquet_output(parquet_outputs.right, report_dir)
             if parquet_outputs is not None
             else None
         ),
@@ -500,13 +513,15 @@ class TableDiffReport(SizeComparison):
     left_table_path: str
     """The path or URL of the table's Parquet file in the left dataset. Worked out
     from the dataset's root and the table's name, so it is given even if the file
-    doesn't exist, e.g. because the comparison failed."""
+    doesn't exist, e.g. because the comparison failed. Absolute, for a dataset on the
+    local filesystem."""
     right_table_name: str
     """The name of the table in the right dataset. Differs from
     :attr:`left_table_name` only when two differently named tables were compared,
     e.g. a ``core_`` table against the ``out_`` table built from it."""
     right_table_path: str
-    """The path or URL of the table's Parquet file in the right dataset."""
+    """The path or URL of the table's Parquet file in the right dataset. Absolute,
+    for a dataset on the local filesystem."""
     elapsed_seconds: float | None = None
     """Wall-clock time the comparison of this table took, or ``None`` if it failed."""
     peak_rss_bytes: int | None = None
@@ -601,6 +616,7 @@ def build_table_diff_report(
     *,
     right_table_name: str | None = None,
     parquet_outputs: RowDiffParquetOutputs | None = None,
+    report_dir: str | os.PathLike[str] | None = None,
 ) -> TableDiffReport:
     """Build the JSON-report form of a table comparison.
 
@@ -614,8 +630,13 @@ def build_table_diff_report(
         parquet_outputs: The Parquet side-output files written for this
             table's row diff, from :func:`~.write_row_diff_parquet`, if any
             were written.
+        report_dir: The directory that the report will be written to, which the
+            paths of the ``parquet_outputs`` in the report are relative to. Defaults
+            to the directory they were written to.
     """
     right_table_name = right_table_name or table_name
+    if report_dir is None:
+        report_dir = parquet_outputs.left.path.parent if parquet_outputs else Path()
 
     def _table_path(dataset: PudlDiffDataset, name: str) -> str:
         # table_path() is deterministic from root + name alone and never
@@ -638,7 +659,11 @@ def build_table_diff_report(
     result = run.result
     pk_cols = left.primary_key(table_name)
     row_diff_summary = _build_row_diff_summary(
-        result.row_diff, pk_cols, result.row_diff_skipped_reason, parquet_outputs
+        result.row_diff,
+        pk_cols,
+        result.row_diff_skipped_reason,
+        parquet_outputs,
+        Path(report_dir),
     )
     return TableDiffReport(
         left_table_name=result.table_name,
@@ -698,7 +723,9 @@ def report_table_diff(
         left: The "left" dataset to compare.
         right: The "right" dataset to compare against ``left``.
         table_name: Name of the table to compare in ``left``.
-        output_path: Directory to write the differing rows' Parquet files into.
+        output_path: Directory to write the differing rows' Parquet files into. It's
+            also where the report is to be written: the files' paths in the report
+            are relative to it.
         right_table_name: Name of the table to compare in ``right``, if it differs
             from ``table_name``.
         options: How to run the comparison. Defaults to :class:`DiffOptions`'s.
@@ -731,4 +758,5 @@ def report_table_diff(
         table_name,
         right_table_name=right_table_name,
         parquet_outputs=parquet_outputs,
+        report_dir=output_path,
     )

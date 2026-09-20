@@ -59,7 +59,7 @@
           "title": "Git Tags"
         },
         "root": {
-          "description": "The root path or URL of the dataset's Parquet files.",
+          "description": "The root path or URL of the dataset's Parquet files. For a dataset on the local filesystem, an absolute path with any symlinks resolved, so it doesn't depend on the directory the comparison was run from.",
           "title": "Root",
           "type": "string"
         }
@@ -191,7 +191,7 @@
       "description": "The JSON-report form of a single ``ParquetOutput``.",
       "properties": {
         "path": {
-          "description": "Where the file was written, under the comparison's output directory.",
+          "description": "Where the file is, relative to the directory that contains the report (``pudl_diff_report.json``), so that the directory can be moved. Always written with ``/`` separators.",
           "title": "Path",
           "type": "string"
         },
@@ -863,7 +863,7 @@
           "type": "string"
         },
         "left_table_path": {
-          "description": "The path or URL of the table's Parquet file in the left dataset. Worked out from the dataset's root and the table's name, so it is given even if the file doesn't exist, e.g. because the comparison failed.",
+          "description": "The path or URL of the table's Parquet file in the left dataset. Worked out from the dataset's root and the table's name, so it is given even if the file doesn't exist, e.g. because the comparison failed. Absolute, for a dataset on the local filesystem.",
           "title": "Left Table Path",
           "type": "string"
         },
@@ -873,7 +873,7 @@
           "type": "string"
         },
         "right_table_path": {
-          "description": "The path or URL of the table's Parquet file in the right dataset.",
+          "description": "The path or URL of the table's Parquet file in the right dataset. Absolute, for a dataset on the local filesystem.",
           "title": "Right Table Path",
           "type": "string"
         },

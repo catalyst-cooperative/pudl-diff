@@ -1,8 +1,10 @@
 """Unit tests for the pudl_diff script."""
 
+import contextlib
 import json
 import logging
 import re
+import shutil
 from pathlib import Path
 
 import polars as pl
@@ -934,3 +936,37 @@ def test_summary_headline_is_bold_and_separated_from_the_rest(
     headline = lines.index("Identical: 1  Changed: 1  Error: 0")
     assert set(lines[headline + 1]) == {"─"}
     assert lines[headline + 2].startswith("Left:")
+
+
+def test_report_paths_do_not_depend_on_the_working_directory_and_it_can_be_moved(
+    tmp_path: Path, pk_resource, make_dataset
+):
+    resources = [pk_resource("t", ["x"])]
+    make_dataset(tmp_path / "left", resources, {"t": pl.DataFrame({"x": [1, 2]})})
+    make_dataset(tmp_path / "right", resources, {"t": pl.DataFrame({"x": [2, 3]})})
+
+    with contextlib.chdir(tmp_path):
+        result = CliRunner().invoke(
+            main, ["-l", "left", "-r", "right", "-o", "diffs/here", "t"]
+        )
+    assert result.exit_code == 1, result.output
+
+    # Everything the report refers to is found from the report itself.
+    report_dir = tmp_path / "diffs" / "here"
+    report = _load_report(report_dir)
+    assert Path(report["left_dataset"]["root"]) == (tmp_path / "left").resolve()
+    assert Path(report["right_dataset"]["root"]) == (tmp_path / "right").resolve()
+    table = report["tables"]["t"]
+    assert Path(table["left_table_path"]).is_file()
+    assert Path(table["right_table_path"]).is_file()
+    left_only = table["row_diff"]["left_only_parquet"]["path"]
+    assert left_only == "t_left_only.parquet"
+    assert (report_dir / left_only).is_file()
+
+    # ...and moving the report's directory doesn't break its links to the outputs.
+    moved = tmp_path / "elsewhere" / "moved"
+    moved.parent.mkdir()
+    shutil.move(report_dir, moved)
+    moved_report = _load_report(moved)
+    for side in ("left_only_parquet", "right_only_parquet"):
+        assert (moved / moved_report["tables"]["t"]["row_diff"][side]["path"]).is_file()

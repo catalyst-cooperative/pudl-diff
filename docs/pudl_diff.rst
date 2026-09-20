@@ -114,6 +114,10 @@ to differ, it also writes two Parquet side-output files:
   whose primary key matches but whose other data differs).
 * ``<right_table_name>_right_only.parquet`` -- the same, for the right dataset.
 
+They are written next to the report, and the report refers to them by paths relative to
+the report file, so the output directory can be moved or copied, and everything in it
+can still be found.
+
 Under a two-line header naming each column, each table's line starts with a status tag
 for the comparison as a whole (including its schema): ``[IDENTICAL]`` (green),
 ``[CHANGED]`` (yellow) or ``[ERROR]`` (red, the comparison itself failed). It's
@@ -213,7 +217,10 @@ holds:
 * ``left_dataset`` and ``right_dataset`` -- each dataset's ``root`` path or URL
   and its own provenance (build ID, creation timestamp, git SHA and tags, read
   from its ``datapackage.json`` if present), so a saved report can be traced
-  back to the builds it compared.
+  back to the builds it compared. The ``root`` of a dataset on the local filesystem
+  (and the paths of its tables) is always an absolute path with any symlinks resolved,
+  however it was given, so it doesn't depend on the directory ``pudl_diff`` was run
+  from.
 * ``options`` -- the settings the comparison was run with (tolerances, row
   limits and partitioning).
 * ``tables_only_in_left`` and ``tables_only_in_right`` -- tables that weren't

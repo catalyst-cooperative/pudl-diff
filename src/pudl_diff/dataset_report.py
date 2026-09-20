@@ -25,7 +25,9 @@ class DatasetInfo(DatasetProvenance):
     """One of the two compared datasets: where it is, and where it came from."""
 
     root: str
-    """The root path or URL of the dataset's Parquet files."""
+    """The root path or URL of the dataset's Parquet files. For a dataset on the
+    local filesystem, an absolute path with any symlinks resolved, so it doesn't
+    depend on the directory the comparison was run from."""
 
 
 class PudlDiffSummary(SizeComparison):
