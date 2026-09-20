@@ -7,11 +7,11 @@ from collections.abc import Sequence
 import polars as pl
 from upath import UPath
 
-import pudl.logging_helpers
 from pudl.metadata.classes import PUDL_PACKAGE
 from pudl.validate.diff.base import ReportModel
+from pudl.validate.diff.logs import get_logger
 
-logger = pudl.logging_helpers.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 # PUDL's deployed public outputs (S3/GCS) name the descriptor after the asset that

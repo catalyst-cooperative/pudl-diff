@@ -11,12 +11,12 @@ import polars as pl
 import pytest
 from click.testing import CliRunner
 
-from pudl.logging_helpers import get_logger
 from pudl.scripts.pudl_diff import (
     REPORT_FILENAME,
     _set_log_level,
     main,
 )
+from pudl.validate.diff.logs import get_logger
 
 
 def test_identical_table_exits_zero(tmp_path: Path, pk_resource, make_dataset):
@@ -706,8 +706,8 @@ def test_summary_totals_count_uncompared_tables(tmp_path: Path, all_tables_datas
 
 
 def test_set_log_level_hides_lower_severities_and_restores(caplog):
-    logger = get_logger("pudl.scripts.pudl_diff_test")
-    before = logging.getLogger("catalystcoop").level
+    logger = get_logger("pudl_diff_test")
+    before = logging.getLogger("pudl_diff").level
 
     restore = _set_log_level("ERROR")
     logger.warning("hidden warning")
@@ -719,19 +719,19 @@ def test_set_log_level_hides_lower_severities_and_restores(caplog):
     assert "hidden warning" not in messages
     assert "shown error" in messages
     assert "visible again" in messages
-    assert logging.getLogger("catalystcoop").level == before
+    assert logging.getLogger("pudl_diff").level == before
 
 
 def test_cli_leaves_logging_as_it_found_it(tmp_path: Path, all_tables_datasets):
     left, right = all_tables_datasets
-    before = logging.getLogger("catalystcoop").level
+    before = logging.getLogger("pudl_diff").level
 
     CliRunner().invoke(
         main,
         ["same_table", "-l", str(left), "-r", str(right), "-o", str(tmp_path / "o")],
     )
 
-    assert logging.getLogger("catalystcoop").level == before
+    assert logging.getLogger("pudl_diff").level == before
 
 
 def test_cli_shows_dtype_changes_in_the_columns_cell(

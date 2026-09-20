@@ -8,8 +8,8 @@ from typing import Literal
 
 import polars as pl
 
-import pudl.logging_helpers
 from pudl.validate.diff.dataset import PudlDiffDataset
+from pudl.validate.diff.logs import get_logger
 from pudl.validate.diff.performance import PerformanceSampler
 from pudl.validate.diff.row_counts import RowCountDiff, compare_row_counts
 from pudl.validate.diff.rows import (
@@ -20,7 +20,7 @@ from pudl.validate.diff.rows import (
 )
 from pudl.validate.diff.schema import SchemaDiff, compare_schemas
 
-logger = pudl.logging_helpers.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 #: Fixed set of reasons :func:`compare_table` skips the row-level comparison

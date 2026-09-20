@@ -5,16 +5,16 @@ import traceback
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-import pudl.logging_helpers
 from pudl.validate.diff.dataset import NoTablesError, PudlDiffDataset, resolve_tables
 from pudl.validate.diff.dataset_report import PudlDiffReport, build_pudl_diff_report
+from pudl.validate.diff.logs import get_logger
 from pudl.validate.diff.table_report import (
     DiffOptions,
     TableDiffReport,
     report_table_diff,
 )
 
-logger = pudl.logging_helpers.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 def run_dataset_diff(

@@ -13,10 +13,10 @@ from typing import Annotated, Literal
 
 import pydantic
 
-import pudl.logging_helpers
 from pudl.validate.diff.base import ReportModel
 from pudl.validate.diff.dataset import PudlDiffDataset
 from pudl.validate.diff.formatting import format_bytes
+from pudl.validate.diff.logs import get_logger
 from pudl.validate.diff.outputs import (
     ParquetOutput,
     RowDiffParquetOutputs,
@@ -37,7 +37,7 @@ from pudl.validate.diff.table import (
     run_table_diff,
 )
 
-logger = pudl.logging_helpers.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 class SchemaDiffSummary(ReportModel):

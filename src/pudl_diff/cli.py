@@ -6,12 +6,12 @@ from collections.abc import Callable
 from pathlib import Path
 
 import click
-from dagster import get_dagster_logger
 
 import pudl
 from pudl.validate.diff import table_report
 from pudl.validate.diff.dataset import PudlDiffDataset
 from pudl.validate.diff.dataset_report import REPORT_FILENAME, PudlDiffReport
+from pudl.validate.diff.logs import LOGGER_NAME
 from pudl.validate.diff.runner import run_dataset_diff
 from pudl.validate.diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON
 from pudl.validate.diff.terminal import TerminalProgress, echo_summary
@@ -127,24 +127,31 @@ def _show_saved_report(path: Path) -> int:
 
 
 def _set_log_level(level: str) -> Callable[[], None]:
-    """Only let PUDL's loggers emit messages of at least ``level``.
+    """Only let the tool's loggers emit messages of at least ``level``.
 
-    Returns a function that puts the loggers' levels back as they were, so that
-    running the CLI (e.g. in tests) doesn't leave logging reconfigured.
+    If the application hasn't configured any handlers for them, as when the tool is
+    installed without PUDL, logs go to stderr. Returns a function that puts the
+    loggers back as they were, so that running the CLI (e.g. in tests) doesn't leave
+    logging reconfigured.
     """
     numeric_level = logging.getLevelName(level.upper())
-    saved: list[tuple[logging.Handler | logging.Logger, int]] = []
-    for logger in (
-        logging.getLogger("catalystcoop"),
-        get_dagster_logger("catalystcoop"),
-    ):
-        for target in (logger, *logger.handlers):
-            saved.append((target, target.level))
-            target.setLevel(numeric_level)
+    logger = logging.getLogger(LOGGER_NAME)
+    added: logging.Handler | None = None
+    if not logger.handlers:
+        added = logging.StreamHandler()
+        added.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)8s] %(name)s: %(message)s")
+        )
+        logger.addHandler(added)
+    saved = [(target, target.level) for target in (logger, *logger.handlers)]
+    for target, _ in saved:
+        target.setLevel(numeric_level)
 
     def restore() -> None:
         for target, previous_level in saved:
             target.setLevel(previous_level)
+        if added is not None:
+            logger.removeHandler(added)
 
     return restore
 
