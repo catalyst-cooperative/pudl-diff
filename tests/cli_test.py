@@ -970,3 +970,86 @@ def test_report_paths_do_not_depend_on_the_working_directory_and_it_can_be_moved
     moved_report = _load_report(moved)
     for side in ("left_only_parquet", "right_only_parquet"):
         assert (moved / moved_report["tables"]["t"]["row_diff"][side]["path"]).is_file()
+
+
+def _without_intro_and_footer(output: str) -> list[str]:
+    """The lines of output that don't depend on how the report was made."""
+    lines = output.strip().splitlines()
+    return lines[1:-1]
+
+
+@pytest.mark.parametrize("tables", [["same_table", "changed_table"], ["changed_table"]])
+def test_from_report_shows_what_the_comparison_showed(
+    tmp_path: Path, two_table_args, tables
+):
+    original = CliRunner().invoke(main, [*tables, *two_table_args])
+    assert original.exit_code == 1, original.output
+
+    replay = CliRunner().invoke(main, ["--from-report", str(tmp_path / "out")])
+
+    assert replay.exit_code == original.exit_code, replay.output
+    assert _without_intro_and_footer(replay.output) == _without_intro_and_footer(
+        original.output
+    )
+    assert "Report of" in replay.output.splitlines()[0]
+    assert f"Report read from {tmp_path / 'out' / REPORT_FILENAME}" in replay.output
+
+
+def test_from_report_accepts_the_report_file_itself(tmp_path: Path, two_table_args):
+    CliRunner().invoke(main, ["same_table", *two_table_args])
+
+    replay = CliRunner().invoke(
+        main, ["--from-report", str(tmp_path / "out" / REPORT_FILENAME)]
+    )
+
+    assert replay.exit_code == 0, replay.output
+    assert "[IDENTICAL]" in replay.output
+
+
+def test_from_report_does_not_compare_or_write_anything(
+    tmp_path: Path, two_table_args, mocker
+):
+    CliRunner().invoke(main, ["same_table", *two_table_args])
+    run = mocker.patch("pudl.scripts.pudl_diff.run_dataset_diff")
+    before = sorted(p.name for p in (tmp_path / "out").iterdir())
+
+    CliRunner().invoke(main, ["--from-report", str(tmp_path / "out")])
+
+    run.assert_not_called()
+    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == before
+
+
+def test_from_report_shows_a_failed_run(tmp_path: Path, pk_resource, make_dataset):
+    make_dataset(tmp_path / "left", [pk_resource("a", ["x"])], {})
+    make_dataset(tmp_path / "right", [pk_resource("b", ["x"])], {})
+    args = ["-l", str(tmp_path / "left"), "-r", str(tmp_path / "right")]
+    CliRunner().invoke(main, [*args, "-o", str(tmp_path / "out")])
+
+    replay = CliRunner().invoke(main, ["--from-report", str(tmp_path / "out")])
+
+    assert replay.exit_code == 2
+    assert "No tables found in both" in replay.output
+
+
+def test_from_report_rejects_options_that_control_a_comparison(
+    tmp_path: Path, two_table_args
+):
+    CliRunner().invoke(main, ["same_table", *two_table_args])
+
+    replay = CliRunner().invoke(
+        main,
+        ["--from-report", str(tmp_path / "out"), "same_table", "--rtol", "0.1"],
+    )
+
+    assert replay.exit_code == 2
+    assert "table_names" in replay.output
+    assert "--rtol" in replay.output
+
+
+def test_from_report_rejects_something_that_isnt_a_report(tmp_path: Path):
+    (tmp_path / "junk.json").write_text('{"not": "a report"}')
+
+    replay = CliRunner().invoke(main, ["--from-report", str(tmp_path / "junk.json")])
+
+    assert replay.exit_code == 1
+    assert "Couldn't read a report" in replay.output

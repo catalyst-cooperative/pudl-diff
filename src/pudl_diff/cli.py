@@ -37,7 +37,95 @@ Examples:
   # A core_ table vs. the out_ table built from it, within the local build
   pudl_diff core_eia860__scd_utilities --right-table out_eia__yearly_utilities \\
       --left $PUDL_OUTPUT/parquet
+\b
+  # Show a report you already have, without comparing anything again
+  pudl_diff --from-report path/to/pudl_diff_report.json
 """
+
+
+def _echo_outcome(
+    report: PudlDiffReport,
+    progress: TerminalProgress,
+    report_path: Path,
+    *,
+    single: bool,
+    saved: bool,
+) -> None:
+    """Say how a comparison, or a saved report on one, turned out."""
+    verb = "written to" if saved else "read from"
+    if report.error is not None:
+        click.echo(f"Comparison failed: {report.error}", err=True)
+        click.echo(f"Report {verb} {report_path}")
+    elif single:
+        outcome = progress.outcomes[0]
+        if outcome.error is not None:
+            click.echo(
+                f"Comparison of {outcome.table_name!r} failed: {outcome.error}",
+                err=True,
+            )
+        click.echo(f"Report {verb} {report_path}")
+    else:
+        echo_summary(report, progress.outcomes, report_path, saved=saved)
+
+
+_COMPARISON_OPTIONS = (
+    "table_names",
+    "left",
+    "right",
+    "right_table",
+    "output_path",
+    "max_compare_rows",
+    "max_output_rows",
+    "rtol",
+    "atol",
+    "partition_expr",
+    "no_auto_partition",
+)
+
+
+def _reject_comparison_options(ctx: click.Context) -> None:
+    """Refuse --from-report alongside anything that only controls a comparison."""
+    given = [
+        param.opts[-1] if param.opts else param.name
+        for param in ctx.command.params
+        if param.name in _COMPARISON_OPTIONS
+        and ctx.get_parameter_source(param.name)
+        not in (None, click.core.ParameterSource.DEFAULT)
+    ]
+    if given:
+        raise click.UsageError(
+            f"--from-report doesn't compare anything, so it can't be used with: "
+            f"{', '.join(map(str, given))}."
+        )
+
+
+def _show_saved_report(path: Path) -> int:
+    """Print a saved report as a comparison would have; return its exit code."""
+    report_path = path / REPORT_FILENAME if path.is_dir() else path
+    try:
+        report = PudlDiffReport.model_validate_json(report_path.read_text())
+    except (OSError, ValueError) as e:
+        raise click.ClickException(
+            f"Couldn't read a report from {report_path}: {e}"
+        ) from e
+    tables = list(report.tables)
+    single = len(tables) == 1
+    progress = TerminalProgress(
+        report.left_dataset.root,
+        report.right_dataset.root,
+        explicit=True,
+        show_progress=not single,
+        intro=(
+            f"Report of {len(tables)} tables between {report.left_dataset.root!r} "
+            f"and {report.right_dataset.root!r}, created {report.created}."
+        ),
+    )
+    if tables:
+        progress.tables_resolved(tables)
+        for name, table in report.tables.items():
+            progress.table_compared(name, table)
+    _echo_outcome(report, progress, report_path, single=single, saved=False)
+    return report.exit_code
 
 
 def _set_log_level(level: str) -> Callable[[], None]:
@@ -147,6 +235,14 @@ def _set_log_level(level: str) -> Callable[[], None]:
     "configured for this table. Ignored if --partition-expr is given.",
 )
 @click.option(
+    "--from-report",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Show a saved JSON report (or the pudl_diff_report.json in a directory) "
+    "as the tables and summary a new comparison would print, without comparing "
+    "anything. Can't be combined with the options that control a comparison.",
+)
+@click.option(
     "--color/--no-color",
     default=None,
     help="Colorize the output. Defaults to on if stdout is a terminal, and off "
@@ -177,6 +273,7 @@ def main(
     atol: float,
     partition_expr: str | None,
     no_auto_partition: bool,
+    from_report: Path | None,
     color: bool | None,
     loglevel: str,
 ) -> None:
@@ -194,7 +291,15 @@ def main(
     1 if any differ, or 2 if any comparison itself failed (e.g. a table doesn't
     exist in one of the datasets, or a dataset's datapackage.json couldn't be
     read). A table that fails doesn't stop the others being compared.
+
+    With --from-report, instead shows an existing report in the same form, and
+    exits with the code that comparison did.
     """
+    if from_report is not None:
+        _reject_comparison_options(ctx)
+        ctx.call_on_close(_set_log_level(loglevel))
+        ctx.color = sys.stdout.isatty() if color is None else color
+        ctx.exit(_show_saved_report(from_report))
     if right_table is not None and len(table_names) != 1:
         raise click.UsageError("--right-table requires exactly one TABLE_NAME.")
     if partition_expr is not None and not table_names:
@@ -238,19 +343,7 @@ def main(
         on_table_compared=progress.table_compared,
     )
     write_report(report)
-    if report.error is not None:
-        click.echo(f"Comparison failed: {report.error}", err=True)
-        click.echo(f"Report written to {report_path}")
-    elif single:
-        outcome = progress.outcomes[0]
-        if outcome.error is not None:
-            click.echo(
-                f"Comparison of {outcome.table_name!r} failed: {outcome.error}",
-                err=True,
-            )
-        click.echo(f"Report written to {report_path}")
-    else:
-        echo_summary(report, progress.outcomes, report_path)
+    _echo_outcome(report, progress, report_path, single=single, saved=True)
     ctx.exit(report.exit_code)
 
 

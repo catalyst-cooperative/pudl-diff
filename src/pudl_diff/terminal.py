@@ -325,9 +325,17 @@ def _echo_table_list(label: str, table_names: list[str]) -> None:
 
 
 def echo_summary(
-    report: PudlDiffReport, outcomes: list[TableOutcome], report_path: Path
+    report: PudlDiffReport,
+    outcomes: list[TableOutcome],
+    report_path: Path,
+    *,
+    saved: bool = True,
 ) -> None:
-    """Print how the run went: table counts, what was compared, time and memory."""
+    """Print how the run went: table counts, what was compared, time and memory.
+
+    Ends by saying the report was written to ``report_path``, or, if ``saved`` is
+    False, that it was read from there.
+    """
     summary = report.summary
     counts = [
         ("Identical", summary.identical_table_count, "green"),
@@ -355,7 +363,8 @@ def echo_summary(
     _echo_table_list("Tables with errors", summary.failed_tables)
     _echo_table_list("Tables removed (only in left)", report.tables_only_in_left)
     _echo_table_list("Tables added (only in right)", report.tables_only_in_right)
-    click.echo(f"{click.style('Report written to', bold=True)} {report_path}")
+    verb = "written to" if saved else "read from"
+    click.echo(f"{click.style(f'Report {verb}', bold=True)} {report_path}")
 
 
 def echo_intro(
@@ -381,7 +390,13 @@ class TerminalProgress:
     """
 
     def __init__(
-        self, left_root: str, right_root: str, *, explicit: bool, show_progress: bool
+        self,
+        left_root: str,
+        right_root: str,
+        *,
+        explicit: bool,
+        show_progress: bool,
+        intro: str | None = None,
     ):
         """Set up to describe a comparison of two datasets.
 
@@ -391,7 +406,10 @@ class TerminalProgress:
             explicit: Whether the tables to compare were named, rather than being
                 all those in both datasets.
             show_progress: Whether to start each line with a ``[n/total]`` count.
+            intro: What to say before the column headings instead of the usual
+                description of the comparison, e.g. when showing a saved report.
         """
+        self._intro = intro
         self._left_root = left_root
         self._right_root = right_root
         self._explicit = explicit
@@ -402,7 +420,12 @@ class TerminalProgress:
     def tables_resolved(self, tables: list[str]) -> None:
         """Say what's about to be compared, and print the column headings."""
         self._total = len(tables)
-        echo_intro(tables, self._left_root, self._right_root, explicit=self._explicit)
+        if self._intro is not None:
+            click.echo(self._intro)
+        else:
+            echo_intro(
+                tables, self._left_root, self._right_root, explicit=self._explicit
+            )
         total = self._total
         click.echo(
             format_header(len(f"[{total}/{total}]") if self._show_progress else 0)

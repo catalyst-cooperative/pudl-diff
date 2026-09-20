@@ -100,6 +100,15 @@ on top of its ``core_`` table and doesn't otherwise change its data:
    $ pudl_diff core_eia860__scd_utilities --right-table out_eia__yearly_utilities \
        --left $PUDL_OUTPUT/parquet
 
+Show a report you already have (a ``pudl_diff_report.json``, or the directory
+containing one) as the same table and summary a new comparison would print,
+without comparing anything again. It exits with the code that comparison did,
+and can't be combined with the options that control a comparison:
+
+.. code-block:: console
+
+   $ pudl_diff --from-report path/to/pudl_diff_report.json
+
 -------------------------
 Interpreting the results
 -------------------------
