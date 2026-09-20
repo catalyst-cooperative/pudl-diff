@@ -202,7 +202,10 @@ The JSON report
 
 The report describes the comparison of the two datasets as a whole, with a
 ``tables`` entry for each table compared, keyed by its name in the left dataset.
-Its top level holds:
+Every field of the report, at every level, is described in the
+:doc:`pudl_diff_report_schema`, which is generated from the code and is also available
+as a `JSON Schema <https://json-schema.org>`__ for validating a report. Its top level
+holds:
 
 * ``schema_version`` -- the version of the report format.
 * ``created`` and ``elapsed_seconds`` -- when the report was generated, and how

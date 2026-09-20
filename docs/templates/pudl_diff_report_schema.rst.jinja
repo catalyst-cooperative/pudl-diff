@@ -1,0 +1,59 @@
+===============================================================================
+PUDL Diff Report Schema
+===============================================================================
+
+``pudl_diff`` writes a JSON report of its comparison, described in :doc:`pudl_diff`.
+This page is the reference for every field of that report. It is generated from the
+report's Pydantic models, which are also where the descriptions below are written, so
+it always matches the code.
+
+The report is described by a `JSON Schema <https://json-schema.org>`__, which you can
+use to validate a report, or to give a program or a coding agent a machine-readable
+description of it: :download:`pudl_diff_report.schema.json <../_static/pudl_diff_report.schema.json>`.
+The same schema is available in Python, and the report can be loaded and checked with
+Pydantic:
+
+.. code-block:: python
+
+   from pudl.validate.diff.dataset_report import PudlDiffReport
+   from pudl.validate.diff.report_schema import report_json_schema
+
+   schema = report_json_schema()
+   report = PudlDiffReport.model_validate_json(report_path.read_text())
+
+Every field listed here is always present in a report, even if its value is ``null``.
+A field marked *derived* is calculated from the others: it is written to the report
+for convenience, but ignored when a report is loaded. The version of the report format
+is in its ``schema_version`` field, which follows the ``major.minor.patch`` convention.
+
+The copy of the schema in the repository, ``docs/_static/pudl_diff_report.schema.json``,
+is kept up to date by the ``pudl-diff-schema`` pre-commit hook, which rewrites it when
+the code in ``pudl.validate.diff`` changes, and checked by a unit test. To update it by
+hand, run ``pixi run python -m pudl.validate.diff.report_schema``.
+
+{% for model in models %}
+.. _pudl-diff-schema-{{ model.name }}:
+
+{{ model.name }}
+{{ "-" * model.name|length }}
+
+{{ model.description }}
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 24 54
+
+   * - Field
+     - Type
+     - Description
+{% for field in model.fields %}
+   * - ``{{ field.name }}``
+     - {{ field.type }}
+     - {{ field.description | indent(7) }}
+{% if field.derived %}
+
+       *Derived from the other fields.*
+{% endif %}
+{% endfor %}
+
+{% endfor %}

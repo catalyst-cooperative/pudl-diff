@@ -1,11 +1,9 @@
 """The dataset-level report, summarizing all the tables compared."""
 
 import json
-import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
 
 import pydantic
 
@@ -231,55 +229,6 @@ class PudlDiffReport(ReportModel):
         if not self.success:
             return 2
         return 0 if self.is_identical else 1
-
-
-_SPHINX_ROLE = re.compile(r":(?:class|func|attr|data|exc|meth|obj|mod):`~?\.?([^`]+)`")
-
-
-def _plain_description(description: str) -> str:
-    """A docstring as the description of a JSON Schema property.
-
-    The Sphinx roles (like ``:attr:`success```) become plain code spans, and the
-    lines of each paragraph are joined, so that the text reads well without being
-    rendered as reStructuredText, and isn't broken at the docstring's line width.
-    Bullet points keep their own lines.
-    """
-    text = _SPHINX_ROLE.sub(r"``\1``", description)
-    paragraphs = []
-    for paragraph in text.split("\n\n"):
-        lines: list[str] = []
-        for line in paragraph.splitlines():
-            if lines and not line.lstrip().startswith("* "):
-                lines[-1] += " " + line.strip()
-            else:
-                lines.append(line.strip())
-        paragraphs.append("\n".join(lines))
-    return "\n\n".join(paragraphs)
-
-
-def report_json_schema() -> dict[str, Any]:
-    """The JSON Schema of the JSON report, which every ``PudlDiffReport`` conforms to.
-
-    Generated from the report's models, so that the schema and the descriptions of
-    what each field means always match the code. It describes the report as it is
-    written (its ``serialization`` schema): fields that have a default value are
-    still always present, and fields derived from others, like
-    :attr:`PudlDiffReport.is_identical`, are listed and marked read-only.
-    """
-    schema = PudlDiffReport.model_json_schema(mode="serialization")
-
-    def clean(node: Any) -> None:
-        if isinstance(node, dict):
-            if isinstance(node.get("description"), str):
-                node["description"] = _plain_description(node["description"])
-            for child in node.values():
-                clean(child)
-        elif isinstance(node, list):
-            for child in node:
-                clean(child)
-
-    clean(schema)
-    return schema
 
 
 def build_pudl_diff_report(
