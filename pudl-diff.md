@@ -682,6 +682,7 @@ Modules in `src/pudl/validate/diff/`:
 | Module | Contents |
 | ------ | -------- |
 | `__init__.py` | Overview of how to run a comparison and how the modules are layered |
+| `base.py` | `ReportModel`, the base class of the report's Pydantic models: it makes each field's docstring its description in the JSON Schema |
 | `formatting.py` | `format_bytes`, `format_elapsed`, `format_duration`, `format_percent`, `format_signed_percent` |
 | `dataset.py` | `DatasetProvenance`, `PudlDiffDataset`, `resolve_tables`, `NoTablesError` |
 | `schema.py` | `SchemaDiff`, `compare_schemas` |
@@ -692,6 +693,7 @@ Modules in `src/pudl/validate/diff/`:
 | `outputs.py` | `ParquetOutput`, `RowDiffParquetOutputs`, `write_row_diff_parquet` |
 | `table_report.py` | `*Summary` classes, `RowChanges`, `SizeComparison`, `TableDiffReport`, `DiffOptions`, `report_table_diff`, `RowDiffSectionSkipReason` |
 | `dataset_report.py` | `DatasetInfo`, `PudlDiffSummary`, `PudlDiffReport`, `build_pudl_diff_report`, `REPORT_SCHEMA_VERSION`, `TableOutcome`, `table_outcome` |
+| `report_schema.py` | `report_json_schema` (the JSON Schema of the report, generated from its models), the committed copy at `docs/_static/pudl_diff_report.schema.json` and its `main`, and the helpers that flatten the schema into models for the docs page |
 | `runner.py` | `run_dataset_diff`: resolves the tables, compares each, and returns the `PudlDiffReport`, reporting progress through callbacks |
 | `terminal.py` | Text rendering of reports for a terminal: the styling constants, per-table lines, end-of-run summary, and `TerminalProgress`, which supplies `run_dataset_diff`'s callbacks |
 
@@ -830,13 +832,31 @@ without a primary key (including a composite one, in either key order), for the 
 comparisons and for `compare_table`, plus a test that real changes are still found in
 a table whose rows and columns are in a different order.
 
+### Nightly PUDL Data Diff Reporting
+
+We want to make `pudl-diff` an integral part of the nightly PUDL data build so we can easily identify unexpected changes, and provide a transparent public interface for users to see what has changed between builds and between stable releases.
+
+* Define a new Dagster asset that conditionally run s`pudl-diff` against a given baseline at the end of the PUDL ETL pipeline.
+* Its only upstream dependency will be the `pudl_datapackage` asset, since `pudl-diff` reads build provenance information from the `datapackage.json` descriptor.
+* We don't want to run `pudl-diff` on *every* build, since in local development it's not always clear what we ought to be comparing against, and downloading a whole baseline dataset from S3 can take a long time.
+* By default, we want to materialize the `pudl-diff` report any time we are running the full ETL using Google Batch.
+* The baseline (left dataset) or baselines that we compare against will depend on what kind of build we are doing.
+  * If we are doing a `branch` build, we will compare against the last successful nightly build, which is stored in S3 at `s3://pudl.catalyst.coop/nightly/` (and is the default baseline for the CLI).
+  * If we are doing a scheduled `nightly` build that was triggered by our GitHub Actions workflow, we will compare against the last successful nightly build, which is stored in S3 at `s3://pudl.catalyst.coop/nightly/`. We will **also** compare against the last successful versioned release so that we can be aware of all the changes which have accumulated in the pipeline outputs since that release. The last successful versioned release is stored in S3 at `s3://pudl.catalyst.coop/stable/`. This means we will need to output two distinct `pudl-diff` reports.
+  * If we are doing a stable versioned release build (i.e. with a version tag like `v2026.10.0`) then we will only compare against the last successful versioned release, which is stored in S3 at `s3://pudl.catalyst.coop/stable/`. This means we will only output one `pudl-diff` report.
+* For *all* build types we will want to save the `pudl-diff` reports to the builds bucket along with the other build outputs, under `gs://builds.catalyst.coop/<build-id>`
+* For scheduled `nightly` and versioned `stable` releases, we will also want to deploy the `pudl-diff` reports to our public S3 and GCS buckets so that users can see what has changed between builds and between stable releases. The public S3 bucket is `s3://pudl.catalyst.coop/nightly/` for nightly builds and `s3://pudl.catalyst.coop/stable/` for stable releases. The public GCS bucket is `gs://pudl.catalyst.coop/nightly/` for nightly builds and `gs://pudl.catalyst.coop/stable/` for stable releases.
+* In local development, by default we will not materialize the `pudl-diff` report as part of the Dagster ETL, but we  want to allow the user to override this behavior intentionally, and materialize the report by setting an environment variable like `PUDL_DIFF_RUN=true` or maybe also by setting a Dagster config option like `pudl_diff_run: true`. If the user as set this override, then by default the `pudl-diff` asset will use `PUDL_NIGHTLY_BUILDS_BASE_PATH` as the baseline for comparison, but we should allow the user to override that by setting an environment variable like `PUDL_DIFF_BASELINE_PATH` to point `pudl-diff` at a pre-existing local reference dataset for comparison.
+* Because there are cases in which we will want to output more than one `pudl-diff` report from the same build, we'll need to come up with a naming convention for the `--output-path` directory. The name should clearly indicate which two build outputs were being compared. For complete builds with up-to-date `datapackage.json` descriptors we could use the `id` field which is currently a UUID. This would give an output path like `left-uuid-vs-right-uuid` which would be unique and unambiguous, but not very human-readable.
+* To improve readability while maintaining uniqueness, we can include the git tag (if present) of the builds being compared. For example:
+  * `nightly-2026-09-15-uuid-vs-nightly-2026-09-16-uuid` for a current nightly build comparison against the previous nightly build.
+  * `nightly-2026-09-15-uuid-vs-branch-2026-10-31-1939-3e5887d46-my-branch-name-uuid` for a comparison between a branch build (using the branch build ID as the prefix) and the previous successful nightly build.
+  * `v2026.9.0-uuid-vs-nightly-2026-09-16-uuid` for a comparison between the current nightly build and the previous stable release.
+  * `v2026.9.0-uuid-vs-v2026.10.0-uuid` for a comparison between the current stable release and the previous stable release.
+
 ### The PUDL Diff Marimo Notebook
 
 We are not yet ready to implement the Marimo notebook.
-
-### Nightly PUDL Data Diff Reporting
-
-We are not yet ready to implement nightly data diff reporting.
 
 ---
 
