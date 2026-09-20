@@ -230,3 +230,22 @@ def test_row_diff_sections_load_as_the_variant_their_status_names(
     row_diff["pk_diff"]["status"] = "unknown"
     with pytest.raises(pydantic.ValidationError, match="does not match any of the"):
         PudlDiffReport.model_validate(document)
+
+
+def test_report_records_display_roots(tmp_path: Path, pk_resource):
+    resource = pk_resource("t", ["x"])
+    for name in ("left", "right"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "datapackage.json").write_text(
+            json.dumps({"resources": [resource]})
+        )
+        pl.DataFrame({"x": [1]}).write_parquet(tmp_path / name / "t.parquet")
+    left = PudlDiffDataset(tmp_path / "left", display_root="s3://bucket/left/")
+    right = PudlDiffDataset(tmp_path / "right", display_root="s3://bucket/right/")
+
+    report = run_dataset_diff(left, right, tmp_path / "out")
+
+    assert report.left_dataset.root == "s3://bucket/left/"
+    assert report.right_dataset.root == "s3://bucket/right/"
+    assert report.tables["t"].left_table_path == "s3://bucket/left/t.parquet"
+    assert report.tables["t"].right_table_path == "s3://bucket/right/t.parquet"

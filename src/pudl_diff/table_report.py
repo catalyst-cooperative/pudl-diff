@@ -639,11 +639,11 @@ def build_table_diff_report(
         report_dir = parquet_outputs.left.path.parent if parquet_outputs else Path()
 
     def _table_path(dataset: PudlDiffDataset, name: str) -> str:
-        # table_path() is deterministic from root + name alone and never
+        # display_table_path() is deterministic from root + name alone and never
         # raises, so it's always reportable even when the table turns out
         # not to exist there (e.g. an unknown table name, or a comparison
         # that failed before that could be confirmed).
-        return str(dataset.table_path(name))
+        return dataset.display_table_path(name)
 
     if not run.success or run.result is None:
         return TableDiffReport(

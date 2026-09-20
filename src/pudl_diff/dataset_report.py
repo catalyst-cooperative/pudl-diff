@@ -21,6 +21,10 @@ from pudl.validate.diff.table_report import (
 REPORT_SCHEMA_VERSION = "1.0.0"
 
 
+REPORT_FILENAME = "pudl_diff_report.json"
+"""Name of the JSON report, written to the output directory."""
+
+
 class DatasetInfo(DatasetProvenance):
     """One of the two compared datasets: where it is, and where it came from."""
 
@@ -264,7 +268,7 @@ def build_pudl_diff_report(
             provenance = dataset.provenance()
         except OSError, json.JSONDecodeError:
             provenance = DatasetProvenance()
-        return DatasetInfo(root=str(dataset.root), **provenance.model_dump())
+        return DatasetInfo(root=dataset.display_root, **provenance.model_dump())
 
     return PudlDiffReport(
         created=datetime.now(UTC).isoformat(),

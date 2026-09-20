@@ -48,7 +48,10 @@ class PudlDiffDataset:
     """
 
     def __init__(
-        self, root: str | os.PathLike[str], descriptor_name: str | None = None
+        self,
+        root: str | os.PathLike[str] | UPath,
+        descriptor_name: str | None = None,
+        display_root: str | None = None,
     ):
         """Initialize with the dataset's root path.
 
@@ -67,6 +70,11 @@ class PudlDiffDataset:
                 when ``root`` points at PUDL's deployed public outputs at
                 ``pudl.catalyst.coop``, which instead name it
                 ``pudl_parquet_datapackage.json``.
+            display_root: The root to record in reports instead of ``root``, if
+                the dataset is read from somewhere other than its durable
+                location. E.g. a build's outputs read from local disk that will be
+                deployed to a permanent URL, or a public dataset read through a
+                faster mirror. Purely descriptive: all reads use ``root``.
         """
         dataset_root = UPath(root)
         if dataset_root.protocol in ("", "file", "local"):
@@ -79,6 +87,7 @@ class PudlDiffDataset:
         self.descriptor_name = descriptor_name or self._default_descriptor_name(
             self.root
         )
+        self.display_root: str = display_root or str(self.root)
         self._datapackage: dict | None = None
 
     @staticmethod
@@ -180,6 +189,15 @@ class PudlDiffDataset:
         actually there.
         """
         return self.root / f"{table_name}.parquet"
+
+    def display_table_path(self, table_name: str) -> str:
+        """The path to ``table_name``'s Parquet file, as recorded in reports.
+
+        Like :meth:`table_path`, but under :attr:`display_root`.
+        """
+        if self.display_root == str(self.root):
+            return str(self.table_path(table_name))
+        return f"{self.display_root.rstrip('/')}/{table_name}.parquet"
 
     def table_bytes(self, table_name: str) -> int:
         """Size in bytes of the Parquet file backing ``table_name``.

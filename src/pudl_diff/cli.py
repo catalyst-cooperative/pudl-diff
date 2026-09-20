@@ -11,14 +11,11 @@ from dagster import get_dagster_logger
 import pudl
 from pudl.validate.diff import table_report
 from pudl.validate.diff.dataset import PudlDiffDataset
-from pudl.validate.diff.dataset_report import PudlDiffReport
+from pudl.validate.diff.dataset_report import REPORT_FILENAME, PudlDiffReport
 from pudl.validate.diff.runner import run_dataset_diff
 from pudl.validate.diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON
 from pudl.validate.diff.terminal import TerminalProgress, echo_summary
 from pudl.workspace.setup import PudlPaths
-
-REPORT_FILENAME = "pudl_diff_report.json"
-"""Name of the JSON report, written to the output directory."""
 
 _EPILOG = """
 \b

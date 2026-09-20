@@ -203,3 +203,21 @@ def test_a_remote_root_is_left_as_it_is():
     dataset = PudlDiffDataset("s3://some-bucket/some/dir")
 
     assert str(dataset.root) == "s3://some-bucket/some/dir"
+
+
+def test_display_root_defaults_to_the_root(dataset: PudlDiffDataset, tmp_path: Path):
+    assert dataset.display_root == str(tmp_path.resolve())
+    assert dataset.display_table_path("t") == str(dataset.table_path("t"))
+
+
+def test_display_root_only_changes_what_is_recorded(
+    tmp_path: Path, write_datapackage, no_pk_resource
+):
+    write_datapackage(tmp_path, [no_pk_resource("t")])
+    pl.DataFrame({"x": [1]}).write_parquet(tmp_path / "t.parquet")
+    dataset = PudlDiffDataset(tmp_path, display_root="s3://pudl.catalyst.coop/v1/")
+
+    assert dataset.display_root == "s3://pudl.catalyst.coop/v1/"
+    assert dataset.display_table_path("t") == "s3://pudl.catalyst.coop/v1/t.parquet"
+    assert dataset.table_path("t") == tmp_path.resolve() / "t.parquet"
+    assert dataset.scan_table("t").collect().height == 1
