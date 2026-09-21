@@ -16,8 +16,13 @@ from typing import Any
 
 from pudl_diff.dataset_report import PudlDiffReport
 
-SCHEMA_PATH = Path(__file__).with_name("report.schema.json")
-"""Where the committed copy of the report's JSON Schema is, next to this module."""
+REPO_ROOT = Path(__file__).parents[2]
+"""The root of the repository, when the package is installed from a checkout of it."""
+SCHEMA_PATH = REPO_ROOT / "docs/_static/pudl_diff_report.schema.json"
+"""Where the committed copy of the report's JSON Schema is. It's published with the
+documentation."""
+DOCS_PATH = REPO_ROOT / "docs/report_schema.md"
+"""Where the committed documentation of the report's fields is."""
 
 _SPHINX_ROLE = re.compile(r":(?:class|func|attr|data|exc|meth|obj|mod):`~?\.?([^`]+)`")
 _ROOT_MODEL = "PudlDiffReport"
@@ -159,19 +164,80 @@ def _walk(node: Any) -> Any:
             yield from _walk(child)
 
 
-def main(path: Path = SCHEMA_PATH) -> int:
-    """Write the JSON Schema of the report to ``path``, if it has changed.
+_DOCS_INTRO = """\
+# PUDL Diff Report Schema
 
-    Returns:
-        ``1`` if the file was out of date and had to be updated, so that this can be
-        used as a pre-commit hook, and ``0`` otherwise.
-    """
-    text = report_json_schema_text()
+`pudl_diff` writes a JSON report of its comparison, described in [Usage](usage.md).
+This page is the reference for every field of that report. It is generated from the
+report's Pydantic models, which are also where the descriptions below are written, so
+it always matches the code.
+
+The report is described by a [JSON Schema](https://json-schema.org), which you can
+use to validate a report, or to give a program or a coding agent a machine-readable
+description of it:
+[pudl_diff_report.schema.json](_static/pudl_diff_report.schema.json).
+The same schema is available in Python, and the report can be loaded and checked with
+Pydantic:
+
+```python
+from pudl_diff.dataset_report import PudlDiffReport
+from pudl_diff.report_schema import report_json_schema
+
+schema = report_json_schema()
+report = PudlDiffReport.model_validate_json(report_path.read_text())
+```
+
+Every field listed here is always present in a report, even if its value is `null`.
+A field marked *derived* is calculated from the others: it is written to the report
+for convenience, but ignored when a report is loaded. The version of the report format
+is in its `schema_version` field, which follows the `major.minor.patch` convention.
+
+The copies of the schema and of this page in the repository are kept up to date by the
+`pudl-diff-schema` pre-commit hook, which rewrites them when the code in `pudl_diff`
+changes, and checked by a unit test. To update them by hand, run
+`pixi run python -m pudl_diff.report_schema`.
+"""
+
+
+def _link(name: str) -> str:
+    """A link to the section of the page about a model."""
+    return f"[{name}](#{name.lower()})"
+
+
+def report_docs_text() -> str:
+    """The text of the documentation of every field of the report, as Markdown."""
+    parts = [_DOCS_INTRO]
+    for model in schema_models(report_json_schema(), _link):
+        parts.append(f"## {model['name']}\n\n{model['description']}\n")
+        for field in model["fields"]:
+            derived = " *Derived from the other fields.*" if field["derived"] else ""
+            parts.append(
+                f"### `{field['name']}`\n\n*Type:* {field['type']}.{derived}\n\n"
+                f"{field['description']}\n"
+            )
+    return "\n".join(parts)
+
+
+def _write_if_changed(path: Path, text: str) -> bool:
     if path.exists() and path.read_text() == text:
-        return 0
+        return False
     path.write_text(text)
     print(f"Updated {path}")
-    return 1
+    return True
+
+
+def main(schema_path: Path = SCHEMA_PATH, docs_path: Path = DOCS_PATH) -> int:
+    """Write the report's JSON Schema and its documentation, if they have changed.
+
+    Returns:
+        ``1`` if either file was out of date and had to be updated, so that this can
+        be used as a pre-commit hook, and ``0`` otherwise.
+    """
+    updated = [
+        _write_if_changed(schema_path, report_json_schema_text()),
+        _write_if_changed(docs_path, report_docs_text()),
+    ]
+    return int(any(updated))
 
 
 if __name__ == "__main__":

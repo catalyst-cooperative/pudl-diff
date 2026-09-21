@@ -9,8 +9,10 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from pudl_diff.report_schema import (
+    DOCS_PATH,
     SCHEMA_PATH,
     main,
+    report_docs_text,
     report_json_schema,
     report_json_schema_text,
     schema_models,
@@ -104,15 +106,35 @@ def test_the_committed_report_schema_is_up_to_date():
     assert json.loads(committed) == report_json_schema()
 
 
-def test_main_updates_an_out_of_date_schema_file_and_reports_it(tmp_path: Path):
-    path = tmp_path / "schema.json"
+def test_the_committed_report_documentation_is_up_to_date():
+    assert DOCS_PATH.read_text() == report_docs_text(), (
+        f"{DOCS_PATH} is out of date with the report's models. Update it with "
+        "`pixi run python -m pudl_diff.report_schema`."
+    )
 
-    assert main(path) == 1  # written, because it didn't exist
-    assert path.read_text() == report_json_schema_text()
-    assert main(path) == 0  # nothing to change
-    path.write_text("{}")
-    assert main(path) == 1
-    assert path.read_text() == report_json_schema_text()
+
+def test_main_updates_out_of_date_files_and_reports_it(tmp_path: Path):
+    schema_path = tmp_path / "schema.json"
+    docs_path = tmp_path / "report_schema.md"
+
+    assert main(schema_path, docs_path) == 1  # written, because they didn't exist
+    assert schema_path.read_text() == report_json_schema_text()
+    assert docs_path.read_text() == report_docs_text()
+    assert main(schema_path, docs_path) == 0  # nothing to change
+    schema_path.write_text("{}")
+    assert main(schema_path, docs_path) == 1
+    assert schema_path.read_text() == report_json_schema_text()
+    docs_path.write_text("")
+    assert main(schema_path, docs_path) == 1
+    assert docs_path.read_text() == report_docs_text()
+
+
+def test_the_report_documentation_lists_every_model_and_links_between_them():
+    text = report_docs_text()
+
+    assert "## PudlDiffReport" in text
+    assert "## TableDiffReport" in text
+    assert "[TableDiffReport](#tablediffreport)" in text
 
 
 def test_the_report_schema_is_a_valid_json_schema():
