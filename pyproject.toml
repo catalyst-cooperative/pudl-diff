@@ -134,6 +134,7 @@ line-ending = "auto"
 # extend-select adds these to ruff's default rules, rather than replacing them.
 extend-select = [
   "A", # flake8-builtins
+  "ARG", # find unused arguments
   "ASYNC", # flake8-async
   "B", # flake8-bugbear
   "BLE", # flake8-blind-except
@@ -150,11 +151,13 @@ extend-select = [
   "I", # isort
   "ICN", # flake8 import conventions
   "INT", # flake8-gettext
+  "ISC", # flake8-implicit-str-concat
   "LOG", # flake8-logging
   "N", # pep8-naming
   "NPY", # NumPy specific checks
   "PERF", # Perflint: performance issues
   "PGH", # pygrep-hooks
+  "PL", # Pylint (Convention/Error/Refactor/Warning)
   "PT", # flake8-pytest-style
   "PTH", # use pathlib
   "PYI", # flake8-pyi: type stub conventions
@@ -167,28 +170,27 @@ extend-select = [
   "T10", # flake8-debugger
   "T20", # find print statements that should probably be logging
   "TID", # flake8-tidy-imports
+  "TRY", # tryceratops: exception handling anti-patterns
   "UP", # pyupgrade (use modern python syntax)
   "W", # pycodestyle warnings
 
-  # Additional non-default rulesets to investigate enabling
-  # "ANN", # identify missing type annotations
-  # "ARG", # find unused arguments
-  # "ISC", # flake8-implicit-str-concat
-  # "PL",  # Pylint (Convention/Error/Refactor/Warning)
-  # "TC",  # flake8-type-checking
-  # "TRY", # tryceratops: exception handling anti-patterns
 ]
 ignore = [
   "D401", # Require imperative mood in docstrings.
-  "D417",
   "E501", # Overlong lines.
   "G004", # Logging statement uses f-string
+  "PLR0911", # Pylint: Too many return statements
+  "PLR0913", # Pylint: Too many arguments
+  "PLR0917", # Pylint: Too many positional arguments
+  "PLR2004", # Pylint: Magic numbers should be avoided
+  "TRY003", # tryceratops: Avoid specifying long messages outside the exception class
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
   "D", # Tests don't need docstrings
   "S101", # Tests are made of asserts
+  "ARG", # Tests often have unused arguments (fixtures)
 ]
 
 [tool.ruff.lint.isort]

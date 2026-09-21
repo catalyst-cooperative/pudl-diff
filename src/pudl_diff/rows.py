@@ -261,8 +261,18 @@ def _diff_by_key_hash(
     the differing keys. Full rows are then read back only for those keys.
 
     Args:
+        left: The "left" table to compare.
+        right: The "right" table to compare against `left`. Its key columns must have
+            the same dtypes as `left`'s.
+        schema: The schema of `left`, which gives the columns, and their order, of the
+            rows reported.
         key_columns: The columns identifying a row: the primary key, or every
             column for a table with none.
+        rtol: Relative tolerance used to treat two floating point values as
+            equal, matching `numpy.isclose()`'s default.
+        atol: Absolute tolerance used to treat two floating point values as
+            equal, matching `numpy.isclose()`'s default.
+        spill_dir: Where the reduced tables, and the differing rows, are written.
         value_columns: The non-key columns to also compare between rows sharing a
             key. Rows whose exact-value hashes differ are only *candidates* for a
             change; callers must compare them properly (e.g. with a tolerance).
