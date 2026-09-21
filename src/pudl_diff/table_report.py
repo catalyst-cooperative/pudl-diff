@@ -678,21 +678,27 @@ def report_table_diff(
         atol=options.atol,
         max_rows_for_row_level_comparison=options.max_compare_rows,
     )
-    parquet_outputs = None
-    if run.success and run.result is not None:
-        parquet_outputs = write_row_diff_parquet(
-            run.result.row_diff,
-            output_path,
+    try:
+        parquet_outputs = None
+        if run.success and run.result is not None:
+            parquet_outputs = write_row_diff_parquet(
+                run.result.row_diff,
+                output_path,
+                table_name,
+                right_table_name=run.result.right_table_name,
+                max_rows_per_output_parquet=options.max_output_rows,
+            )
+        return build_table_diff_report(
+            run,
+            left,
+            right,
             table_name,
-            right_table_name=run.result.right_table_name,
-            max_rows_per_output_parquet=options.max_output_rows,
+            right_table_name=right_table_name,
+            parquet_outputs=parquet_outputs,
+            report_dir=output_path,
         )
-    return build_table_diff_report(
-        run,
-        left,
-        right,
-        table_name,
-        right_table_name=right_table_name,
-        parquet_outputs=parquet_outputs,
-        report_dir=output_path,
-    )
+    finally:
+        # The differing rows are all in the report's Parquet files by now, so the
+        # temporary ones that backed them can go, rather than waiting to be collected.
+        if run.result is not None and run.result.row_diff is not None:
+            run.result.row_diff.cleanup()

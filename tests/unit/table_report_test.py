@@ -424,3 +424,31 @@ def test_parquet_output_paths_are_relative_to_a_report_directory_above_them(
     assert report.row_diff is not None
     assert report.row_diff.left_only_parquet is not None
     assert report.row_diff.left_only_parquet.path == "t_left_only.parquet"
+
+
+def test_report_table_diff_removes_the_temporary_files_of_the_differing_rows(
+    tmp_path: Path, pk_resource, make_dataset, mocker
+):
+    resources = [pk_resource("t", ["x"])]
+    left = make_dataset(
+        tmp_path / "left", resources, {"t": pl.DataFrame({"x": [1, 2]})}
+    )
+    right = make_dataset(
+        tmp_path / "right", resources, {"t": pl.DataFrame({"x": [2, 3]})}
+    )
+    temp_dir = tmp_path / "temp"
+    temp_dir.mkdir()
+    mocker.patch("tempfile.tempdir", str(temp_dir))
+
+    report = table_report.report_table_diff(left, right, "t", tmp_path / "out")
+
+    assert report.row_diff is not None
+    assert report.row_diff.left_only_parquet is not None  # the rows were written
+    assert list(temp_dir.iterdir()) == []
+
+
+def test_a_row_diff_summary_needs_a_reason_if_the_rows_were_not_compared(
+    tmp_path: Path,
+):
+    with pytest.raises(AssertionError, match="no skip reason"):
+        table_report._build_row_diff_summary(None, [], None, None, tmp_path)

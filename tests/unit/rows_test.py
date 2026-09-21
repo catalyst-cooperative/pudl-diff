@@ -1,6 +1,7 @@
 """Unit tests for pudl_diff.rows."""
 
 import gc
+import warnings
 from collections import Counter
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import polars as pl
 import pytest
 
 from pudl_diff.rows import (
+    SpillDir,
     compare_rows_with_pk,
     compare_rows_without_pk,
 )
@@ -372,3 +374,45 @@ def test_compare_rows_with_pk_reordered_tables_still_show_real_changes():
     assert result.changed_row_count == 1
     assert result.pk_diff.only_in_left.collect()["id"].to_list() == [3]
     assert result.pk_diff.only_in_right.collect()["id"].to_list() == [5]
+
+
+def test_spill_dir_is_removed_by_cleanup_and_cleanup_can_repeat():
+    spill_dir = SpillDir()
+    path = Path(spill_dir.name)
+    (path / "rows.parquet").write_bytes(b"rows")
+    assert path.exists()
+
+    spill_dir.cleanup()
+    spill_dir.cleanup()
+
+    assert not path.exists()
+
+
+def test_spill_dir_is_removed_when_collected_without_a_warning():
+    spill_dir = SpillDir()
+    path = Path(spill_dir.name)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        del spill_dir
+        gc.collect()
+
+    assert not path.exists()
+
+
+def test_cleanup_deletes_the_files_behind_the_rows_of_a_diff():
+    row_set_diff = compare_rows_without_pk(
+        pl.LazyFrame({"x": [1, 2, 3]}), pl.LazyFrame({"x": [3, 4]})
+    )
+    keyed_diff = compare_rows_with_pk(
+        pl.LazyFrame({"id": [1, 2], "val": [1, 2]}),
+        pl.LazyFrame({"id": [2, 3], "val": [20, 3]}),
+        ["id"],
+    )
+    paths = [Path(row_set_diff.spill_dir.name), Path(keyed_diff.pk_diff.spill_dir.name)]
+    assert all(path.exists() for path in paths)
+
+    row_set_diff.cleanup()
+    keyed_diff.cleanup()
+
+    assert not any(path.exists() for path in paths)

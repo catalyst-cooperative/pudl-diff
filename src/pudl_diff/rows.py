@@ -1,6 +1,8 @@
 """Comparing the rows of two tables, with or without a primary key."""
 
+import shutil
 import tempfile
+import weakref
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -91,9 +93,26 @@ def _assert_key_dtypes_match(
             )
 
 
-def _spill(
-    lf: pl.LazyFrame, spill_dir: tempfile.TemporaryDirectory[str], name: str
-) -> pl.LazyFrame:
+class SpillDir:
+    """A temporary directory holding the Parquet files of a comparison's rows.
+
+    Unlike :class:`tempfile.TemporaryDirectory`, it is not a mistake to leave it to be
+    cleaned up implicitly, so doing so doesn't warn: it is removed when
+    :meth:`cleanup` is called, or else when this object is garbage collected or the
+    interpreter exits, whichever comes first.
+    """
+
+    def __init__(self) -> None:
+        """Make the directory."""
+        self.name: str = tempfile.mkdtemp(prefix="pudl_diff_")
+        self._finalizer = weakref.finalize(self, shutil.rmtree, self.name, True)
+
+    def cleanup(self) -> None:
+        """Remove the directory and everything in it, if that hasn't been done."""
+        self._finalizer()
+
+
+def _spill(lf: pl.LazyFrame, spill_dir: SpillDir, name: str) -> pl.LazyFrame:
     """Stream ``lf``'s result to Parquet in ``spill_dir``, and scan it back lazily.
 
     Keeps potentially huge diff results on disk rather than in memory, and lets
@@ -116,9 +135,9 @@ class RowSetDiff:
     on the right contributes 2 rows to :attr:`only_in_left`.
 
     The differing rows themselves are backed by temporary Parquet files, so they
-    can be far larger than memory. The files are deleted when this object (and any
-    other object sharing :attr:`spill_dir`) is garbage collected; call
-    ``.collect()`` on a frame to load it.
+    can be far larger than memory. The files are deleted by :meth:`cleanup`, or else
+    when this object (and any other object sharing :attr:`spill_dir`) is garbage
+    collected; call ``.collect()`` on a frame to load it.
     """
 
     only_in_left: pl.LazyFrame
@@ -128,12 +147,16 @@ class RowSetDiff:
     multiplicity_changed_row_count: int
     """Number of distinct rows present on both sides but a different number of
     times (only ever non-zero for tables with no primary key)."""
-    spill_dir: tempfile.TemporaryDirectory[str] = field(repr=False, compare=False)
+    spill_dir: SpillDir = field(repr=False, compare=False)
 
     @property
     def is_identical(self) -> bool:
         """Whether every row in one table has a matching row in the other."""
         return self.only_in_left_count == 0 and self.only_in_right_count == 0
+
+    def cleanup(self) -> None:
+        """Delete the temporary files that back the differing rows."""
+        self.spill_dir.cleanup()
 
 
 @dataclass(frozen=True)
@@ -187,7 +210,7 @@ def _surplus_rows(
     keyed: pl.LazyFrame,
     affected: pl.LazyFrame,
     columns: list[str],
-    spill_dir: tempfile.TemporaryDirectory[str],
+    spill_dir: SpillDir,
     name: str,
     other_count_col: str,
     surplus_col: str,
@@ -225,7 +248,7 @@ def _diff_by_key_hash(
     key_columns: Iterable[str],
     rtol: float,
     atol: float,
-    spill_dir: tempfile.TemporaryDirectory[str],
+    spill_dir: SpillDir,
     *,
     value_columns: Sequence[str] = (),
     multiset: bool,
@@ -359,7 +382,7 @@ def compare_rows_without_pk(
             ``left`` and ``right``.
     """
     schema = left.collect_schema()
-    spill_dir = tempfile.TemporaryDirectory(prefix="pudl_diff_")
+    spill_dir = SpillDir()
     return _diff_by_key_hash(
         left, right, schema, schema.keys(), rtol, atol, spill_dir, multiset=True
     ).row_set_diff
@@ -436,6 +459,10 @@ class KeyedRowDiff:
         """Whether every shared-key row matches and no keys are one-sided."""
         return self.pk_diff.is_identical and not self.column_changes
 
+    def cleanup(self) -> None:
+        """Delete the temporary files that back the differing rows."""
+        self.pk_diff.cleanup()
+
 
 def compare_rows_with_pk(
     left: pl.LazyFrame,
@@ -464,7 +491,7 @@ def compare_rows_with_pk(
     left_cols = [f"{c}_left" for c in non_pk_cols]
     right_cols = [f"{c}_right" for c in non_pk_cols]
 
-    spill_dir = tempfile.TemporaryDirectory(prefix="pudl_diff_")
+    spill_dir = SpillDir()
     delta = _diff_by_key_hash(
         left,
         right,
