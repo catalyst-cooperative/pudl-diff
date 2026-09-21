@@ -191,7 +191,6 @@ ignore = [
   "D",    # Tests don't need docstrings
   "S101", # Tests are made of asserts
 ]
-"scripts/*" = ["T201"] # Scripts print their output
 
 [tool.ruff.lint.isort]
 known-first-party = ["pudl_diff"]
@@ -279,6 +278,7 @@ mdformat-gfm = ">=1.0.0"
 mdformat-frontmatter = ">=2.1"
 prettier = ">=3.9.3"
 taplo = ">=0.10.0"
+uv = ">=0.12"                  # Runs standalone scripts (PEP 723), e.g. pyrefly-coverage-report
 
 # A single environment with everything needed for local development, since this is a
 # small template repository that doesn't benefit from separate per-task environments.
@@ -306,7 +306,7 @@ lint-pyrefly = { cmd = "pyrefly check", description = "Type check the code with 
 # per-module names for the test suite, so it reports those files under a single
 # "__unknown__" bucket that would distort the overall percentage.
 lint-pyrefly-coverage = { cmd = "pyrefly coverage check --fail-under 100 src", description = "Fail if any part of src/ is missing type annotations." }
-pyrefly-coverage-report = { cmd = "pyrefly coverage report src | python scripts/pyrefly_coverage_summary.py", description = "Show the type annotation coverage of each module in src/." }
+pyrefly-coverage-report = { cmd = "pyrefly coverage report src | uv run src/pudl_diff/pyrefly_coverage_summary.py", description = "Show the type annotation coverage of each module in src/." }
 lint = { depends-on = [
   "lint-ruff",
   "lint-pyrefly",
