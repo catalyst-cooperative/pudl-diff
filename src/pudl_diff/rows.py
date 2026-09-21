@@ -27,11 +27,11 @@ def _floats_close_enough(rtol: float, atol: float) -> bool:
 def _row_key_field(name: str, dtype: pl.DataType, rtol: float, atol: float) -> pl.Expr:
     """A struct field expression used to build a row's key hash.
 
-    Float columns are quantized into buckets sized by ``rtol``/``atol`` so that
-    two "close enough" values (per :func:`numpy.isclose`'s definition) fall into
+    Float columns are quantized into buckets sized by `rtol`/`atol` so that
+    two "close enough" values (per `numpy.isclose()`'s definition) fall into
     the same bucket and are therefore treated as matching for the purposes of
     finding rows that exist in both tables. This is a best-effort approximation,
-    not an exact reproduction of pairwise ``isclose`` comparisons, since it hard
+    not an exact reproduction of pairwise `isclose` comparisons, since it hard
     -partitions the number line instead of comparing every pair of values.
     """
     if not dtype.is_float() or not _floats_close_enough(rtol, atol):
@@ -60,12 +60,12 @@ def _with_row_key(
 ) -> pl.LazyFrame:
     """Add a 64-bit hash of each row's (float-quantized) key columns.
 
-    Joining on this single ``UInt64`` column instead of a struct of the key
+    Joining on this single `UInt64` column instead of a struct of the key
     columns keeps the join's in-memory side to 8 bytes per row no matter how many
-    or how wide the key columns are. Polars' hash treats nulls, ``0.0``/``-0.0``
+    or how wide the key columns are. Polars' hash treats nulls, `0.0`/`-0.0`
     and differing NaN payloads as equal, matching how a struct join key would.
     Hashes of different dtypes differ though, so callers must first check that
-    the key columns' dtypes match (see :func:`_assert_key_dtypes_match`).
+    the key columns' dtypes match (see `_assert_key_dtypes_match()`).
 
     A 64-bit hash can collide: for two different keys the chance is about
     2**-64, so at hundreds of millions of rows the chance of a real change being
@@ -78,10 +78,10 @@ def _with_row_key(
 def _assert_key_dtypes_match(
     left_schema: pl.Schema, right_schema: pl.Schema, key_columns: Iterable[str]
 ) -> None:
-    """Raise :class:`polars.exceptions.SchemaError` if key column dtypes differ.
+    """Raise `polars.exceptions.SchemaError` if key column dtypes differ.
 
-    A struct join key raises on mismatched dtypes, but hashes of e.g. ``Int32`` and
-    ``Int64`` values just silently differ, which would report every row as changed.
+    A struct join key raises on mismatched dtypes, but hashes of e.g. `Int32` and
+    `Int64` values just silently differ, which would report every row as changed.
     """
     for name in key_columns:
         left_dtype = left_schema[name]
@@ -96,9 +96,9 @@ def _assert_key_dtypes_match(
 class SpillDir:
     """A temporary directory holding the Parquet files of a comparison's rows.
 
-    Unlike :class:`tempfile.TemporaryDirectory`, it is not a mistake to leave it to be
+    Unlike `tempfile.TemporaryDirectory`, it is not a mistake to leave it to be
     cleaned up implicitly, so doing so doesn't warn: it is removed when
-    :meth:`cleanup` is called, or else when this object is garbage collected or the
+    `cleanup()` is called, or else when this object is garbage collected or the
     interpreter exits, whichever comes first.
     """
 
@@ -113,7 +113,7 @@ class SpillDir:
 
 
 def _spill(lf: pl.LazyFrame, spill_dir: SpillDir, name: str) -> pl.LazyFrame:
-    """Stream ``lf``'s result to Parquet in ``spill_dir``, and scan it back lazily.
+    """Stream `lf`'s result to Parquet in `spill_dir`, and scan it back lazily.
 
     Keeps potentially huge diff results on disk rather than in memory, and lets
     them be read back (or counted, from Parquet metadata) as many times as needed
@@ -132,12 +132,12 @@ class RowSetDiff:
     every column, for tables with no primary key, or just the primary key columns,
     for tables that have one. For tables with no primary key, the number of
     copies of each row matters too: a row appearing 3 times on the left and once
-    on the right contributes 2 rows to :attr:`only_in_left`.
+    on the right contributes 2 rows to `only_in_left`.
 
     The differing rows themselves are backed by temporary Parquet files, so they
-    can be far larger than memory. The files are deleted by :meth:`cleanup`, or else
-    when this object (and any other object sharing :attr:`spill_dir`) is garbage
-    collected; call ``.collect()`` on a frame to load it.
+    can be far larger than memory. The files are deleted by `cleanup()`, or else
+    when this object (and any other object sharing `spill_dir`) is garbage
+    collected; call `.collect()` on a frame to load it.
     """
 
     only_in_left: pl.LazyFrame
@@ -201,7 +201,7 @@ def _reduce_rows(
 def _semi_rows(
     keyed: pl.LazyFrame, affected: pl.LazyFrame, predicate: pl.Expr
 ) -> pl.LazyFrame:
-    """Rows of ``keyed`` whose key hash is in ``affected`` where ``predicate``."""
+    """Rows of `keyed` whose key hash is in `affected` where `predicate`."""
     keys = affected.filter(predicate).select(_ROW_KEY_COL)
     return keyed.join(keys, on=_ROW_KEY_COL, how="semi")
 
@@ -218,7 +218,7 @@ def _surplus_rows(
 ) -> pl.LazyFrame:
     """The rows on one side that have no counterpart on the other side.
 
-    That's every row whose key is absent from the other side and, if ``multiset``,
+    That's every row whose key is absent from the other side and, if `multiset`,
     the surplus copies of rows present on both sides more times on this one.
     """
     one_sided = _spill(
@@ -256,7 +256,7 @@ def _diff_by_key_hash(
     """Find the rows that differ between two tables by joining narrow key hashes.
 
     Each table is first reduced to one small row per key hash (see
-    :func:`_reduce_rows`) and written to disk, so that only those narrow frames,
+    `_reduce_rows()`) and written to disk, so that only those narrow frames,
     rather than the tables' full rows, are held in memory by the join that finds
     the differing keys. Full rows are then read back only for those keys.
 
@@ -369,17 +369,17 @@ def compare_rows_without_pk(
 
     Args:
         left: The "left" table to compare. Must have the same columns as
-            ``right``, with the same dtypes.
-        right: The "right" table to compare against ``left``.
+            `right`, with the same dtypes.
+        right: The "right" table to compare against `left`.
         rtol: Relative tolerance used to treat two floating point values as
-            equal, matching :func:`numpy.isclose`'s default. Set to ``0`` along
-            with ``atol`` to require exact float equality.
+            equal, matching `numpy.isclose()`'s default. Set to `0` along
+            with `atol` to require exact float equality.
         atol: Absolute tolerance used to treat two floating point values as
-            equal, matching :func:`numpy.isclose`'s default.
+            equal, matching `numpy.isclose()`'s default.
 
     Raises:
         polars.exceptions.SchemaError: if a column's dtype differs between
-            ``left`` and ``right``.
+            `left` and `right`.
     """
     schema = left.collect_schema()
     spill_dir = SpillDir()
@@ -391,10 +391,10 @@ def compare_rows_without_pk(
 def _values_differ(
     left_name: str, right_name: str, dtype: pl.DataType, rtol: float, atol: float
 ) -> pl.Expr:
-    """A boolean expression that's ``True`` where two columns' values differ.
+    """A boolean expression that's `True` where two columns' values differ.
 
     Two nulls are considered equal to each other. Float columns are compared
-    with :func:`numpy.isclose`-style tolerance; everything else, exactly.
+    with `numpy.isclose()`-style tolerance; everything else, exactly.
     """
     left_e = pl.col(left_name)
     right_e = pl.col(right_name)
@@ -428,8 +428,8 @@ def _values_differ(
 class KeyedRowDiff:
     """Row-level differences between two tables that share a primary key.
 
-    Like :class:`RowSetDiff`, the differing rows are backed by temporary Parquet
-    files (owned by :attr:`pk_diff`) rather than held in memory.
+    Like `RowSetDiff`, the differing rows are backed by temporary Parquet
+    files (owned by `pk_diff`) rather than held in memory.
     """
 
     pk_diff: RowSetDiff
@@ -451,7 +451,7 @@ class KeyedRowDiff:
     table."""
 
     changed_right: pl.LazyFrame
-    """Same as :attr:`changed_left`, but holding the right table's values
+    """Same as `changed_left`, but holding the right table's values
     for those same primary keys, with the same schema as the right table."""
 
     @property
@@ -476,14 +476,14 @@ def compare_rows_with_pk(
 
     Args:
         left: The "left" table to compare. Must have the same columns as
-            ``right``, with matching dtypes for the primary key columns.
-        right: The "right" table to compare against ``left``.
+            `right`, with matching dtypes for the primary key columns.
+        right: The "right" table to compare against `left`.
         pk_cols: Names of the primary key columns shared by both tables, e.g.
-            from ``PudlDiffDataset.primary_key(table_name)``.
+            from `PudlDiffDataset.primary_key(table_name)`.
         rtol: Relative tolerance used to treat two floating point values as
-            equal, matching :func:`numpy.isclose`'s default.
+            equal, matching `numpy.isclose()`'s default.
         atol: Absolute tolerance used to treat two floating point values as
-            equal, matching :func:`numpy.isclose`'s default.
+            equal, matching `numpy.isclose()`'s default.
     """
     schema = left.collect_schema()
     columns = list(schema.keys())

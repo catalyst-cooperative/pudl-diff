@@ -7,11 +7,11 @@ import psutil
 
 
 class PerformanceSampler:
-    """Tracks peak whole-process RSS and CPU utilization during a ``with`` block.
+    """Tracks peak whole-process RSS and CPU utilization during a `with` block.
 
-    Polls :func:`psutil.Process.memory_info` and :func:`psutil.Process.cpu_percent`
+    Polls `psutil.Process.memory_info()` and `psutil.Process.cpu_percent()`
     on a background thread. RSS sampling is used rather than
-    :func:`resource.getrusage`'s ``ru_maxrss``, since that's a lifetime
+    `resource.getrusage()`'s `ru_maxrss`, since that's a lifetime
     high-water mark for the whole process (not just the block of code we care
     about) and reports in different units on macOS (bytes) than on Linux
     (KB). Sampling on an interval means a very short, sharp spike between
@@ -20,7 +20,7 @@ class PerformanceSampler:
     """
 
     def __init__(self, interval_seconds: float = 0.05):
-        """Sample memory and CPU use every ``interval_seconds``."""
+        """Sample memory and CPU use every `interval_seconds`."""
         self._interval_seconds = interval_seconds
         self._process = psutil.Process()
         self._stop_event = threading.Event()
@@ -72,7 +72,7 @@ class PerformanceSampler:
     def peak_cpu_percent(self) -> float:
         """Peak per-interval CPU utilization observed, as a percent of one core.
 
-        A single-threaded process pegged at 100% shows ``100.0``; a process
-        using 4 cores at once can show up to ``400.0``.
+        A single-threaded process pegged at 100% shows `100.0`; a process
+        using 4 cores at once can show up to `400.0`.
         """
         return self._peak_cpu_percent

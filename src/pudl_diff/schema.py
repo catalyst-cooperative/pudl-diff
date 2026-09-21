@@ -16,7 +16,7 @@ class SchemaDiff:
     columns_only_in_left: list[str]
     columns_only_in_right: list[str]
     dtype_changes: dict[str, tuple[pl.DataType, pl.DataType]]
-    """Maps column name to a ``(left_dtype, right_dtype)`` pair, for columns
+    """Maps column name to a `(left_dtype, right_dtype)` pair, for columns
     present in both schemas but with differing dtypes."""
     left_column_count: int
     """Total number of columns in the left schema."""
@@ -38,8 +38,8 @@ def compare_schemas(left: pl.Schema, right: pl.Schema) -> SchemaDiff:
 
     Args:
         left: Schema of the "left" table, e.g. from
-            ``PudlDiffDataset.scan_table(table_name).collect_schema()``.
-        right: Schema of the "right" table, to compare against ``left``.
+            `PudlDiffDataset.scan_table(table_name).collect_schema()`.
+        right: Schema of the "right" table, to compare against `left`.
     """
     left_columns = set(left)
     right_columns = set(right)

@@ -1,10 +1,10 @@
 """The JSON Schema of the PUDL Diff JSON report, and its rendering as documentation.
 
 The schema is generated from the report's Pydantic models, so it always matches the
-code. A copy is committed at :data:`SCHEMA_PATH` so that it can be linked to and used
+code. A copy is committed at `SCHEMA_PATH` so that it can be linked to and used
 without running any PUDL code, and a test checks that the copy is up to date. To
-update it, run ``pixi run python -m pudl_diff.report_schema``, which is also
-what the ``pudl-diff-schema`` pre-commit hook does.
+update it, run `pixi run python -m pudl_diff.report_schema`, which is also
+what the `pudl-diff-schema` pre-commit hook does.
 """
 
 import json
@@ -26,22 +26,22 @@ documentation."""
 DOCS_PATH = REPO_ROOT / "docs/report_schema.md"
 """Where the committed documentation of the report's fields is."""
 
-_SPHINX_ROLE = re.compile(r":(?:class|func|attr|data|exc|meth|obj|mod):`~?\.?([^`]+)`")
 _ROOT_MODEL = "PudlDiffReport"
+_JSON_WORDS = {"None": "null", "True": "true", "False": "false"}
 
 
 def _plain_description(description: str) -> str:
     """A docstring as the description of a JSON Schema property.
 
-    The Sphinx roles (like ``:attr:`success```) become plain code spans, ``None``,
-    ``True`` and ``False`` become JSON's ``null``, ``true`` and ``false``, and the
-    lines of each paragraph are joined, so that the text reads well without being
-    rendered as reStructuredText, and isn't broken at the docstring's line width.
+    `None`, `True` and `False` become JSON's `null`, `true` and `false`, and the lines
+    of each paragraph are joined, so that the text reads well as Markdown, and isn't
+    broken at the docstring's line width.
     Bullet points keep their own lines.
     """
-    text = _SPHINX_ROLE.sub(r"``\1``", description)
     # The schema is of JSON, so its descriptions should use JSON's words.
-    text = re.sub(r"``(None|True|False)``", lambda m: f"``{m[1].lower()}``", text)
+    text = re.sub(
+        r"`(None|True|False)`", lambda m: f"`{_JSON_WORDS[m[1]]}`", description
+    )
     paragraphs = []
     for paragraph in text.split("\n\n"):
         lines: list[str] = []
@@ -55,13 +55,13 @@ def _plain_description(description: str) -> str:
 
 
 def report_json_schema() -> dict[str, Any]:
-    """The JSON Schema of the JSON report, which every ``PudlDiffReport`` conforms to.
+    """The JSON Schema of the JSON report, which every `PudlDiffReport` conforms to.
 
     Generated from the report's models, so that the schema and the descriptions of
     what each field means always match the code. It describes the report as it is
-    written (its ``serialization`` schema): fields that have a default value are
+    written (its `serialization` schema): fields that have a default value are
     still always present, and fields derived from others, like
-    :attr:`PudlDiffReport.is_identical`, are listed and marked read-only.
+    `PudlDiffReport.is_identical`, are listed and marked read-only.
     """
     schema = PudlDiffReport.model_json_schema(mode="serialization")
 
@@ -80,7 +80,7 @@ def report_json_schema() -> dict[str, Any]:
 
 
 def report_json_schema_text() -> str:
-    """:func:`report_json_schema` as the text of the committed schema file."""
+    """`report_json_schema()` as the text of the committed schema file."""
     return json.dumps(report_json_schema(), indent=2) + "\n"
 
 
@@ -106,7 +106,7 @@ def schema_type(spec: dict[str, Any], link: Callable[[str], str] = str) -> str:
             label = " or ".join(schema_type(option, link) for option in spec[key])
             if "discriminator" in spec:
                 field = spec["discriminator"]["propertyName"]
-                label += f", told apart by ``{field}``"
+                label += f", told apart by `{field}`"
             return label
     kind = spec.get("type")
     if kind == "array":
@@ -126,9 +126,9 @@ def schema_models(
     """Flatten a report schema into a list of models, for rendering as documentation.
 
     The report's own model comes first, followed by the models it refers to, in the
-    order that they're first mentioned. Each is a dictionary with its ``name``,
-    ``description``, and ``fields``: a list of dictionaries with each field's
-    ``name``, ``type``, ``description`` and whether it is ``derived`` from other fields.
+    order that they're first mentioned. Each is a dictionary with its `name`,
+    `description`, and `fields`: a list of dictionaries with each field's
+    `name`, `type`, `description` and whether it is `derived` from other fields.
     """
     models = {_ROOT_MODEL: schema, **schema.get("$defs", {})}
     order = [_ROOT_MODEL]
@@ -232,8 +232,8 @@ def main(schema_path: Path = SCHEMA_PATH, docs_path: Path = DOCS_PATH) -> int:
     """Write the report's JSON Schema and its documentation, if they have changed.
 
     Returns:
-        ``1`` if either file was out of date and had to be updated, so that this can
-        be used as a pre-commit hook, and ``0`` otherwise.
+        `1` if either file was out of date and had to be updated, so that this can
+        be used as a pre-commit hook, and `0` otherwise.
     """
     updated = [
         _write_if_changed(schema_path, report_json_schema_text()),

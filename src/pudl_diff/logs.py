@@ -8,10 +8,10 @@ using the tool can configure its logging in one place."""
 
 
 def get_logger(module_name: str) -> logging.Logger:
-    """The logger for a module, named ``pudl_diff.<module>``.
+    """The logger for a module, named `pudl_diff.<module>`.
 
     Args:
-        module_name: The module's ``__name__``. Only its last component is used, so
+        module_name: The module's `__name__`. Only its last component is used, so
             that the loggers' names don't depend on where the tool is installed.
     """
     return logging.getLogger(f"{LOGGER_NAME}.{module_name.rpartition('.')[2]}")

@@ -6,7 +6,7 @@ from pudl_diff.performance import PerformanceSampler
 def test_performance_sampler_tracks_peak_rss(mocker):
     """Exercise the RSS sampling logic directly against a fake memory source.
 
-    Bypasses the background thread (never calling ``__enter__``/``__exit__``)
+    Bypasses the background thread (never calling `__enter__`/`__exit__`)
     so the test is deterministic instead of racing a real timer.
     """
     sampler = PerformanceSampler()

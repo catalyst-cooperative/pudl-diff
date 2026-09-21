@@ -33,7 +33,7 @@ def mock_loggers(mocker: MockerFixture) -> dict[str, MagicMock]:
     Many tests exercise expected failures, which would otherwise log alarming errors
     and warnings into the output of any test that fails. A test that cares what was
     logged can ask for this fixture, and check the mock of a module's logger, which
-    is keyed by the module's name, e.g. ``mock_loggers["table"]``.
+    is keyed by the module's name, e.g. `mock_loggers["table"]`.
     """
     return {
         name: mocker.patch(f"pudl_diff.{name}.logger", spec=True)
@@ -93,7 +93,7 @@ def _write_two_datasets(
     left_tables: dict[str, list[str]],
     right_tables: dict[str, list[str]],
 ) -> tuple[PudlDiffDataset, PudlDiffDataset]:
-    """Two datasets of tables with an ``x`` primary key and a ``y`` column."""
+    """Two datasets of tables with an `x` primary key and a `y` column."""
     datasets = []
     for name, tables in (("left", left_tables), ("right", right_tables)):
         root = tmp_path / name
@@ -108,29 +108,29 @@ def _write_two_datasets(
 
 @pytest.fixture(name="write_datapackage")
 def write_datapackage_fixture() -> Callable:
-    """The :func:`_write_datapackage` helper, as a fixture."""
+    """The `_write_datapackage()` helper, as a fixture."""
     return _write_datapackage
 
 
 @pytest.fixture(name="pk_resource")
 def pk_resource_fixture() -> Callable:
-    """The :func:`_pk_resource` helper, as a fixture."""
+    """The `_pk_resource()` helper, as a fixture."""
     return _pk_resource
 
 
 @pytest.fixture(name="no_pk_resource")
 def no_pk_resource_fixture() -> Callable:
-    """The :func:`_no_pk_resource` helper, as a fixture."""
+    """The `_no_pk_resource()` helper, as a fixture."""
     return _no_pk_resource
 
 
 @pytest.fixture(name="make_dataset")
 def make_dataset_fixture() -> Callable:
-    """The :func:`_make_dataset` helper, as a fixture."""
+    """The `_make_dataset()` helper, as a fixture."""
     return _make_dataset
 
 
 @pytest.fixture(name="write_two_datasets")
 def write_two_datasets_fixture() -> Callable:
-    """The :func:`_write_two_datasets` helper, as a fixture."""
+    """The `_write_two_datasets()` helper, as a fixture."""
     return _write_two_datasets

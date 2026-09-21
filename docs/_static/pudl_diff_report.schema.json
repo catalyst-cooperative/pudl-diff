@@ -26,7 +26,7 @@
             }
           ],
           "default": null,
-          "description": "UTC ISO-8601 timestamp of when this dataset was built - distinct from the report's own ``PudlDiffReport.created``, which is when the *comparison* was run.",
+          "description": "UTC ISO-8601 timestamp of when this dataset was built - distinct from the report's own `created`, which is when the *comparison* was run.",
           "title": "Created"
         },
         "git_sha": {
@@ -55,7 +55,7 @@
             }
           ],
           "default": null,
-          "description": "The git tags on that commit, e.g. release versions like ``v2026.1.0``.",
+          "description": "The git tags on that commit, e.g. release versions like `v2026.1.0`.",
           "title": "Git Tags"
         },
         "root": {
@@ -79,13 +79,13 @@
       "properties": {
         "rtol": {
           "default": 1e-05,
-          "description": "Relative tolerance for float equality, as in ``numpy.isclose``.",
+          "description": "Relative tolerance for float equality, as in `numpy.isclose()`.",
           "title": "Rtol",
           "type": "number"
         },
         "atol": {
           "default": 1e-08,
-          "description": "Absolute tolerance for float equality, as in ``numpy.isclose``.",
+          "description": "Absolute tolerance for float equality, as in `numpy.isclose()`.",
           "title": "Atol",
           "type": "number"
         },
@@ -105,7 +105,7 @@
             }
           ],
           "default": null,
-          "description": "Cap on the rows written to each Parquet side-output file, or ``none`` to write every differing row.",
+          "description": "Cap on the rows written to each Parquet side-output file, or `null` to write every differing row.",
           "title": "Max Output Rows"
         }
       },
@@ -119,12 +119,12 @@
       "type": "object"
     },
     "NonPkRowDiffSummary": {
-      "description": "The JSON-report form of a ``RowSetDiff`` without a primary key.",
+      "description": "The JSON-report form of a `RowSetDiff` without a primary key.",
       "properties": {
         "status": {
           "const": "compared",
           "default": "compared",
-          "description": "Always ``\"compared\"``: this is what tells this apart from a skipped section.",
+          "description": "Always `\"compared\"`: this is what tells this apart from a skipped section.",
           "title": "Status",
           "type": "string"
         },
@@ -139,7 +139,7 @@
           "type": "integer"
         },
         "symmetric_difference_count": {
-          "description": "``only_in_left_count + only_in_right_count``. Counts rows as a multiset, so surplus copies of duplicated rows are included.",
+          "description": "`only_in_left_count + only_in_right_count`. Counts rows as a multiset, so surplus copies of duplicated rows are included.",
           "title": "Symmetric Difference Count",
           "type": "integer"
         },
@@ -167,10 +167,10 @@
       "type": "object"
     },
     "ParquetOutputSummary": {
-      "description": "The JSON-report form of a single ``ParquetOutput``.",
+      "description": "The JSON-report form of a single `ParquetOutput`.",
       "properties": {
         "path": {
-          "description": "Where the file is, relative to the directory that contains the report (``pudl_diff_report.json``), so that the directory can be moved. Always written with ``/`` separators.",
+          "description": "Where the file is, relative to the directory that contains the report (`pudl_diff_report.json`), so that the directory can be moved. Always written with `/` separators.",
           "title": "Path",
           "type": "string"
         },
@@ -180,12 +180,12 @@
           "type": "integer"
         },
         "hash": {
-          "description": "``\"sha256:<hexdigest>\"`` of the file's contents, the convention PUDL's ``datapackage.json`` uses for its own resource files.",
+          "description": "`\"sha256:<hexdigest>\"` of the file's contents, the convention PUDL's `datapackage.json` uses for its own resource files.",
           "title": "Hash",
           "type": "string"
         },
         "size": {
-          "description": "``bytes`` in human-readable form, e.g. ``12.3 MB``.",
+          "description": "`bytes` in human-readable form, e.g. `12.3 MB`.",
           "readOnly": true,
           "title": "Size",
           "type": "string"
@@ -201,12 +201,12 @@
       "type": "object"
     },
     "PkRowDiffSummary": {
-      "description": "The JSON-report form of a ``KeyedRowDiff``.",
+      "description": "The JSON-report form of a `KeyedRowDiff`.",
       "properties": {
         "status": {
           "const": "compared",
           "default": "compared",
-          "description": "Always ``\"compared\"``: this is what tells this apart from a skipped section.",
+          "description": "Always `\"compared\"`: this is what tells this apart from a skipped section.",
           "title": "Status",
           "type": "string"
         },
@@ -268,7 +268,7 @@
       "type": "object"
     },
     "PudlDiffSummary": {
-      "description": "Totals over every table in a ``PudlDiffReport``.\n\nSaves consumers from aggregating the tables themselves.\n\nThe size fields (see ``SizeComparison``) total only the tables whose size is known on both sides.",
+      "description": "Totals over every table in a `PudlDiffReport`.\n\nSaves consumers from aggregating the tables themselves.\n\nThe size fields (see `SizeComparison`) total only the tables whose size is known on both sides.",
       "properties": {
         "left_table_bytes": {
           "anyOf": [
@@ -280,7 +280,7 @@
             }
           ],
           "default": null,
-          "description": "Size in bytes of the left table's Parquet file(s), or ``none`` if unknown.",
+          "description": "Size in bytes of the left table's Parquet file(s), or `null` if unknown.",
           "title": "Left Table Bytes"
         },
         "right_table_bytes": {
@@ -293,7 +293,7 @@
             }
           ],
           "default": null,
-          "description": "Size in bytes of the right table's Parquet file(s), or ``none`` if unknown.",
+          "description": "Size in bytes of the right table's Parquet file(s), or `null` if unknown.",
           "title": "Right Table Bytes"
         },
         "table_count": {
@@ -392,7 +392,7 @@
             }
           ],
           "default": null,
-          "description": "The highest ``TableDiffReport.peak_rss_bytes`` of any table.",
+          "description": "The highest `peak_rss_bytes` of any table.",
           "title": "Peak Rss Bytes"
         },
         "peak_rss_table": {
@@ -417,7 +417,7 @@
               "type": "null"
             }
           ],
-          "description": "``left_table_bytes`` in human-readable form, e.g. ``12.3 MB``.",
+          "description": "`left_table_bytes` in human-readable form, e.g. `12.3 MB`.",
           "readOnly": true,
           "title": "Left Table Size"
         },
@@ -430,7 +430,7 @@
               "type": "null"
             }
           ],
-          "description": "``right_table_bytes`` in human-readable form.",
+          "description": "`right_table_bytes` in human-readable form.",
           "readOnly": true,
           "title": "Right Table Size"
         },
@@ -443,7 +443,7 @@
               "type": "null"
             }
           ],
-          "description": "The change in size from the left to the right table.\n\n``right_table_bytes - left_table_bytes``, so negative if the right side is smaller. Compression changes show up here even if the contents don't.",
+          "description": "The change in size from the left to the right table.\n\n`right_table_bytes - left_table_bytes`, so negative if the right side is smaller. Compression changes show up here even if the contents don't.",
           "readOnly": true,
           "title": "Bytes Difference"
         },
@@ -456,7 +456,7 @@
               "type": "null"
             }
           ],
-          "description": "``bytes_difference`` in human-readable form, e.g. ``-1.2 MB``.",
+          "description": "`bytes_difference` in human-readable form, e.g. `-1.2 MB`.",
           "readOnly": true,
           "title": "Bytes Difference Size"
         },
@@ -469,7 +469,7 @@
               "type": "null"
             }
           ],
-          "description": "``bytes_difference`` as a percentage of ``left_table_bytes``.\n\n``none`` if the left size is unknown or zero.",
+          "description": "`bytes_difference` as a percentage of `left_table_bytes`.\n\n`null` if the left size is unknown or zero.",
           "readOnly": true,
           "title": "Bytes Difference Percent"
         },
@@ -482,7 +482,7 @@
               "type": "null"
             }
           ],
-          "description": "``peak_rss_bytes`` in human-readable form, e.g. ``1.2 GB``.",
+          "description": "`peak_rss_bytes` in human-readable form, e.g. `1.2 GB`.",
           "readOnly": true,
           "title": "Peak Rss"
         }
@@ -519,7 +519,7 @@
       "type": "object"
     },
     "RowCountDiffSummary": {
-      "description": "The JSON-report form of ``RowCountDiff``.",
+      "description": "The JSON-report form of `RowCountDiff`.",
       "properties": {
         "left_row_count": {
           "description": "Total number of rows in the left table.",
@@ -532,7 +532,7 @@
           "type": "integer"
         },
         "row_count_difference": {
-          "description": "``right_row_count - left_row_count``: the change in row count from the reference (left) table to the right table.",
+          "description": "`right_row_count - left_row_count`: the change in row count from the reference (left) table to the right table.",
           "title": "Row Count Difference",
           "type": "integer"
         },
@@ -558,12 +558,12 @@
         "status": {
           "const": "skipped",
           "default": "skipped",
-          "description": "Always ``\"skipped\"``: this is what tells this apart from a full summary.",
+          "description": "Always `\"skipped\"`: this is what tells this apart from a full summary.",
           "title": "Status",
           "type": "string"
         },
         "skipped_reason": {
-          "description": "Why there is no summary in this section:\n\n* ``too_many_rows``: either table has more rows than ``DiffOptions.max_compare_rows``, so no row-level comparison was made.\n* ``incompatible_dtypes``: the row-level comparison failed, most likely because the tables' columns have incompatible dtypes.\n* ``mismatched_columns``: the tables have different columns and no primary key, so their rows can't be compared meaningfully.\n* ``primary_key_available``: not skipped for a problem. The table has a primary key, so its comparison is in ``pk_diff``, not ``non_pk_diff``.\n* ``no_primary_key``: likewise, the table has no primary key, so its comparison is in ``non_pk_diff``, not ``pk_diff``.",
+          "description": "Why there is no summary in this section:\n\n* `too_many_rows`: either table has more rows than `DiffOptions.max_compare_rows`, so no row-level comparison was made.\n* `incompatible_dtypes`: the row-level comparison failed, most likely because the tables' columns have incompatible dtypes.\n* `mismatched_columns`: the tables have different columns and no primary key, so their rows can't be compared meaningfully.\n* `primary_key_available`: not skipped for a problem. The table has a primary key, so its comparison is in `pk_diff`, not `non_pk_diff`.\n* `no_primary_key`: likewise, the table has no primary key, so its comparison is in `non_pk_diff`, not `pk_diff`.",
           "enum": [
             "too_many_rows",
             "incompatible_dtypes",
@@ -583,10 +583,10 @@
       "type": "object"
     },
     "RowDiffSummary": {
-      "description": "The JSON-report form of ``TableDiffResult.row_diff``.\n\nExactly one of ``pk_diff`` and ``non_pk_diff`` is a full summary (unless row-level comparison was skipped entirely); the other is a ``RowDiffSectionSkipped`` saying why it wasn't produced: ``no_primary_key`` or ``primary_key_available`` when the table's primary key determined which kind of comparison applies, or the reason the comparison was skipped altogether (see ``RowComparisonSkipReason``), in which case the one that would have run carries that reason.",
+      "description": "The JSON-report form of `row_diff`.\n\nExactly one of `pk_diff` and `non_pk_diff` is a full summary (unless row-level comparison was skipped entirely); the other is a `RowDiffSectionSkipped` saying why it wasn't produced: `no_primary_key` or `primary_key_available` when the table's primary key determined which kind of comparison applies, or the reason the comparison was skipped altogether (see `RowComparisonSkipReason`), in which case the one that would have run carries that reason.",
       "properties": {
         "pk_diff": {
-          "description": "The row-level comparison of a table with a primary key: a full summary (``status`` is ``\"compared\"``), or the reason there isn't one (``\"skipped\"``).",
+          "description": "The row-level comparison of a table with a primary key: a full summary (`status` is `\"compared\"`), or the reason there isn't one (`\"skipped\"`).",
           "discriminator": {
             "mapping": {
               "compared": "#/$defs/PkRowDiffSummary",
@@ -605,7 +605,7 @@
           "title": "Pk Diff"
         },
         "non_pk_diff": {
-          "description": "The row-level comparison of a table without a primary key: a full summary (``status`` is ``\"compared\"``), or the reason there isn't one (``\"skipped\"``).",
+          "description": "The row-level comparison of a table without a primary key: a full summary (`status` is `\"compared\"`), or the reason there isn't one (`\"skipped\"`).",
           "discriminator": {
             "mapping": {
               "compared": "#/$defs/NonPkRowDiffSummary",
@@ -633,7 +633,7 @@
             }
           ],
           "default": null,
-          "description": "The Parquet file of the rows found only in the left table (for a table with a primary key, this includes the left-hand values of rows that changed), or ``none`` if no file was written."
+          "description": "The Parquet file of the rows found only in the left table (for a table with a primary key, this includes the left-hand values of rows that changed), or `null` if no file was written."
         },
         "right_only_parquet": {
           "anyOf": [
@@ -658,7 +658,7 @@
       "type": "object"
     },
     "SchemaDiffSummary": {
-      "description": "The JSON-report form of ``SchemaDiff``.",
+      "description": "The JSON-report form of `SchemaDiff`.",
       "properties": {
         "columns_only_in_left": {
           "description": "Names of the columns that are only in the left table: removed columns.",
@@ -690,7 +690,7 @@
             ],
             "type": "array"
           },
-          "description": "Maps column name to a ``(left_dtype, right_dtype)`` pair of dtype names, e.g. ``(\"Int64\", \"Int32\")``.",
+          "description": "Maps column name to a `(left_dtype, right_dtype)` pair of dtype names, e.g. `(\"Int64\", \"Int32\")`.",
           "title": "Dtype Changes",
           "type": "object"
         },
@@ -723,7 +723,7 @@
       "type": "object"
     },
     "TableDiffReport": {
-      "description": "A single table comparison, in the form saved in the PUDL Diff JSON report.\n\nBuilt by ``build_table_diff_report`` from a ``TableDiffRun``, and one entry in ``PudlDiffReport.tables``. Fields that describe the whole comparison of the two datasets (when it was run, the datasets' provenance) live on the ``PudlDiffReport`` instead. Contains no row-level data itself - only counts and summaries; the actual differing rows are written separately as Parquet files (see ``write_row_diff_parquet``) and referenced from ``row_diff``.",
+      "description": "A single table comparison, in the form saved in the PUDL Diff JSON report.\n\nBuilt by `build_table_diff_report()` from a `TableDiffRun`, and one entry in `tables`. Fields that describe the whole comparison of the two datasets (when it was run, the datasets' provenance) live on the `PudlDiffReport` instead. Contains no row-level data itself - only counts and summaries; the actual differing rows are written separately as Parquet files (see `write_row_diff_parquet()`) and referenced from `row_diff`.",
       "properties": {
         "left_table_bytes": {
           "anyOf": [
@@ -735,7 +735,7 @@
             }
           ],
           "default": null,
-          "description": "Size in bytes of the left table's Parquet file(s), or ``none`` if unknown.",
+          "description": "Size in bytes of the left table's Parquet file(s), or `null` if unknown.",
           "title": "Left Table Bytes"
         },
         "right_table_bytes": {
@@ -748,7 +748,7 @@
             }
           ],
           "default": null,
-          "description": "Size in bytes of the right table's Parquet file(s), or ``none`` if unknown.",
+          "description": "Size in bytes of the right table's Parquet file(s), or `null` if unknown.",
           "title": "Right Table Bytes"
         },
         "left_table_name": {
@@ -762,7 +762,7 @@
           "type": "string"
         },
         "right_table_name": {
-          "description": "The name of the table in the right dataset. Differs from ``left_table_name`` only when two differently named tables were compared, e.g. a ``core_`` table against the ``out_`` table built from it.",
+          "description": "The name of the table in the right dataset. Differs from `left_table_name` only when two differently named tables were compared, e.g. a `core_` table against the `out_` table built from it.",
           "title": "Right Table Name",
           "type": "string"
         },
@@ -781,7 +781,7 @@
             }
           ],
           "default": null,
-          "description": "Wall-clock time the comparison of this table took, or ``none`` if it failed.",
+          "description": "Wall-clock time the comparison of this table took, or `null` if it failed.",
           "title": "Elapsed Seconds"
         },
         "peak_rss_bytes": {
@@ -794,7 +794,7 @@
             }
           ],
           "default": null,
-          "description": "The most memory (resident set size) the process used during this comparison beyond what it was using when the comparison started, in bytes. Sampled, so a very short spike could be missed. ``none`` if the comparison failed.",
+          "description": "The most memory (resident set size) the process used during this comparison beyond what it was using when the comparison started, in bytes. Sampled, so a very short spike could be missed. `null` if the comparison failed.",
           "title": "Peak Rss Bytes"
         },
         "peak_cpu_percent": {
@@ -807,7 +807,7 @@
             }
           ],
           "default": null,
-          "description": "The highest CPU utilization sampled during this comparison, as a percentage of one core: ``400.0`` means four cores kept fully busy. A rough gauge of how parallel the work was. ``none`` if the comparison failed.",
+          "description": "The highest CPU utilization sampled during this comparison, as a percentage of one core: `400.0` means four cores kept fully busy. A rough gauge of how parallel the work was. `null` if the comparison failed.",
           "title": "Peak Cpu Percent"
         },
         "schema_diff": {
@@ -820,7 +820,7 @@
             }
           ],
           "default": null,
-          "description": "How the tables' columns and dtypes differ, or ``none`` if the comparison failed."
+          "description": "How the tables' columns and dtypes differ, or `null` if the comparison failed."
         },
         "row_count_diff": {
           "anyOf": [
@@ -832,7 +832,7 @@
             }
           ],
           "default": null,
-          "description": "How the tables' row counts differ, or ``none`` if the comparison failed."
+          "description": "How the tables' row counts differ, or `null` if the comparison failed."
         },
         "row_diff": {
           "anyOf": [
@@ -844,7 +844,7 @@
             }
           ],
           "default": null,
-          "description": "How the tables' rows differ, or ``none`` if the comparison failed. If the row-level comparison was skipped, its sections say why."
+          "description": "How the tables' rows differ, or `null` if the comparison failed. If the row-level comparison was skipped, its sections say why."
         },
         "error": {
           "anyOf": [
@@ -856,7 +856,7 @@
             }
           ],
           "default": null,
-          "description": "Exception message plus traceback, if the comparison failed to complete. ``none`` if ``success`` is ``true``.",
+          "description": "Exception message plus traceback, if the comparison failed to complete. `null` if `success` is `true`.",
           "title": "Error"
         },
         "left_table_size": {
@@ -868,7 +868,7 @@
               "type": "null"
             }
           ],
-          "description": "``left_table_bytes`` in human-readable form, e.g. ``12.3 MB``.",
+          "description": "`left_table_bytes` in human-readable form, e.g. `12.3 MB`.",
           "readOnly": true,
           "title": "Left Table Size"
         },
@@ -881,7 +881,7 @@
               "type": "null"
             }
           ],
-          "description": "``right_table_bytes`` in human-readable form.",
+          "description": "`right_table_bytes` in human-readable form.",
           "readOnly": true,
           "title": "Right Table Size"
         },
@@ -894,7 +894,7 @@
               "type": "null"
             }
           ],
-          "description": "The change in size from the left to the right table.\n\n``right_table_bytes - left_table_bytes``, so negative if the right side is smaller. Compression changes show up here even if the contents don't.",
+          "description": "The change in size from the left to the right table.\n\n`right_table_bytes - left_table_bytes`, so negative if the right side is smaller. Compression changes show up here even if the contents don't.",
           "readOnly": true,
           "title": "Bytes Difference"
         },
@@ -907,7 +907,7 @@
               "type": "null"
             }
           ],
-          "description": "``bytes_difference`` in human-readable form, e.g. ``-1.2 MB``.",
+          "description": "`bytes_difference` in human-readable form, e.g. `-1.2 MB`.",
           "readOnly": true,
           "title": "Bytes Difference Size"
         },
@@ -920,18 +920,18 @@
               "type": "null"
             }
           ],
-          "description": "``bytes_difference`` as a percentage of ``left_table_bytes``.\n\n``none`` if the left size is unknown or zero.",
+          "description": "`bytes_difference` as a percentage of `left_table_bytes`.\n\n`null` if the left size is unknown or zero.",
           "readOnly": true,
           "title": "Bytes Difference Percent"
         },
         "success": {
-          "description": "Whether the comparison completed at all, successfully or not.\n\nSee ``TableDiffRun``. Distinct from ``is_identical``: a comparison can succeed and still find the tables different.",
+          "description": "Whether the comparison completed at all, successfully or not.\n\nSee `TableDiffRun`. Distinct from `is_identical`: a comparison can succeed and still find the tables different.",
           "readOnly": true,
           "title": "Success",
           "type": "boolean"
         },
         "is_identical": {
-          "description": "Whether the table is functionally identical between the two datasets.\n\nConservatively ``false`` whenever ``success`` is ``false``, since a failed comparison can't establish that the tables are identical, and whenever the row-level comparison didn't run (it was skipped), since then the rows are unverified even if the schema and row counts match.",
+          "description": "Whether the table is functionally identical between the two datasets.\n\nConservatively `false` whenever `success` is `false`, since a failed comparison can't establish that the tables are identical, and whenever the row-level comparison didn't run (it was skipped), since then the rows are unverified even if the schema and row counts match.",
           "readOnly": true,
           "title": "Is Identical",
           "type": "boolean"
@@ -945,7 +945,7 @@
               "type": "null"
             }
           ],
-          "description": "``peak_rss_bytes`` in human-readable form, e.g. ``1.2 GB``.",
+          "description": "`peak_rss_bytes` in human-readable form, e.g. `1.2 GB`.",
           "readOnly": true,
           "title": "Peak Rss"
         }
@@ -977,11 +977,11 @@
       "type": "object"
     }
   },
-  "description": "The full comparison of two PUDL datasets: the saved JSON report.\n\nBuilt by ``build_pudl_diff_report``. Holds everything that pertains to the comparison as a whole, plus a ``TableDiffReport`` for each table.",
+  "description": "The full comparison of two PUDL datasets: the saved JSON report.\n\nBuilt by `build_pudl_diff_report()`. Holds everything that pertains to the comparison as a whole, plus a `TableDiffReport` for each table.",
   "properties": {
     "schema_version": {
       "default": "1.0.0",
-      "description": "Version of this report format, in ``major.minor.patch`` form.",
+      "description": "Version of this report format, in `major.minor.patch` form.",
       "title": "Schema Version",
       "type": "string"
     },
@@ -1053,17 +1053,17 @@
         }
       ],
       "default": null,
-      "description": "Why the comparison as a whole failed, e.g. no tables could be listed. This is ``none`` when the only failures are of individual tables, which each record their own ``TableDiffReport.error``.",
+      "description": "Why the comparison as a whole failed, e.g. no tables could be listed. This is `null` when the only failures are of individual tables, which each record their own `error`.",
       "title": "Error"
     },
     "success": {
-      "description": "Whether the comparison completed.\n\nThat is, ``error`` is ``none`` and so is every table's. Distinct from ``is_identical``: a comparison can succeed and still find differences.",
+      "description": "Whether the comparison completed.\n\nThat is, `error` is `null` and so is every table's. Distinct from `is_identical`: a comparison can succeed and still find differences.",
       "readOnly": true,
       "title": "Success",
       "type": "boolean"
     },
     "is_identical": {
-      "description": "Whether every compared table is identical, and ``success`` is ``true``.\n\nTables found in only one dataset don't count against this.",
+      "description": "Whether every compared table is identical, and `success` is `true`.\n\nTables found in only one dataset don't count against this.",
       "readOnly": true,
       "title": "Is Identical",
       "type": "boolean"

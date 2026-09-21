@@ -10,7 +10,7 @@ class ReportModel(pydantic.BaseModel):
     documentation of what each field means and how it is validated can't drift from
     the code:
 
-    * A field's docstring, the string right after its definition, is the ``description``
+    * A field's docstring, the string right after its definition, is the `description`
       of the field in the schema.
     * Fields that have a default value are still always written to the JSON, so
       the schema of the report lists them as required.

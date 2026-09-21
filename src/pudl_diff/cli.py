@@ -126,7 +126,7 @@ def _show_saved_report(path: Path) -> int:
 
 
 def _set_log_level(level: str) -> Callable[[], None]:
-    """Only let the tool's loggers emit messages of at least ``level``.
+    """Only let the tool's loggers emit messages of at least `level`.
 
     If the application hasn't configured any handlers for them, as when the tool is
     installed without PUDL, logs go to stderr. Returns a function that puts the

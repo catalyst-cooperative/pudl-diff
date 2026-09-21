@@ -85,7 +85,14 @@ description of what each one does and when to use it.
     (`pixi run lint-pyrefly-coverage`): annotate every function, method and attribute.
     If you must suppress a false positive, use a `# pyrefly: ignore[rule-name]` comment
     with a short note explaining *why* it's a false positive, not just that it is one.
-- Docstrings use the Google convention (`[tool.ruff.lint.pydocstyle]`).
+- Docstrings use the Google convention (`[tool.ruff.lint.pydocstyle]`), and are written
+    in Markdown, not reStructuredText: single backticks for code, no Sphinx roles like
+    `:attr:`, and a docstring after an assignment rather than a `#:` comment.
+    They become the API reference and the report's JSON Schema descriptions, so Sphinx
+    syntax would show up verbatim in both. `tests/unit/docstrings_test.py` checks this.
+    Refer to another object with a code span; only link it (mkdocstrings-style, as in
+    `pudl_diff/__init__.py`) outside the report's models, whose docstrings are the
+    schema's descriptions.
 
 <!--
 Add anything specific to this codebase that a generic Python style guide wouldn't

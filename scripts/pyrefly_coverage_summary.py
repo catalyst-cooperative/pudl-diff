@@ -5,14 +5,16 @@
 #     "click>=8.5",
 # ]
 # ///
-"""Render ``pyrefly coverage report``'s JSON as a human-readable table.
+"""Render `pyrefly coverage report`'s JSON as a human-readable table.
 
 Reads the JSON report from a file, or from stdin, and prints one row per module --
 typable symbol count, how many are untyped, and the resulting coverage percentage --
-followed by the same metrics summed across the whole project. It only needs ``click``,
-so it can be run without installing this package, e.g.::
+followed by the same metrics summed across the whole project. It only needs `click`,
+so it can be run without installing this package, e.g.:
 
-    pyrefly coverage report src | uv run scripts/pyrefly_coverage_summary.py
+```bash
+pyrefly coverage report src | uv run scripts/pyrefly_coverage_summary.py
+```
 """
 
 import json

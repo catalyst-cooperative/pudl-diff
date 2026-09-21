@@ -17,8 +17,8 @@ from pudl_diff.table_report import (
     TableDiffReport,
 )
 
-#: Version of the JSON report format written by :func:`build_pudl_diff_report`.
 REPORT_SCHEMA_VERSION = "1.0.0"
+"""Version of the JSON report format written by `build_pudl_diff_report()`."""
 
 
 REPORT_FILENAME = "pudl_diff_report.json"
@@ -35,11 +35,11 @@ class DatasetInfo(DatasetProvenance):
 
 
 class PudlDiffSummary(SizeComparison):
-    """Totals over every table in a :class:`PudlDiffReport`.
+    """Totals over every table in a `PudlDiffReport`.
 
     Saves consumers from aggregating the tables themselves.
 
-    The size fields (see :class:`~.SizeComparison`) total only the tables whose size
+    The size fields (see `SizeComparison`) total only the tables whose size
     is known on both sides.
     """
 
@@ -83,14 +83,14 @@ class PudlDiffSummary(SizeComparison):
     """Columns only in the left table, summed over all the tables."""
 
     peak_rss_bytes: int | None = None
-    """The highest :attr:`~.TableDiffReport.peak_rss_bytes` of any table."""
+    """The highest `peak_rss_bytes` of any table."""
     peak_rss_table: str | None = None
     """The table with that peak memory use."""
 
     @pydantic.computed_field
     @property
     def peak_rss(self) -> str | None:
-        """:attr:`peak_rss_bytes` in human-readable form, e.g. ``1.2 GB``."""
+        """`peak_rss_bytes` in human-readable form, e.g. `1.2 GB`."""
         if self.peak_rss_bytes is None:
             return None
         return format_bytes(self.peak_rss_bytes)
@@ -175,12 +175,12 @@ class PudlDiffSummary(SizeComparison):
 class PudlDiffReport(ReportModel):
     """The full comparison of two PUDL datasets: the saved JSON report.
 
-    Built by :func:`build_pudl_diff_report`. Holds everything that pertains to the
-    comparison as a whole, plus a :class:`~.TableDiffReport` for each table.
+    Built by `build_pudl_diff_report()`. Holds everything that pertains to the
+    comparison as a whole, plus a `TableDiffReport` for each table.
     """
 
     schema_version: str = REPORT_SCHEMA_VERSION
-    """Version of this report format, in ``major.minor.patch`` form."""
+    """Version of this report format, in `major.minor.patch` form."""
     created: str
     """UTC ISO-8601 timestamp of when this report was generated."""
     elapsed_seconds: float | None = None
@@ -203,23 +203,23 @@ class PudlDiffReport(ReportModel):
 
     error: str | None = None
     """Why the comparison as a whole failed, e.g. no tables could be listed. This
-    is ``None`` when the only failures are of individual tables, which each
-    record their own :attr:`~.TableDiffReport.error`."""
+    is `None` when the only failures are of individual tables, which each
+    record their own `error`."""
 
     @pydantic.computed_field
     @property
     def success(self) -> bool:
         """Whether the comparison completed.
 
-        That is, :attr:`error` is ``None`` and so is every table's. Distinct from
-        :attr:`is_identical`: a comparison can succeed and still find differences.
+        That is, `error` is `None` and so is every table's. Distinct from
+        `is_identical`: a comparison can succeed and still find differences.
         """
         return self.error is None and all(t.success for t in self.tables.values())
 
     @pydantic.computed_field
     @property
     def is_identical(self) -> bool:
-        """Whether every compared table is identical, and :attr:`success` is ``True``.
+        """Whether every compared table is identical, and `success` is `True`.
 
         Tables found in only one dataset don't count against this.
         """
@@ -229,7 +229,7 @@ class PudlDiffReport(ReportModel):
     def exit_code(self) -> int:
         """The CLI's exit status for this report.
 
-        ``0`` if everything is identical, ``1`` if any differ, ``2`` if any
+        `0` if everything is identical, `1` if any differ, `2` if any
         comparison failed.
         """
         if not self.success:
@@ -253,11 +253,11 @@ def build_pudl_diff_report(
     Args:
         left: The "left" dataset that was compared.
         right: The "right" dataset compared against it.
-        tables: The report on each compared table, keyed by its name in ``left``.
+        tables: The report on each compared table, keyed by its name in `left`.
         options: The settings the comparison ran with.
         tables_only_in_left: Tables that weren't compared as they aren't in
-            ``right``.
-        tables_only_in_right: Likewise, for tables not in ``left``.
+            `right`.
+        tables_only_in_right: Likewise, for tables not in `left`.
         elapsed_seconds: How long the whole comparison took.
         error: Why the comparison failed as a whole, if it did - e.g. because
             no tables could be found to compare.
@@ -290,7 +290,7 @@ class TableOutcome:
 
     table_name: str
     exit_code: int
-    """``0`` if identical, ``1`` if different, ``2`` if the comparison failed."""
+    """`0` if identical, `1` if different, `2` if the comparison failed."""
     elapsed_seconds: float | None
     error: str | None
     rows: RowChanges
@@ -299,7 +299,7 @@ class TableOutcome:
     right_rows: int | None = None
     left_columns: int | None = None
     columns_added: int | None = None
-    """Columns only in the right table. ``None`` if the comparison failed."""
+    """Columns only in the right table. `None` if the comparison failed."""
     columns_removed: int | None = None
     """Columns only in the left table."""
     dtypes_changed: int = 0

@@ -313,7 +313,7 @@ def test_compare_rows_with_pk_null_vs_value_mismatch():
 
 
 def _shuffled(df: pl.DataFrame, seed: int) -> pl.DataFrame:
-    """``df`` with its rows and its columns in a different, random order."""
+    """`df` with its rows and its columns in a different, random order."""
     rng = np.random.default_rng(seed)
     columns = [df.columns[i] for i in rng.permutation(len(df.columns))]
     return df[rng.permutation(df.height)].select(columns)

@@ -2,12 +2,12 @@
 
 
 def format_bytes(num_bytes: int, *, signed: bool = False) -> str:
-    """Format a byte count in decimal units, e.g. ``21.4 GB`` or ``512 B``.
+    """Format a byte count in decimal units, e.g. `21.4 GB` or `512 B`.
 
     Args:
         num_bytes: The size to format. May be negative, for a change in size.
-        signed: Whether to prefix a positive size with ``+``. Negative sizes
-            always get a ``-``.
+        signed: Whether to prefix a positive size with `+`. Negative sizes
+            always get a `-`.
     """
     magnitude = abs(num_bytes)
     for unit, factor in (("GB", 10**9), ("MB", 10**6), ("KB", 10**3)):
@@ -38,7 +38,7 @@ def format_duration(seconds: float) -> str:
 
 
 def format_percent(count: int, total: int | None) -> str:
-    """``count`` as a percentage of ``total``, with useful precision when small."""
+    """`count` as a percentage of `total`, with useful precision when small."""
     if count == 0:
         return "0%"
     if not total:

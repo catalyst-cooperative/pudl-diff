@@ -25,15 +25,15 @@ logger: logging.Logger = get_logger(__name__)
 PUDL_CATALYST_COOP_HOST = "pudl.catalyst.coop"
 """The bucket of PUDL's published outputs, on both S3 and GCS."""
 PUDL_CATALYST_COOP_DESCRIPTOR_NAME = "pudl_parquet_datapackage.json"
-"""What the published outputs at :data:`PUDL_CATALYST_COOP_HOST` call their
-datapackage descriptor, instead of ``datapackage.json``."""
+"""What the published outputs at `PUDL_CATALYST_COOP_HOST` call their
+datapackage descriptor, instead of `datapackage.json`."""
 NIGHTLY_ROOT = f"s3://{PUDL_CATALYST_COOP_HOST}/nightly/"
 """The last nightly build's outputs, the reference point most diffs are measured
 against."""
 
 
 def _import_pudl(module: str = "pudl") -> types.ModuleType | None:
-    """Import a module of the PUDL package, or ``None`` if it isn't installed."""
+    """Import a module of the PUDL package, or `None` if it isn't installed."""
     try:
         return importlib.import_module(module)
     except ImportError:
@@ -48,7 +48,7 @@ def nightly_root() -> UPath:
 
 
 def default_right_root() -> Path:
-    """The Parquet outputs of the local PUDL build: ``$PUDL_OUTPUT/parquet``.
+    """The Parquet outputs of the local PUDL build: `$PUDL_OUTPUT/parquet`.
 
     Raises:
         RuntimeError: If PUDL's output directory can't be determined.
@@ -77,7 +77,7 @@ def _pudl_package_primary_key(table_name: str) -> list[str] | None:
 def _nightly_descriptor() -> dict[str, Any] | None:
     """The datapackage descriptor of the last nightly build, fetched once.
 
-    ``None`` if it can't be fetched, which is logged.
+    `None` if it can't be fetched, which is logged.
     """
     path = nightly_root() / PUDL_CATALYST_COOP_DESCRIPTOR_NAME
     try:
@@ -104,7 +104,7 @@ def fallback_primary_key(table_name: str) -> list[str] | None:
     nightly build. The latter is only fetched if needed, and only once.
 
     Returns:
-        The primary key, an empty list if the table has none, or ``None`` if it
+        The primary key, an empty list if the table has none, or `None` if it
         couldn't be found anywhere.
     """
     for source in (_pudl_package_primary_key, _nightly_primary_key):

@@ -49,13 +49,26 @@ def test_report_schema_descriptions_are_plain_text():
 
     assert descriptions
     for description in descriptions:
-        # No Sphinx roles...
-        assert not re.search(r":(class|func|attr|data|meth|obj|exc):`", description)
+        # No Sphinx roles or reStructuredText literals, just Markdown...
+        assert not re.search(r":[a-z]+:`|``", description)
         # ...and no line breaks within a paragraph, other than between bullet points.
         for paragraph in description.split("\n\n"):
             assert all(line.startswith("* ") for line in paragraph.splitlines()[1:]), (
                 paragraph
             )
+
+
+def test_report_schema_descriptions_use_json_words_for_python_constants():
+    descriptions = [
+        node["description"]
+        for node in _walk(report_json_schema())
+        if isinstance(node.get("description"), str)
+    ]
+
+    assert any("`null`" in d for d in descriptions)
+    assert any("`true`" in d for d in descriptions)
+    for description in descriptions:
+        assert not re.search(r"`(None|True|False|none)`", description), description
 
 
 def _walk(node):
@@ -228,7 +241,7 @@ def test_the_schema_rejects_reports_that_are_not_valid(report_documents):
                 "oneOf": [{"$ref": "#/$defs/A"}, {"$ref": "#/$defs/B"}],
                 "discriminator": {"propertyName": "status"},
             },
-            "A or B, told apart by ``status``",
+            "A or B, told apart by `status`",
         ),
     ],
 )

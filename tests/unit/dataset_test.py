@@ -119,8 +119,8 @@ def test_scan_table_stringifies_non_string_storage_options(
 ):
     """Polars' storage_options rejects non-string values, e.g. UPath's anon=True.
 
-    Regression test: passing a real ``bool`` through to ``pl.scan_parquet``
-    raises ``ValueError: invalid value for 'anon': 'True' (expected str)``
+    Regression test: passing a real `bool` through to `pl.scan_parquet`
+    raises `ValueError: invalid value for 'anon': 'True' (expected str)`
     deep inside its Rust backend, even though the UPath itself is happy to
     hand back non-string option values.
     """

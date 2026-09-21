@@ -21,7 +21,7 @@ class RowCountDiff:
 
 
 def count_rows(lf: pl.LazyFrame) -> int:
-    """Count the rows of ``lf``, streaming so that it needn't fit in memory."""
+    """Count the rows of `lf`, streaming so that it needn't fit in memory."""
     return lf.select(pl.len()).collect(engine="streaming").item()
 
 
@@ -30,7 +30,7 @@ def compare_row_counts(left: pl.LazyFrame, right: pl.LazyFrame) -> RowCountDiff:
 
     Args:
         left: The "left" table to compare.
-        right: The "right" table to compare against ``left``.
+        right: The "right" table to compare against `left`.
     """
     return RowCountDiff(
         left_row_count=count_rows(left), right_row_count=count_rows(right)

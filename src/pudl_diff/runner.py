@@ -33,7 +33,7 @@ def run_dataset_diff(
 
     A table whose comparison fails doesn't stop the others being compared, and if
     the tables to compare can't even be determined, the returned report records why
-    in its :attr:`~.PudlDiffReport.error` instead of raising.
+    in its `error` instead of raising.
 
     Args:
         left: The "left" dataset.
@@ -41,8 +41,8 @@ def run_dataset_diff(
         output_path: Directory to write each differing table's Parquet outputs into.
         table_names: The tables to compare. If empty, every table with a Parquet
             file in both datasets is compared.
-        right_table: The name of the table to compare against in ``right``, if it
-            differs from the one given in ``table_names``. Requires exactly one
+        right_table: The name of the table to compare against in `right`, if it
+            differs from the one given in `table_names`. Requires exactly one
             table name.
         options: The settings to compare with.
         on_tables_resolved: Called once with the names of the tables that are about

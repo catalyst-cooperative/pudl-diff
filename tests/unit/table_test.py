@@ -18,7 +18,7 @@ def test_run_table_diff_succeeds_without_left_datapackage(tmp_path: Path, make_d
     """The local-dev scenario this fix targets: no datapackage.json at all.
 
     Uses a real PUDL table name (with a real primary key column) so the
-    fallback to ``pudl.metadata.classes.PUDL_PACKAGE`` in ``primary_key()``
+    fallback to `pudl.metadata.classes.PUDL_PACKAGE` in `primary_key()`
     has something to find, letting the comparison run end to end even
     though the left dataset can't describe itself at all.
     """

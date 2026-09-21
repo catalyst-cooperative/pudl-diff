@@ -308,7 +308,7 @@ def test_table_report_derived_fields_agree_with_the_comparison(
     no_pk_resource,
     make_dataset,
 ):
-    """``is_identical`` and ``success`` are derived from the report's other fields."""
+    """`is_identical` and `success` are derived from the report's other fields."""
     resource = pk_resource("t", ["x"]) if has_pk else no_pk_resource("t")
     left_df = pl.DataFrame({"x": [1, 2, 3], "y": ["a", "b", "c"]})
     left = make_dataset(tmp_path / "left", [resource], {"t": left_df})

@@ -21,9 +21,9 @@ logger: logging.Logger = get_logger(__name__)
 
 
 class DatasetProvenance(ReportModel):
-    """A PUDL dataset's own provenance, as recorded in its ``datapackage.json``.
+    """A PUDL dataset's own provenance, as recorded in its `datapackage.json`.
 
-    All fields are ``None`` when the dataset's descriptor doesn't have them
+    All fields are `None` when the dataset's descriptor doesn't have them
     - e.g. an older build predating git provenance, or one where the git
     lookup itself failed at build time.
     """
@@ -32,19 +32,19 @@ class DatasetProvenance(ReportModel):
     """The dataset's build UUID."""
     created: str | None = None
     """UTC ISO-8601 timestamp of when this dataset was built - distinct from the
-    report's own :attr:`~.PudlDiffReport.created`, which is when the *comparison*
+    report's own `created`, which is when the *comparison*
     was run."""
     git_sha: str | None = None
     """The git commit SHA of the PUDL code that built the dataset."""
     git_tags: list[str] | None = None
-    """The git tags on that commit, e.g. release versions like ``v2026.1.0``."""
+    """The git tags on that commit, e.g. release versions like `v2026.1.0`."""
 
 
 class PudlDiffDataset:
     """A PUDL Parquet dataset located at a root path, described by a datapackage.
 
     Wraps a root directory (local or remote, e.g. an S3 bucket) containing one
-    ``<table_name>.parquet`` file per table and a datapackage descriptor.
+    `<table_name>.parquet` file per table and a datapackage descriptor.
     """
 
     def __init__(
@@ -60,21 +60,21 @@ class PudlDiffDataset:
                 datapackage descriptor. A local path is made absolute, with any
                 symlinks resolved, so that it doesn't depend on the working
                 directory. May be a local path or a remote path
-                (e.g. ``s3://...``) understood by :class:`upath.UPath`. If
-                credentials or other filesystem options (e.g. ``anon=True`` for
+                (e.g. `s3://...`) understood by `upath.UPath`. If
+                credentials or other filesystem options (e.g. `anon=True` for
                 a public S3 bucket) are required, construct a
-                :class:`~upath.UPath` with those options and pass it in
+                `UPath` with those options and pass it in
                 directly.
             descriptor_name: Filename of the datapackage descriptor within
-                ``root``. If not given, defaults to ``datapackage.json``, except
-                when ``root`` points at PUDL's deployed public outputs at
-                ``pudl.catalyst.coop``, which instead name it
-                ``pudl_parquet_datapackage.json``.
-            display_root: The root to record in reports instead of ``root``, if
+                `root`. If not given, defaults to `datapackage.json`, except
+                when `root` points at PUDL's deployed public outputs at
+                `pudl.catalyst.coop`, which instead name it
+                `pudl_parquet_datapackage.json`.
+            display_root: The root to record in reports instead of `root`, if
                 the dataset is read from somewhere other than its durable
                 location. E.g. a build's outputs read from local disk that will be
                 deployed to a permanent URL, or a public dataset read through a
-                faster mirror. Purely descriptive: all reads use ``root``.
+                faster mirror. Purely descriptive: all reads use `root`.
         """
         dataset_root = UPath(root)
         if dataset_root.protocol in ("", "file", "local"):
@@ -123,9 +123,9 @@ class PudlDiffDataset:
         return sorted(self._resources_by_name)
 
     def parquet_table_names(self) -> list[str]:
-        """Names of all tables with a Parquet file directly in :attr:`root`.
+        """Names of all tables with a Parquet file directly in `root`.
 
-        Unlike :meth:`table_names`, this lists the files actually present, so it
+        Unlike `table_names()`, this lists the files actually present, so it
         doesn't depend on the datapackage descriptor existing or being current
         (common for local development outputs).
         """
@@ -134,7 +134,7 @@ class PudlDiffDataset:
         )
 
     def get_resource(self, table_name: str) -> dict[str, Any]:
-        """Return the datapackage resource descriptor for ``table_name``.
+        """Return the datapackage resource descriptor for `table_name`.
 
         Raises:
             ValueError: if no resource with that name exists in the datapackage.
@@ -147,11 +147,11 @@ class PudlDiffDataset:
             ) from None
 
     def primary_key(self, table_name: str) -> list[str]:
-        """The primary key columns of ``table_name``, or an empty list if none.
+        """The primary key columns of `table_name`, or an empty list if none.
 
         Read from this dataset's own datapackage descriptor if it's present,
-        readable, and lists ``table_name``. Otherwise falls back on other metadata
-        (see :func:`~.fallback_primary_key`): PUDL's own if it's installed, or else
+        readable, and lists `table_name`. Otherwise falls back on other metadata
+        (see `fallback_primary_key()`): PUDL's own if it's installed, or else
         the last nightly build's datapackage. This matters for local development
         outputs, which may lack a datapackage.json entirely, or have one that's
         stale relative to the Parquet files actually sitting alongside it
@@ -180,44 +180,44 @@ class PudlDiffDataset:
         return primary_key
 
     def field_names(self, table_name: str) -> list[str]:
-        """The column names of ``table_name``, in datapackage order."""
+        """The column names of `table_name`, in datapackage order."""
         schema = self.get_resource(table_name)["schema"]
         return [field["name"] for field in schema["fields"]]
 
     def table_path(self, table_name: str) -> UPath:
-        """Path to the Parquet file backing ``table_name``.
+        """Path to the Parquet file backing `table_name`.
 
-        Deterministic from :attr:`root` and ``table_name`` alone - doesn't
+        Deterministic from `root` and `table_name` alone - doesn't
         require the datapackage descriptor to exist or list this table, so
         that a missing or incomplete datapackage.json (common for local
         development outputs) doesn't block locating the file itself.
-        :meth:`scan_table` will raise its own clear error if the file isn't
+        `scan_table()` will raise its own clear error if the file isn't
         actually there.
         """
         return self.root / f"{table_name}.parquet"
 
     def display_table_path(self, table_name: str) -> str:
-        """The path to ``table_name``'s Parquet file, as recorded in reports.
+        """The path to `table_name`'s Parquet file, as recorded in reports.
 
-        Like :meth:`table_path`, but under :attr:`display_root`.
+        Like `table_path()`, but under `display_root`.
         """
         if self.display_root == str(self.root):
             return str(self.table_path(table_name))
         return f"{self.display_root.rstrip('/')}/{table_name}.parquet"
 
     def table_bytes(self, table_name: str) -> int:
-        """Size in bytes of the Parquet file backing ``table_name``.
+        """Size in bytes of the Parquet file backing `table_name`.
 
         Works for both local and remote (e.g. S3) roots.
         """
         return self.table_path(table_name).stat().st_size
 
     def scan_table(self, table_name: str) -> pl.LazyFrame:
-        """Lazily scan ``table_name`` as a Polars LazyFrame.
+        """Lazily scan `table_name` as a Polars LazyFrame.
 
         Works for both local and remote (e.g. S3) roots. Remote reads use the
-        storage options (e.g. credentials, ``anon``) configured on this
-        dataset's :attr:`root` path.
+        storage options (e.g. credentials, `anon`) configured on this
+        dataset's `root` path.
         """
         path = self.table_path(table_name)
         # Polars' storage_options requires string values; UPath can hand back
@@ -231,8 +231,8 @@ class PudlDiffDataset:
     def provenance(self) -> DatasetProvenance:
         """This dataset's own build provenance, from its datapackage descriptor.
 
-        Fields the descriptor doesn't have are left ``None`` on the returned
-        :class:`DatasetProvenance`, e.g. for a build predating git
+        Fields the descriptor doesn't have are left `None` on the returned
+        `DatasetProvenance`, e.g. for a build predating git
         provenance tracking.
         """
         git_tags = self.datapackage.get("git_tags")

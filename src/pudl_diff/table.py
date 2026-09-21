@@ -24,24 +24,25 @@ from pudl_diff.schema import SchemaDiff, compare_schemas
 logger: logging.Logger = get_logger(__name__)
 
 
-#: Fixed set of reasons :func:`compare_table` skips the row-level comparison
-#: *altogether* (see :attr:`TableDiffResult.row_diff_skipped_reason`). A detailed,
-#: interpolated explanation (row counts, table names, etc.) is still logged
-#: via ``logger.warning`` at the point of the skip; this only carries the
-#: category, so report consumers can branch on it without parsing text.
 RowComparisonSkipReason = Literal[
     "too_many_rows", "incompatible_dtypes", "mismatched_columns"
 ]
+"""Fixed set of reasons `compare_table()` skips the row-level comparison *altogether*
+(see `TableDiffResult.row_diff_skipped_reason`).
+A detailed, interpolated explanation (row counts, table names, etc.) is still logged
+via `logger.warning` at the point of the skip; this only carries the category, so
+report consumers can branch on it without parsing text."""
 
 
-#: Row-level comparisons use Polars' streaming engine, spill their results to
-#: disk, and join narrow 64-bit row hashes rather than whole rows, but the joins
-#: still hold a few bytes per row in memory (and every row, if all of a table's
-#: float values differ slightly), so above this many rows on either side they
-#: risk exhausting memory on typical hardware. :func:`compare_table` skips
-#: row-level comparison entirely once either table exceeds this, rather than risk
-#: an out-of-memory crash; the cheaper schema and row-count comparisons still run.
 MAX_ROWS_FOR_ROW_LEVEL_COMPARISON = 100_000_000
+"""Row-level comparisons use Polars' streaming engine, spill their results to disk, and
+join narrow 64-bit row hashes rather than whole rows, but the joins still hold a few
+bytes per row in memory (and every row, if all of a table's float values differ
+slightly), so above this many rows on either side they risk exhausting memory on
+typical hardware.
+`compare_table()` skips row-level comparison entirely once either table exceeds this,
+rather than risk an out-of-memory crash; the cheaper schema and row-count comparisons
+still run."""
 
 
 @dataclass(frozen=True)
@@ -50,44 +51,44 @@ class TableDiffResult:
 
     table_name: str
     right_table_name: str
-    """Same as :attr:`table_name` unless a different ``right_table_name`` was
-    passed to :func:`compare_table`, e.g. to compare a `core_` table against
+    """Same as `table_name` unless a different `right_table_name` was
+    passed to `compare_table()`, e.g. to compare a `core_` table against
     the `out_` table built from it."""
     schema_diff: SchemaDiff
     row_count_diff: RowCountDiff
     row_diff: RowSetDiff | KeyedRowDiff | None
     """For a table with a primary key, computed over only the columns shared
     by both datasets if their column sets differ (with a warning logged), since
-    the primary key still uniquely identifies rows either way. ``None`` if the
+    the primary key still uniquely identifies rows either way. `None` if the
     table has no primary key and the column sets differ - a row-level
     comparison across changed columns isn't meaningful without one - if
     either table has more than the configured row-level comparison cap, or if
     the comparison didn't complete for some other reason; see
-    :func:`compare_table` and :attr:`row_diff_skipped_reason`."""
+    `compare_table()` and `row_diff_skipped_reason`."""
     row_diff_skipped_reason: RowComparisonSkipReason | None = None
-    """Why :attr:`row_diff` is ``None``: too many rows, incompatible column
-    dtypes, or changed columns without a usable primary key. ``None`` if
+    """Why `row_diff` is `None`: too many rows, incompatible column
+    dtypes, or changed columns without a usable primary key. `None` if
     row-level comparison actually ran (whether or not it found any diffs)."""
     elapsed_seconds: float = 0.0
-    """Wall-clock time :func:`compare_table` took to run this comparison."""
+    """Wall-clock time `compare_table()` took to run this comparison."""
     peak_rss_bytes: int = 0
     """Peak resident set size attributable to this comparison: the highest
-    whole-process RSS observed while :func:`compare_table` was running, net
+    whole-process RSS observed while `compare_table()` was running, net
     of the process's RSS just before it started. Sampled on a background
-    thread (see :class:`~.PerformanceSampler`), so very short, sharp spikes
+    thread (see `PerformanceSampler`), so very short, sharp spikes
     between samples may be missed."""
     peak_cpu_percent: float = 0.0
-    """Peak per-interval CPU utilization observed while :func:`compare_table`
-    was running, as a percent of one core (e.g. ``400.0`` for four cores kept
+    """Peak per-interval CPU utilization observed while `compare_table()`
+    was running, as a percent of one core (e.g. `400.0` for four cores kept
     fully busy at once). Sampled on the same background thread as
-    :attr:`peak_rss_bytes`; a rough gauge of how parallelized Polars' work
+    `peak_rss_bytes`; a rough gauge of how parallelized Polars' work
     was, not an exact thread count."""
 
     @property
     def is_identical(self) -> bool:
         """Whether the table is functionally identical between the two datasets.
 
-        Conservatively ``False`` whenever :attr:`row_diff` is ``None``, even if
+        Conservatively `False` whenever `row_diff` is `None`, even if
         the schema and row counts match: without a row-level comparison having
         actually run, row content is unverified and can't be called identical.
         """
@@ -112,9 +113,9 @@ def compare_table(
     """Compare a single table between two PUDL datasets.
 
     Times the comparison and samples this process's peak RSS and CPU
-    utilization while it runs (see :class:`~.PerformanceSampler`), recording
-    all three on the returned :class:`TableDiffResult`. See
-    :func:`_compare_table` for the comparison logic itself.
+    utilization while it runs (see `PerformanceSampler`), recording
+    all three on the returned `TableDiffResult`. See
+    `_compare_table()` for the comparison logic itself.
     """
     start = time.perf_counter()
     with PerformanceSampler() as sampler:
@@ -148,27 +149,27 @@ def _compare_table(
     """Compare a single table between two PUDL datasets.
 
     Runs the schema and row-count comparisons, then dispatches to
-    :func:`~.compare_rows_with_pk` or :func:`~.compare_rows_without_pk` depending on
-    whether ``table_name`` has a primary key (per ``left``'s datapackage).
+    `compare_rows_with_pk()` or `compare_rows_without_pk()` depending on
+    whether `table_name` has a primary key (per `left`'s datapackage).
 
     Args:
         left: The "left" dataset to compare.
-        right: The "right" dataset to compare against ``left``.
-        table_name: Name of the table to compare in ``left``, and in ``right``
-            too unless ``right_table_name`` is given.
-        right_table_name: Name of the table to compare in ``right``, if it
-            differs from ``table_name`` - e.g. comparing a `core_` table
-            against the `out_` table built from it. Defaults to ``table_name``.
-            The primary key is still looked up under ``table_name``, so this
-            assumes ``right_table_name``'s schema is compatible enough to
+        right: The "right" dataset to compare against `left`.
+        table_name: Name of the table to compare in `left`, and in `right`
+            too unless `right_table_name` is given.
+        right_table_name: Name of the table to compare in `right`, if it
+            differs from `table_name` - e.g. comparing a `core_` table
+            against the `out_` table built from it. Defaults to `table_name`.
+            The primary key is still looked up under `table_name`, so this
+            assumes `right_table_name`'s schema is compatible enough to
             share it (e.g. sharing the same primary key columns).
         rtol: Relative tolerance used to treat two floating point values as
-            equal, matching :func:`numpy.isclose`'s default.
+            equal, matching `numpy.isclose()`'s default.
         atol: Absolute tolerance used to treat two floating point values as
-            equal, matching :func:`numpy.isclose`'s default.
+            equal, matching `numpy.isclose()`'s default.
         max_rows_for_row_level_comparison: Row-level comparison is skipped
             entirely, logging a warning, whenever either table exceeds this
-            many rows (see :data:`MAX_ROWS_FOR_ROW_LEVEL_COMPARISON`).
+            many rows (see `MAX_ROWS_FOR_ROW_LEVEL_COMPARISON`).
     """
     right_table_name = right_table_name or table_name
     label = (
@@ -266,23 +267,23 @@ def _compare_table(
 
 @dataclass(frozen=True)
 class TableDiffRun:
-    """The outcome of a :func:`run_table_diff` call.
+    """The outcome of a `run_table_diff()` call.
 
-    Distinct from :attr:`TableDiffResult.row_diff_skipped_reason`, which
+    Distinct from `TableDiffResult.row_diff_skipped_reason`, which
     covers *expected* situations where row-level comparison is skipped but
     the comparison otherwise completes normally (e.g. a table too large to
-    compare row-by-row). :class:`TableDiffRun` instead covers the comparison
+    compare row-by-row). `TableDiffRun` instead covers the comparison
     failing to complete at all - a missing datapackage, an S3 access
     failure, or any other unexpected error - so a report can always be
-    produced even when :func:`compare_table` itself raises.
+    produced even when `compare_table()` itself raises.
     """
 
     success: bool
     result: TableDiffResult | None
-    """The comparison's result, or ``None`` if it failed to complete."""
+    """The comparison's result, or `None` if it failed to complete."""
     error: str | None
-    """The failure's exception message plus traceback, or ``None`` if
-    :attr:`success` is ``True``."""
+    """The failure's exception message plus traceback, or `None` if
+    `success` is `True`."""
 
 
 def run_table_diff(
@@ -295,13 +296,13 @@ def run_table_diff(
     atol: float = 1e-8,
     max_rows_for_row_level_comparison: int = MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
 ) -> TableDiffRun:
-    """Run :func:`compare_table`, tolerating any failure it raises.
+    """Run `compare_table()`, tolerating any failure it raises.
 
-    Takes the same arguments as :func:`compare_table` and passes them
-    through unchanged. Use this instead of calling :func:`compare_table`
+    Takes the same arguments as `compare_table()` and passes them
+    through unchanged. Use this instead of calling `compare_table()`
     directly when building a report that should always be produced, even if
     the comparison itself blows up - e.g. because a dataset's
-    ``datapackage.json`` is missing, or an S3 root is unreachable.
+    `datapackage.json` is missing, or an S3 root is unreachable.
     """
     try:
         result = compare_table(
@@ -324,7 +325,7 @@ def row_diff_left_right_frames(
 ) -> tuple[tuple[pl.LazyFrame, int], tuple[pl.LazyFrame, int]]:
     """All differing rows, split by source table, in that table's own schema.
 
-    Returns a ``(lazy_frame, row_count)`` pair for each side.
+    Returns a `(lazy_frame, row_count)` pair for each side.
 
     For a table with a primary key, this is the symmetric difference of
     primary keys (rows present on only one side) plus, for shared keys, the

@@ -25,7 +25,7 @@ _TAGS = {
     1: ("[CHANGED]", "yellow"),
     2: ("[ERROR]", "red"),
 }
-"""The log-level style tag and its color for each :attr:`~.TableOutcome.exit_code`."""
+"""The log-level style tag and its color for each `exit_code`."""
 _TAG_WIDTH = 11
 _KEY_WIDTH = 5
 _LEFT_COLUMNS_WIDTH = 4
@@ -53,7 +53,7 @@ def _tables(n: int) -> str:
 
 
 def _render(segments: _Segments, width: int = 0) -> str:
-    """Style ``segments``, padding to ``width`` based on their unstyled length."""
+    """Style `segments`, padding to `width` based on their unstyled length."""
     plain = "".join(text for text, _ in segments)
     styled = "".join(
         click.style(text, fg=color) if color else text for text, color in segments
@@ -62,13 +62,13 @@ def _render(segments: _Segments, width: int = 0) -> str:
 
 
 def _render_right(segments: _Segments, width: int) -> str:
-    """Style ``segments``, right-aligned in ``width`` based on their unstyled length."""
+    """Style `segments`, right-aligned in `width` based on their unstyled length."""
     plain = "".join(text for text, _ in segments)
     return " " * max(0, width - len(plain)) + _render(segments)
 
 
 def _count(text: str, value: int, color: _Color) -> tuple[str, _Color]:
-    """A count in ``color``, or gray if it's zero."""
+    """A count in `color`, or gray if it's zero."""
     return text, color if value else _GRAY
 
 
@@ -79,11 +79,11 @@ def _change_segments(
     text: Callable[[int], str],
     colors: tuple[_Color, _Color, _Color] = ("green", "yellow", "red"),
 ) -> _Segments:
-    """Git diff style ``+added/changed/-removed``, shown as ``text(count)``.
+    """Git diff style `+added/changed/-removed`, shown as `text(count)`.
 
-    For rows, ``added`` are rows only in the right table (green), ``changed`` are
+    For rows, `added` are rows only in the right table (green), `changed` are
     rows whose primary key is in both tables but whose values changed (yellow,
-    and only for tables with a primary key), and ``removed`` are rows only in
+    and only for tables with a primary key), and `removed` are rows only in
     the left table (red). Zero counts are gray.
     """
     added_color, changed_color, removed_color = colors
@@ -95,9 +95,9 @@ def _change_segments(
 
 
 def _columns_segments(outcome: TableOutcome) -> _Segments:
-    """Summary of column changes: ``+added/changed/-removed``.
+    """Summary of column changes: `+added/changed/-removed`.
 
-    Here ``changed`` counts the columns whose dtype changed. Cyan, hot pink and
+    Here `changed` counts the columns whose dtype changed. Cyan, hot pink and
     magenta, to tell them apart from the row counts.
     """
     if outcome.columns_added is None or outcome.columns_removed is None:
@@ -166,7 +166,7 @@ def _format_key(has_primary_key: bool | None) -> str:
 
 
 def format_header(progress_width: int = 0) -> str:
-    """The two lines of column headings for the lines made by :func:`format_outcome`.
+    """The two lines of column headings for the lines made by `format_outcome()`.
 
     A heading may name its column on the first line and say what it holds on the
     second, so that it needn't be wider than the values below it. The second line is
@@ -243,7 +243,7 @@ _RULE_WIDTH = 60
 
 
 def _field(label: str, value: str) -> str:
-    """A summary line: a bold ``label``, then ``value`` aligned with the others."""
+    """A summary line: a bold `label`, then `value` aligned with the others."""
     padding = " " * max(2, _LABEL_WIDTH - len(label))
     return f"{click.style(label, bold=True)}{padding}{value}"
 
@@ -333,7 +333,7 @@ def echo_summary(
 ) -> None:
     """Print how the run went: table counts, what was compared, time and memory.
 
-    Ends by saying the report was written to ``report_path``, or, if ``saved`` is
+    Ends by saying the report was written to `report_path`, or, if `saved` is
     False, that it was read from there.
     """
     summary = report.summary
@@ -384,9 +384,9 @@ def echo_intro(
 class TerminalProgress:
     """Prints the column headings, then a line about each table as it's compared.
 
-    Meant to be used as the callbacks of :func:`~.run_dataset_diff`.
-    Keeps each table's :class:`~.TableOutcome`, in
-    :attr:`outcomes`, for the summary at the end.
+    Meant to be used as the callbacks of `run_dataset_diff()`.
+    Keeps each table's `TableOutcome`, in
+    `outcomes`, for the summary at the end.
     """
 
     def __init__(
@@ -405,7 +405,7 @@ class TerminalProgress:
             right_root: Where the right dataset is.
             explicit: Whether the tables to compare were named, rather than being
                 all those in both datasets.
-            show_progress: Whether to start each line with a ``[n/total]`` count.
+            show_progress: Whether to start each line with a `[n/total]` count.
             intro: What to say before the column headings instead of the usual
                 description of the comparison, e.g. when showing a saved report.
         """

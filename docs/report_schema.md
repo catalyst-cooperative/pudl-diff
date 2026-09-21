@@ -34,13 +34,13 @@ changes, and checked by a unit test. To update them by hand, run
 
 The full comparison of two PUDL datasets: the saved JSON report.
 
-Built by ``build_pudl_diff_report``. Holds everything that pertains to the comparison as a whole, plus a ``TableDiffReport`` for each table.
+Built by `build_pudl_diff_report()`. Holds everything that pertains to the comparison as a whole, plus a `TableDiffReport` for each table.
 
 ### `schema_version`
 
 *Type:* string.
 
-Version of this report format, in ``major.minor.patch`` form.
+Version of this report format, in `major.minor.patch` form.
 
 ### `created`
 
@@ -100,7 +100,7 @@ Each compared table's report, keyed by its name in the left dataset.
 
 *Type:* string or null.
 
-Why the comparison as a whole failed, e.g. no tables could be listed. This is ``none`` when the only failures are of individual tables, which each record their own ``TableDiffReport.error``.
+Why the comparison as a whole failed, e.g. no tables could be listed. This is `null` when the only failures are of individual tables, which each record their own `error`.
 
 ### `success`
 
@@ -108,13 +108,13 @@ Why the comparison as a whole failed, e.g. no tables could be listed. This is ``
 
 Whether the comparison completed.
 
-That is, ``error`` is ``none`` and so is every table's. Distinct from ``is_identical``: a comparison can succeed and still find differences.
+That is, `error` is `null` and so is every table's. Distinct from `is_identical`: a comparison can succeed and still find differences.
 
 ### `is_identical`
 
 *Type:* boolean. *Derived from the other fields.*
 
-Whether every compared table is identical, and ``success`` is ``true``.
+Whether every compared table is identical, and `success` is `true`.
 
 Tables found in only one dataset don't count against this.
 
@@ -132,7 +132,7 @@ The dataset's build UUID.
 
 *Type:* string or null.
 
-UTC ISO-8601 timestamp of when this dataset was built - distinct from the report's own ``PudlDiffReport.created``, which is when the *comparison* was run.
+UTC ISO-8601 timestamp of when this dataset was built - distinct from the report's own `created`, which is when the *comparison* was run.
 
 ### `git_sha`
 
@@ -144,7 +144,7 @@ The git commit SHA of the PUDL code that built the dataset.
 
 *Type:* array of string or null.
 
-The git tags on that commit, e.g. release versions like ``v2026.1.0``.
+The git tags on that commit, e.g. release versions like `v2026.1.0`.
 
 ### `root`
 
@@ -162,13 +162,13 @@ Recorded in the report because they affect how its results should be interpreted
 
 *Type:* number.
 
-Relative tolerance for float equality, as in ``numpy.isclose``.
+Relative tolerance for float equality, as in `numpy.isclose()`.
 
 ### `atol`
 
 *Type:* number.
 
-Absolute tolerance for float equality, as in ``numpy.isclose``.
+Absolute tolerance for float equality, as in `numpy.isclose()`.
 
 ### `max_compare_rows`
 
@@ -180,27 +180,27 @@ Row-level comparison is skipped for any table with more rows than this.
 
 *Type:* integer or null.
 
-Cap on the rows written to each Parquet side-output file, or ``none`` to write every differing row.
+Cap on the rows written to each Parquet side-output file, or `null` to write every differing row.
 
 ## PudlDiffSummary
 
-Totals over every table in a ``PudlDiffReport``.
+Totals over every table in a `PudlDiffReport`.
 
 Saves consumers from aggregating the tables themselves.
 
-The size fields (see ``SizeComparison``) total only the tables whose size is known on both sides.
+The size fields (see `SizeComparison`) total only the tables whose size is known on both sides.
 
 ### `left_table_bytes`
 
 *Type:* integer or null.
 
-Size in bytes of the left table's Parquet file(s), or ``none`` if unknown.
+Size in bytes of the left table's Parquet file(s), or `null` if unknown.
 
 ### `right_table_bytes`
 
 *Type:* integer or null.
 
-Size in bytes of the right table's Parquet file(s), or ``none`` if unknown.
+Size in bytes of the right table's Parquet file(s), or `null` if unknown.
 
 ### `table_count`
 
@@ -302,7 +302,7 @@ Columns only in the left table, summed over all the tables.
 
 *Type:* integer or null.
 
-The highest ``TableDiffReport.peak_rss_bytes`` of any table.
+The highest `peak_rss_bytes` of any table.
 
 ### `peak_rss_table`
 
@@ -314,13 +314,13 @@ The table with that peak memory use.
 
 *Type:* string or null. *Derived from the other fields.*
 
-``left_table_bytes`` in human-readable form, e.g. ``12.3 MB``.
+`left_table_bytes` in human-readable form, e.g. `12.3 MB`.
 
 ### `right_table_size`
 
 *Type:* string or null. *Derived from the other fields.*
 
-``right_table_bytes`` in human-readable form.
+`right_table_bytes` in human-readable form.
 
 ### `bytes_difference`
 
@@ -328,45 +328,45 @@ The table with that peak memory use.
 
 The change in size from the left to the right table.
 
-``right_table_bytes - left_table_bytes``, so negative if the right side is smaller. Compression changes show up here even if the contents don't.
+`right_table_bytes - left_table_bytes`, so negative if the right side is smaller. Compression changes show up here even if the contents don't.
 
 ### `bytes_difference_size`
 
 *Type:* string or null. *Derived from the other fields.*
 
-``bytes_difference`` in human-readable form, e.g. ``-1.2 MB``.
+`bytes_difference` in human-readable form, e.g. `-1.2 MB`.
 
 ### `bytes_difference_percent`
 
 *Type:* number or null. *Derived from the other fields.*
 
-``bytes_difference`` as a percentage of ``left_table_bytes``.
+`bytes_difference` as a percentage of `left_table_bytes`.
 
-``none`` if the left size is unknown or zero.
+`null` if the left size is unknown or zero.
 
 ### `peak_rss`
 
 *Type:* string or null. *Derived from the other fields.*
 
-``peak_rss_bytes`` in human-readable form, e.g. ``1.2 GB``.
+`peak_rss_bytes` in human-readable form, e.g. `1.2 GB`.
 
 ## TableDiffReport
 
 A single table comparison, in the form saved in the PUDL Diff JSON report.
 
-Built by ``build_table_diff_report`` from a ``TableDiffRun``, and one entry in ``PudlDiffReport.tables``. Fields that describe the whole comparison of the two datasets (when it was run, the datasets' provenance) live on the ``PudlDiffReport`` instead. Contains no row-level data itself - only counts and summaries; the actual differing rows are written separately as Parquet files (see ``write_row_diff_parquet``) and referenced from ``row_diff``.
+Built by `build_table_diff_report()` from a `TableDiffRun`, and one entry in `tables`. Fields that describe the whole comparison of the two datasets (when it was run, the datasets' provenance) live on the `PudlDiffReport` instead. Contains no row-level data itself - only counts and summaries; the actual differing rows are written separately as Parquet files (see `write_row_diff_parquet()`) and referenced from `row_diff`.
 
 ### `left_table_bytes`
 
 *Type:* integer or null.
 
-Size in bytes of the left table's Parquet file(s), or ``none`` if unknown.
+Size in bytes of the left table's Parquet file(s), or `null` if unknown.
 
 ### `right_table_bytes`
 
 *Type:* integer or null.
 
-Size in bytes of the right table's Parquet file(s), or ``none`` if unknown.
+Size in bytes of the right table's Parquet file(s), or `null` if unknown.
 
 ### `left_table_name`
 
@@ -384,7 +384,7 @@ The path or URL of the table's Parquet file in the left dataset. Worked out from
 
 *Type:* string.
 
-The name of the table in the right dataset. Differs from ``left_table_name`` only when two differently named tables were compared, e.g. a ``core_`` table against the ``out_`` table built from it.
+The name of the table in the right dataset. Differs from `left_table_name` only when two differently named tables were compared, e.g. a `core_` table against the `out_` table built from it.
 
 ### `right_table_path`
 
@@ -396,55 +396,55 @@ The path or URL of the table's Parquet file in the right dataset. Absolute, for 
 
 *Type:* number or null.
 
-Wall-clock time the comparison of this table took, or ``none`` if it failed.
+Wall-clock time the comparison of this table took, or `null` if it failed.
 
 ### `peak_rss_bytes`
 
 *Type:* integer or null.
 
-The most memory (resident set size) the process used during this comparison beyond what it was using when the comparison started, in bytes. Sampled, so a very short spike could be missed. ``none`` if the comparison failed.
+The most memory (resident set size) the process used during this comparison beyond what it was using when the comparison started, in bytes. Sampled, so a very short spike could be missed. `null` if the comparison failed.
 
 ### `peak_cpu_percent`
 
 *Type:* number or null.
 
-The highest CPU utilization sampled during this comparison, as a percentage of one core: ``400.0`` means four cores kept fully busy. A rough gauge of how parallel the work was. ``none`` if the comparison failed.
+The highest CPU utilization sampled during this comparison, as a percentage of one core: `400.0` means four cores kept fully busy. A rough gauge of how parallel the work was. `null` if the comparison failed.
 
 ### `schema_diff`
 
 *Type:* [SchemaDiffSummary](#schemadiffsummary) or null.
 
-How the tables' columns and dtypes differ, or ``none`` if the comparison failed.
+How the tables' columns and dtypes differ, or `null` if the comparison failed.
 
 ### `row_count_diff`
 
 *Type:* [RowCountDiffSummary](#rowcountdiffsummary) or null.
 
-How the tables' row counts differ, or ``none`` if the comparison failed.
+How the tables' row counts differ, or `null` if the comparison failed.
 
 ### `row_diff`
 
 *Type:* [RowDiffSummary](#rowdiffsummary) or null.
 
-How the tables' rows differ, or ``none`` if the comparison failed. If the row-level comparison was skipped, its sections say why.
+How the tables' rows differ, or `null` if the comparison failed. If the row-level comparison was skipped, its sections say why.
 
 ### `error`
 
 *Type:* string or null.
 
-Exception message plus traceback, if the comparison failed to complete. ``none`` if ``success`` is ``true``.
+Exception message plus traceback, if the comparison failed to complete. `null` if `success` is `true`.
 
 ### `left_table_size`
 
 *Type:* string or null. *Derived from the other fields.*
 
-``left_table_bytes`` in human-readable form, e.g. ``12.3 MB``.
+`left_table_bytes` in human-readable form, e.g. `12.3 MB`.
 
 ### `right_table_size`
 
 *Type:* string or null. *Derived from the other fields.*
 
-``right_table_bytes`` in human-readable form.
+`right_table_bytes` in human-readable form.
 
 ### `bytes_difference`
 
@@ -452,21 +452,21 @@ Exception message plus traceback, if the comparison failed to complete. ``none``
 
 The change in size from the left to the right table.
 
-``right_table_bytes - left_table_bytes``, so negative if the right side is smaller. Compression changes show up here even if the contents don't.
+`right_table_bytes - left_table_bytes`, so negative if the right side is smaller. Compression changes show up here even if the contents don't.
 
 ### `bytes_difference_size`
 
 *Type:* string or null. *Derived from the other fields.*
 
-``bytes_difference`` in human-readable form, e.g. ``-1.2 MB``.
+`bytes_difference` in human-readable form, e.g. `-1.2 MB`.
 
 ### `bytes_difference_percent`
 
 *Type:* number or null. *Derived from the other fields.*
 
-``bytes_difference`` as a percentage of ``left_table_bytes``.
+`bytes_difference` as a percentage of `left_table_bytes`.
 
-``none`` if the left size is unknown or zero.
+`null` if the left size is unknown or zero.
 
 ### `success`
 
@@ -474,7 +474,7 @@ The change in size from the left to the right table.
 
 Whether the comparison completed at all, successfully or not.
 
-See ``TableDiffRun``. Distinct from ``is_identical``: a comparison can succeed and still find the tables different.
+See `TableDiffRun`. Distinct from `is_identical`: a comparison can succeed and still find the tables different.
 
 ### `is_identical`
 
@@ -482,17 +482,17 @@ See ``TableDiffRun``. Distinct from ``is_identical``: a comparison can succeed a
 
 Whether the table is functionally identical between the two datasets.
 
-Conservatively ``false`` whenever ``success`` is ``false``, since a failed comparison can't establish that the tables are identical, and whenever the row-level comparison didn't run (it was skipped), since then the rows are unverified even if the schema and row counts match.
+Conservatively `false` whenever `success` is `false`, since a failed comparison can't establish that the tables are identical, and whenever the row-level comparison didn't run (it was skipped), since then the rows are unverified even if the schema and row counts match.
 
 ### `peak_rss`
 
 *Type:* string or null. *Derived from the other fields.*
 
-``peak_rss_bytes`` in human-readable form, e.g. ``1.2 GB``.
+`peak_rss_bytes` in human-readable form, e.g. `1.2 GB`.
 
 ## SchemaDiffSummary
 
-The JSON-report form of ``SchemaDiff``.
+The JSON-report form of `SchemaDiff`.
 
 ### `columns_only_in_left`
 
@@ -510,7 +510,7 @@ Names of the columns that are only in the right table: added columns.
 
 *Type:* object mapping names to [string, string].
 
-Maps column name to a ``(left_dtype, right_dtype)`` pair of dtype names, e.g. ``("Int64", "Int32")``.
+Maps column name to a `(left_dtype, right_dtype)` pair of dtype names, e.g. `("Int64", "Int32")`.
 
 ### `left_column_count`
 
@@ -532,7 +532,7 @@ Whether the two schemas have the same columns and dtypes.
 
 ## RowCountDiffSummary
 
-The JSON-report form of ``RowCountDiff``.
+The JSON-report form of `RowCountDiff`.
 
 ### `left_row_count`
 
@@ -550,7 +550,7 @@ Total number of rows in the right table.
 
 *Type:* integer.
 
-``right_row_count - left_row_count``: the change in row count from the reference (left) table to the right table.
+`right_row_count - left_row_count`: the change in row count from the reference (left) table to the right table.
 
 ### `is_identical`
 
@@ -560,27 +560,27 @@ Whether the row counts match.
 
 ## RowDiffSummary
 
-The JSON-report form of ``TableDiffResult.row_diff``.
+The JSON-report form of `row_diff`.
 
-Exactly one of ``pk_diff`` and ``non_pk_diff`` is a full summary (unless row-level comparison was skipped entirely); the other is a ``RowDiffSectionSkipped`` saying why it wasn't produced: ``no_primary_key`` or ``primary_key_available`` when the table's primary key determined which kind of comparison applies, or the reason the comparison was skipped altogether (see ``RowComparisonSkipReason``), in which case the one that would have run carries that reason.
+Exactly one of `pk_diff` and `non_pk_diff` is a full summary (unless row-level comparison was skipped entirely); the other is a `RowDiffSectionSkipped` saying why it wasn't produced: `no_primary_key` or `primary_key_available` when the table's primary key determined which kind of comparison applies, or the reason the comparison was skipped altogether (see `RowComparisonSkipReason`), in which case the one that would have run carries that reason.
 
 ### `pk_diff`
 
-*Type:* [PkRowDiffSummary](#pkrowdiffsummary) or [RowDiffSectionSkipped](#rowdiffsectionskipped), told apart by ``status``.
+*Type:* [PkRowDiffSummary](#pkrowdiffsummary) or [RowDiffSectionSkipped](#rowdiffsectionskipped), told apart by `status`.
 
-The row-level comparison of a table with a primary key: a full summary (``status`` is ``"compared"``), or the reason there isn't one (``"skipped"``).
+The row-level comparison of a table with a primary key: a full summary (`status` is `"compared"`), or the reason there isn't one (`"skipped"`).
 
 ### `non_pk_diff`
 
-*Type:* [NonPkRowDiffSummary](#nonpkrowdiffsummary) or [RowDiffSectionSkipped](#rowdiffsectionskipped), told apart by ``status``.
+*Type:* [NonPkRowDiffSummary](#nonpkrowdiffsummary) or [RowDiffSectionSkipped](#rowdiffsectionskipped), told apart by `status`.
 
-The row-level comparison of a table without a primary key: a full summary (``status`` is ``"compared"``), or the reason there isn't one (``"skipped"``).
+The row-level comparison of a table without a primary key: a full summary (`status` is `"compared"`), or the reason there isn't one (`"skipped"`).
 
 ### `left_only_parquet`
 
 *Type:* [ParquetOutputSummary](#parquetoutputsummary) or null.
 
-The Parquet file of the rows found only in the left table (for a table with a primary key, this includes the left-hand values of rows that changed), or ``none`` if no file was written.
+The Parquet file of the rows found only in the left table (for a table with a primary key, this includes the left-hand values of rows that changed), or `null` if no file was written.
 
 ### `right_only_parquet`
 
@@ -590,13 +590,13 @@ The same, for the right table.
 
 ## PkRowDiffSummary
 
-The JSON-report form of a ``KeyedRowDiff``.
+The JSON-report form of a `KeyedRowDiff`.
 
 ### `status`
 
 *Type:* "compared".
 
-Always ``"compared"``: this is what tells this apart from a skipped section.
+Always `"compared"`: this is what tells this apart from a skipped section.
 
 ### `primary_key_columns`
 
@@ -648,7 +648,7 @@ Stands in for a row diff summary that wasn't produced, and says why.
 
 *Type:* "skipped".
 
-Always ``"skipped"``: this is what tells this apart from a full summary.
+Always `"skipped"`: this is what tells this apart from a full summary.
 
 ### `skipped_reason`
 
@@ -656,21 +656,21 @@ Always ``"skipped"``: this is what tells this apart from a full summary.
 
 Why there is no summary in this section:
 
-* ``too_many_rows``: either table has more rows than ``DiffOptions.max_compare_rows``, so no row-level comparison was made.
-* ``incompatible_dtypes``: the row-level comparison failed, most likely because the tables' columns have incompatible dtypes.
-* ``mismatched_columns``: the tables have different columns and no primary key, so their rows can't be compared meaningfully.
-* ``primary_key_available``: not skipped for a problem. The table has a primary key, so its comparison is in ``pk_diff``, not ``non_pk_diff``.
-* ``no_primary_key``: likewise, the table has no primary key, so its comparison is in ``non_pk_diff``, not ``pk_diff``.
+* `too_many_rows`: either table has more rows than `DiffOptions.max_compare_rows`, so no row-level comparison was made.
+* `incompatible_dtypes`: the row-level comparison failed, most likely because the tables' columns have incompatible dtypes.
+* `mismatched_columns`: the tables have different columns and no primary key, so their rows can't be compared meaningfully.
+* `primary_key_available`: not skipped for a problem. The table has a primary key, so its comparison is in `pk_diff`, not `non_pk_diff`.
+* `no_primary_key`: likewise, the table has no primary key, so its comparison is in `non_pk_diff`, not `pk_diff`.
 
 ## NonPkRowDiffSummary
 
-The JSON-report form of a ``RowSetDiff`` without a primary key.
+The JSON-report form of a `RowSetDiff` without a primary key.
 
 ### `status`
 
 *Type:* "compared".
 
-Always ``"compared"``: this is what tells this apart from a skipped section.
+Always `"compared"`: this is what tells this apart from a skipped section.
 
 ### `only_in_left_count`
 
@@ -688,7 +688,7 @@ Number of rows only in the right table: added rows, counted the same way.
 
 *Type:* integer.
 
-``only_in_left_count + only_in_right_count``. Counts rows as a multiset, so surplus copies of duplicated rows are included.
+`only_in_left_count + only_in_right_count`. Counts rows as a multiset, so surplus copies of duplicated rows are included.
 
 ### `multiplicity_changed_row_count`
 
@@ -704,13 +704,13 @@ Whether every row in one table has a matching row in the other.
 
 ## ParquetOutputSummary
 
-The JSON-report form of a single ``ParquetOutput``.
+The JSON-report form of a single `ParquetOutput`.
 
 ### `path`
 
 *Type:* string.
 
-Where the file is, relative to the directory that contains the report (``pudl_diff_report.json``), so that the directory can be moved. Always written with ``/`` separators.
+Where the file is, relative to the directory that contains the report (`pudl_diff_report.json`), so that the directory can be moved. Always written with `/` separators.
 
 ### `bytes`
 
@@ -722,10 +722,10 @@ Size of the file in bytes.
 
 *Type:* string.
 
-``"sha256:<hexdigest>"`` of the file's contents, the convention PUDL's ``datapackage.json`` uses for its own resource files.
+`"sha256:<hexdigest>"` of the file's contents, the convention PUDL's `datapackage.json` uses for its own resource files.
 
 ### `size`
 
 *Type:* string. *Derived from the other fields.*
 
-``bytes`` in human-readable form, e.g. ``12.3 MB``.
+`bytes` in human-readable form, e.g. `12.3 MB`.
