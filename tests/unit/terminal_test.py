@@ -29,6 +29,7 @@ def table_outcome(
     columns_removed: int | None = None,
     dtypes_changed: int = 0,
 ) -> TableOutcome:
+    """A `TableOutcome` with the given exit code and changes, for formatting."""
     return TableOutcome(
         table_name="some_table",
         exit_code=exit_code,
@@ -56,6 +57,11 @@ def _plain(line: str) -> str:
 
 
 def test_format_outcome_table_with_primary_key():
+    """A table's line has its status, its row changes as `+added/changed/-removed`, and its time.
+
+    Counts have thousands separators. A table with a primary key has all three counts,
+    including how many rows were changed, as well as added and removed.
+    """
     line = _plain(
         format_outcome(table_outcome(1, added=1_234_567, changed=221, removed=764))
     )
@@ -65,11 +71,16 @@ def test_format_outcome_table_with_primary_key():
 
 
 def test_format_outcome_table_without_primary_key_has_no_middle_count():
+    """Without a primary key, there is no count of changed rows, only added and removed.
+
+    Rows can't be matched to say that one was changed, only that it is or isn't in the other.
+    """
     line = _plain(format_outcome(table_outcome(1, added=50, removed=30)))
     assert "+50/-30" in line
 
 
 def test_format_outcome_identical_and_progress_prefix():
+    """Format outcome identical and progress prefix."""
     line = _plain(
         format_outcome(table_outcome(0, added=0, changed=0, removed=0), "[ 3/378]")
     )
@@ -78,6 +89,7 @@ def test_format_outcome_identical_and_progress_prefix():
 
 
 def test_format_outcome_skipped_and_error_messages():
+    """A table that wasn't row-compared, or failed, says so where its row changes would be."""
     skipped = _plain(format_outcome(table_outcome(1, skipped_reason="too_many_rows")))
     assert "[CHANGED]" in skipped
     assert "row diff skipped: too many rows" in skipped
@@ -88,6 +100,10 @@ def test_format_outcome_skipped_and_error_messages():
 
 
 def test_format_outcome_column_changes():
+    """A table's column changes are `+added/changed/-removed`, before its row changes.
+
+    The middle count is the columns whose dtype changed.
+    """
     line = _plain(
         format_outcome(
             table_outcome(
@@ -107,6 +123,10 @@ def test_format_outcome_column_changes():
 
 
 def test_format_outcome_column_colors():
+    """Column changes are cyan for added, hot pink for changed and magenta for removed.
+
+    Zero counts are gray, like zero row counts, so the eye is drawn to what changed.
+    """
     gray, cyan, hot_pink, magenta = "\x1b[90m", "\x1b[36m", "\x1b[38;5;205m", "\x1b[35m"
     changed = format_outcome(
         table_outcome(
@@ -136,11 +156,13 @@ def test_format_outcome_column_colors():
 
 
 def test_format_outcome_error_has_no_column_counts():
+    """Format outcome error has no column counts."""
     line = _plain(format_outcome(table_outcome(2)))
     assert "+0/0/-0" not in line
 
 
 def test_format_outcome_left_columns():
+    """The number of columns in the left table is shown before the column changes."""
     line = _plain(
         format_outcome(
             table_outcome(
@@ -159,6 +181,12 @@ def test_format_outcome_left_columns():
 
 
 def test_format_header_has_two_lines_naming_each_column():
+    """The header names each column of the table over two lines, aligned with the rows.
+
+    The first line names the groups of columns, and the second the columns themselves,
+    three of which have `+add/~chg/-del` counts. Text columns are left-aligned with their
+    values, and numbers are right-aligned, which is checked against a real row of output.
+    """
     first, second = _plain(format_header(len("[3/378]"))).splitlines()
     for heading in ["LEFT", "COL CHANGES", "ROW CHANGES", "% OF LEFT ROWS"]:
         assert heading in first
@@ -203,6 +231,7 @@ def test_format_header_has_two_lines_naming_each_column():
 
 
 def test_format_outcome_key_and_left_rows():
+    """A row has whether the table has a primary key, and its number of rows in the left table."""
     pk = _plain(
         format_outcome(
             table_outcome(
@@ -223,6 +252,10 @@ def test_format_outcome_key_and_left_rows():
 
 
 def test_format_outcome_percentages_are_relative_to_left_rows():
+    """Changes are also shown as percentages of the number of rows in the left table.
+
+    The left table is the reference that changes are measured from.
+    """
     line = _plain(
         format_outcome(
             table_outcome(
@@ -240,6 +273,11 @@ def test_format_outcome_percentages_are_relative_to_left_rows():
 
 
 def test_format_outcome_skipped_row_diff_still_shows_left_rows_but_no_percentages():
+    """A table that wasn't row-compared has its rows shown, but no percentages of them.
+
+    There are no changes to give as percentages, and showing 0% would say that there
+    were none, when the rows were never compared.
+    """
     line = _plain(
         format_outcome(
             table_outcome(
@@ -253,6 +291,11 @@ def test_format_outcome_skipped_row_diff_still_shows_left_rows_but_no_percentage
 
 
 def test_format_outcome_sizes_and_their_colors():
+    """The sizes of the two Parquet files are shown, with their change as an amount and percent.
+
+    A table that grew is green, one that shrank is red, and one whose size didn't change
+    is gray, like the row counts.
+    """
     green, red, gray = "\x1b[32m", "\x1b[31m", "\x1b[90m"
 
     def line(left: int, right: int) -> str:
@@ -277,18 +320,21 @@ def test_format_outcome_sizes_and_their_colors():
 
 
 def test_format_outcome_unknown_sizes_are_blank():
+    """A table whose comparison failed has no sizes, and its line leaves them blank."""
     line = _plain(format_outcome(table_outcome(2)))
     assert "MB" not in line
     assert "%" not in line.replace("% OF", "")
 
 
 def test_format_header_names_size_columns():
+    """Format header names size columns."""
     header = _plain(format_header())
     for heading in ["LEFT SIZE", "RIGHT SIZE", "SIZE CHANGE", "% SIZE"]:
         assert heading in header
 
 
 def test_format_outcome_colors():
+    """Added, changed and removed rows are green, yellow and red, and zero counts are gray."""
     gray, green, yellow, red = "\x1b[90m", "\x1b[32m", "\x1b[33m", "\x1b[31m"
 
     mixed = format_outcome(table_outcome(1, added=5, changed=6, removed=7))
@@ -306,6 +352,10 @@ def test_format_outcome_colors():
 def test_terminal_progress_prints_a_numbered_line_per_table(
     tmp_path: Path, write_two_datasets, capsys
 ):
+    """Progress prints what is being compared, then a header, then a numbered line per table.
+
+    The lines come as each table finishes, and the outcomes are kept for the summary.
+    """
     tables = {"table_a": ["a", "b"], "table_b": ["a", "b"]}
     left, right = write_two_datasets(tmp_path, tables, tables)
     progress = TerminalProgress("left", "right", explicit=False, show_progress=True)
@@ -330,7 +380,11 @@ def test_terminal_progress_prints_a_numbered_line_per_table(
 def test_summary_of_a_report_without_timing_memory_or_sizes(
     tmp_path: Path, write_two_datasets, capsys
 ):
-    """Lines for information a report doesn't have (e.g. no tables) are left out."""
+    """Lines of the summary for information that a report doesn't have are left out.
+
+    A report with no tables has no elapsed time, peak memory or sizes, so those lines aren't
+    shown, instead of being shown empty or as zero.
+    """
     left, right = write_two_datasets(tmp_path, {"only_left": ["a"]}, {"other": ["a"]})
     report = build_pudl_diff_report(left, right, {})
 

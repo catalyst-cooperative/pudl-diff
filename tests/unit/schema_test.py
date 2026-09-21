@@ -7,6 +7,7 @@ from pudl_diff.schema import compare_schemas
 
 
 def test_compare_schemas_identical():
+    """Compare schemas identical."""
     schema = pl.Schema({"x": pl.Int64(), "y": pl.String()})
     result = compare_schemas(schema, schema)
     assert result.is_identical
@@ -16,12 +17,14 @@ def test_compare_schemas_identical():
 
 
 def test_compare_schemas_column_order_independent():
+    """The order of the columns doesn't matter, only which columns there are."""
     left = pl.Schema({"x": pl.Int64(), "y": pl.String()})
     right = pl.Schema({"y": pl.String(), "x": pl.Int64()})
     assert compare_schemas(left, right).is_identical
 
 
 def test_compare_schemas_extra_and_missing_columns():
+    """Compare schemas extra and missing columns."""
     left = pl.Schema({"x": pl.Int64(), "y": pl.String()})
     right = pl.Schema({"x": pl.Int64(), "z": pl.Float64()})
     result = compare_schemas(left, right)
@@ -32,6 +35,7 @@ def test_compare_schemas_extra_and_missing_columns():
 
 
 def test_compare_schemas_column_counts():
+    """Compare schemas column counts."""
     left = pl.Schema({"x": pl.Int64(), "y": pl.String(), "w": pl.Int64()})
     right = pl.Schema({"x": pl.Int64(), "z": pl.Float64()})
     result = compare_schemas(left, right)
@@ -43,6 +47,10 @@ def test_compare_schemas_column_counts():
 
 
 def test_compare_schemas_dtype_mismatch():
+    """A column whose dtype differs is a dtype change, and not a removed and an added column.
+
+    The change records the dtype on each side.
+    """
     left = pl.Schema({"x": pl.Int64(), "y": pl.String()})
     right = pl.Schema({"x": pl.Int32(), "y": pl.String()})
     result = compare_schemas(left, right)

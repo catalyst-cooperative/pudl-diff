@@ -18,6 +18,11 @@ from pudl_diff.runner import run_dataset_diff
 
 
 def test_build_pudl_diff_report_dataset_provenance(tmp_path: Path, pk_resource):
+    """A report records where each dataset came from, from its own datapackage.
+
+    The left datapackage has a build ID, creation time, git commit and tags, which are
+    copied into the report. The right one has none of them, so they are all `None`.
+    """
     resource = pk_resource("table_with_pk", ["x"])
     left_root = tmp_path / "left"
     right_root = tmp_path / "right"
@@ -66,6 +71,15 @@ def test_build_pudl_diff_report_dataset_provenance(tmp_path: Path, pk_resource):
 
 
 def test_pudl_diff_report_summary_and_status(tmp_path: Path, pk_resource, make_dataset):
+    """The report's summary totals its tables, and its status reflects the worst of them.
+
+    One table is the same on both sides, one has a changed value and an added row, and one
+    is broken (its right Parquet file isn't Parquet). So there are three tables, one each
+    identical, changed and failed; the failed one is named, and has no row comparison to
+    count; the report as a whole failed, so isn't identical, and its exit code is 2. The
+    tables are added out of order, and those only in the left dataset given unsorted, and
+    both are sorted in the report. The report can be written as JSON.
+    """
     resources = [
         pk_resource("same", ["x"]),
         pk_resource("changed", ["x"]),
@@ -132,6 +146,11 @@ def test_pudl_diff_report_summary_and_status(tmp_path: Path, pk_resource, make_d
 
 
 def test_pudl_diff_report_exit_codes(tmp_path: Path, pk_resource, make_dataset):
+    """The exit code is 0 for an identical report, and 2 if the run failed as a whole.
+
+    A failure of the whole run, like there being no tables to compare, fails the report
+    even though the one table that was compared succeeded and is identical.
+    """
     resources = [pk_resource("t", ["x"])]
     frame = pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})
     left = make_dataset(tmp_path / "left", resources, {"t": frame})
@@ -152,6 +171,11 @@ def test_pudl_diff_report_exit_codes(tmp_path: Path, pk_resource, make_dataset):
 
 
 def test_pudl_diff_report_round_trips_through_json(tmp_path: Path, write_two_datasets):
+    """A report written as JSON and loaded again is equal to the original.
+
+    The datasets have a table that's identical, one that changed, and one only on each
+    side, so that all of the parts of a report are exercised.
+    """
     left, right = write_two_datasets(
         tmp_path,
         {"table_a": ["a", "b"], "table_b": ["a", "b"], "table_left": ["a"]},
@@ -169,6 +193,7 @@ def test_pudl_diff_report_round_trips_through_json(tmp_path: Path, write_two_dat
 def test_pudl_diff_report_with_an_error_round_trips_through_json(
     tmp_path: Path, write_two_datasets
 ):
+    """A report of a run that failed as a whole also survives being written and loaded."""
     left, right = write_two_datasets(
         tmp_path, {"table_left": ["a"]}, {"table_right": ["a"]}
     )
@@ -184,6 +209,12 @@ def test_pudl_diff_report_with_an_error_round_trips_through_json(
 def test_derived_fields_are_recomputed_when_a_report_is_loaded(
     tmp_path: Path, write_two_datasets
 ):
+    """`is_identical` and `success` are written to the JSON, but not read back from it.
+
+    They are derived from the rest of the report. If someone edits a report's JSON to say
+    that a table which differs is identical, loading it shouldn't take their word for it:
+    the loaded report recomputes the fields, and equals the original.
+    """
     left, right = write_two_datasets(
         tmp_path, {"table_a": ["a", "b"]}, {"table_a": ["a", "c"]}
     )
@@ -208,6 +239,13 @@ def test_derived_fields_are_recomputed_when_a_report_is_loaded(
 def test_row_diff_sections_load_as_the_variant_their_status_names(
     tmp_path: Path, write_two_datasets
 ):
+    """A row diff section is loaded as the kind of section that its `status` says.
+
+    `pk_diff` and `non_pk_diff` are each either a full summary (`"compared"`) or a stand-in
+    saying why there isn't one (`"skipped"`). The `status` decides which, so that a report
+    loads to the same models that it was written from, and a status that's neither is an
+    error, and not a guess.
+    """
     left, right = write_two_datasets(
         tmp_path, {"table_a": ["a", "b"]}, {"table_a": ["a", "c"]}
     )
@@ -234,6 +272,12 @@ def test_row_diff_sections_load_as_the_variant_their_status_names(
 
 
 def test_report_records_display_roots(tmp_path: Path, pk_resource):
+    """A dataset can be reported under a different root than the one that it's read from.
+
+    The datasets are read from local directories, but say that they are in a bucket, so
+    that a report can name the durable location of its data. Both the roots and the paths
+    of the tables in the report use that name.
+    """
     resource = pk_resource("t", ["x"])
     for name in ("left", "right"):
         (tmp_path / name).mkdir()
@@ -255,6 +299,12 @@ def test_report_records_display_roots(tmp_path: Path, pk_resource):
 def test_a_loaded_report_keeps_the_version_of_the_tool_that_made_it(
     tmp_path: Path, write_two_datasets
 ):
+    """The `pudl_diff_version` of a loaded report is the one it was written with.
+
+    Not the version that's installed now, which is that of a different tool if the report
+    is old. And a report that doesn't have one fails to load, and isn't credited to this
+    version.
+    """
     left, right = write_two_datasets(tmp_path, {"t": ["a"]}, {"t": ["a"]})
     document = json.loads(
         run_dataset_diff(left, right, tmp_path / "out").model_dump_json()

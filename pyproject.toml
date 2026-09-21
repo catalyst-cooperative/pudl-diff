@@ -188,7 +188,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
-  "D", # Tests don't need docstrings
   "S101", # Tests are made of asserts
   "ARG", # Tests often have unused arguments (fixtures)
 ]

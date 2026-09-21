@@ -15,6 +15,7 @@ from pudl_diff.dataset import PudlDiffDataset
 def dataset(
     tmp_path: Path, write_datapackage, pk_resource, no_pk_resource
 ) -> PudlDiffDataset:
+    """A dataset with a table that has a primary key, and one that doesn't."""
     write_datapackage(
         tmp_path,
         [pk_resource("table_with_pk", ["x"]), no_pk_resource("table_without_pk")],
@@ -29,15 +30,18 @@ def dataset(
 
 
 def test_table_names(dataset: PudlDiffDataset):
+    """Table names."""
     assert dataset.table_names() == ["table_with_pk", "table_without_pk"]
 
 
 def test_get_resource_unknown_table(dataset: PudlDiffDataset):
+    """Asking a datapackage for a table it doesn't list is an error that names the table."""
     with pytest.raises(ValueError, match="not found in datapackage"):
         dataset.get_resource("nonexistent_table")
 
 
 def test_primary_key(dataset: PudlDiffDataset):
+    """Primary key."""
     assert dataset.primary_key("table_with_pk") == ["x"]
     assert dataset.primary_key("table_without_pk") == []
 
@@ -68,6 +72,11 @@ def test_primary_key_falls_back_when_the_datapackage_is_missing(
 def test_primary_key_is_empty_if_no_fallback_finds_one(
     mock_loggers, tmp_path: Path, mocker
 ):
+    """If neither the datapackage nor any fallback has a table, it is treated as keyless.
+
+    There is a warning for each: that the datapackage couldn't say, and then that nothing
+    else could either. Comparing the table as one with no primary key is the safe default.
+    """
     mocker.patch("pudl_diff.dataset.fallback_primary_key", return_value=None)
 
     assert PudlDiffDataset(tmp_path).primary_key("some_table") == []
@@ -75,10 +84,12 @@ def test_primary_key_is_empty_if_no_fallback_finds_one(
 
 
 def test_field_names(dataset: PudlDiffDataset):
+    """Field names."""
     assert dataset.field_names("table_with_pk") == ["x", "y"]
 
 
 def test_table_path(dataset: PudlDiffDataset, tmp_path: Path):
+    """Table path."""
     assert dataset.table_path("table_with_pk") == tmp_path / "table_with_pk.parquet"
 
 
@@ -95,6 +106,11 @@ def test_table_path_unknown_table_is_still_deterministic(
 def test_parquet_table_names_lists_files_not_datapackage_entries(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """Tables are found from the Parquet files that are there, and not the datapackage.
+
+    A local build's datapackage can be missing, or out of date, so it isn't relied on to
+    say which tables can be compared. Files that aren't Parquet are ignored.
+    """
     dataset = make_dataset(
         tmp_path / "ds",
         [pk_resource("only_in_datapackage", ["x"])],
@@ -105,6 +121,7 @@ def test_parquet_table_names_lists_files_not_datapackage_entries(
 
 
 def test_scan_table(dataset: PudlDiffDataset):
+    """Scan table."""
     df = dataset.scan_table("table_with_pk").collect()
     assert df.to_dict(as_series=False) == {"x": [1, 2, 3], "y": ["a", "b", "c"]}
 
@@ -138,6 +155,7 @@ def test_scan_table_stringifies_non_string_storage_options(
 
 
 def test_custom_descriptor_name(tmp_path: Path, write_datapackage, pk_resource):
+    """A dataset can name its descriptor something other than `datapackage.json`."""
     write_datapackage(
         tmp_path,
         [pk_resource("table_with_pk", ["x"])],
@@ -166,10 +184,16 @@ def test_custom_descriptor_name(tmp_path: Path, write_datapackage, pk_resource):
     ],
 )
 def test_default_descriptor_name(root: str, expected: str):
+    """PUDL's published outputs name their descriptor `pudl_parquet_datapackage.json`.
+
+    That is recognised from the bucket, however it's written: `s3://` or `gs://`, or in the
+    path of an `https://` URL. Anywhere else, the descriptor is `datapackage.json`.
+    """
     assert PudlDiffDataset(root).descriptor_name == expected
 
 
 def test_explicit_descriptor_name_overrides_default():
+    """Explicit descriptor name overrides default."""
     dataset = PudlDiffDataset(
         "s3://pudl.catalyst.coop/nightly", descriptor_name="datapackage.json"
     )
@@ -177,6 +201,11 @@ def test_explicit_descriptor_name_overrides_default():
 
 
 def test_a_relative_local_root_becomes_an_absolute_path(tmp_path: Path):
+    """A local dataset is identified by its absolute path, whatever it was given as.
+
+    Otherwise a report's paths would depend on the directory that `pudl_diff` was run
+    from. The `..` in the path is resolved too.
+    """
     (tmp_path / "some" / "dir").mkdir(parents=True)
 
     with contextlib.chdir(tmp_path):
@@ -189,6 +218,7 @@ def test_a_relative_local_root_becomes_an_absolute_path(tmp_path: Path):
 
 
 def test_a_local_root_has_its_symlinks_resolved(tmp_path: Path):
+    """A local root that is a symlink is recorded as the directory that it points to."""
     real = tmp_path / "real"
     real.mkdir()
     (tmp_path / "link").symlink_to(real)
@@ -199,6 +229,7 @@ def test_a_local_root_has_its_symlinks_resolved(tmp_path: Path):
 
 
 def test_a_local_root_has_its_home_directory_expanded(tmp_path: Path, mocker):
+    """A local root has its home directory expanded."""
     mocker.patch.dict(os.environ, {"HOME": str(tmp_path)})
 
     dataset = PudlDiffDataset("~/nightly")
@@ -207,18 +238,21 @@ def test_a_local_root_has_its_home_directory_expanded(tmp_path: Path, mocker):
 
 
 def test_a_file_url_root_is_resolved_too(tmp_path: Path):
+    """A local root given as a `file://` URL is made absolute and resolved like any other."""
     dataset = PudlDiffDataset(f"file://{tmp_path}/a/../dataset")
 
     assert dataset.root.path == str((tmp_path / "dataset").resolve())
 
 
 def test_a_remote_root_is_left_as_it_is():
+    """Only local roots are resolved: a remote one isn't made into a path on this machine."""
     dataset = PudlDiffDataset("s3://some-bucket/some/dir")
 
     assert str(dataset.root) == "s3://some-bucket/some/dir"
 
 
 def test_display_root_defaults_to_the_root(dataset: PudlDiffDataset, tmp_path: Path):
+    """Display root defaults to the root."""
     assert dataset.display_root == str(tmp_path.resolve())
     assert dataset.display_table_path("t") == str(dataset.table_path("t"))
 
@@ -226,6 +260,11 @@ def test_display_root_defaults_to_the_root(dataset: PudlDiffDataset, tmp_path: P
 def test_display_root_only_changes_what_is_recorded(
     tmp_path: Path, write_datapackage, no_pk_resource
 ):
+    """`display_root` changes the name that reports use for a dataset, and nothing that is read.
+
+    That's for naming the durable location of data that is read from somewhere faster or
+    closer, such as a local copy of a bucket. The tables are still read from the real root.
+    """
     write_datapackage(tmp_path, [no_pk_resource("t")])
     pl.DataFrame({"x": [1]}).write_parquet(tmp_path / "t.parquet")
     dataset = PudlDiffDataset(tmp_path, display_root="s3://pudl.catalyst.coop/v1/")

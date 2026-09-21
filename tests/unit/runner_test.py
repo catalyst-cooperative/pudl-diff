@@ -8,6 +8,11 @@ from pudl_diff.runner import run_dataset_diff
 def test_run_dataset_diff_reports_progress_and_builds_the_report(
     tmp_path: Path, write_two_datasets
 ):
+    """Callbacks are told which tables will be compared, and then as each one is.
+
+    Only the tables in both datasets are compared, in order, and the report lists the ones
+    that are in only one of them. One of the compared tables differs, so the exit code is 1.
+    """
     left, right = write_two_datasets(
         tmp_path,
         {"table_a": ["a", "b"], "table_b": ["a", "b"], "table_left": ["a"]},
@@ -39,6 +44,7 @@ def test_run_dataset_diff_reports_progress_and_builds_the_report(
 def test_run_dataset_diff_compares_only_the_tables_given(
     tmp_path: Path, write_two_datasets
 ):
+    """Given table names, only those tables are compared, and no others are listed as missing."""
     left, right = write_two_datasets(
         tmp_path,
         {"table_a": ["a"], "table_b": ["a"]},
@@ -55,6 +61,10 @@ def test_run_dataset_diff_compares_only_the_tables_given(
 def test_run_dataset_diff_records_why_there_is_nothing_to_compare(
     tmp_path: Path, write_two_datasets
 ):
+    """Datasets with no tables in common fail as a whole, with the reason in the report.
+
+    Nothing is compared, so the callback that's told which tables will be is never called.
+    """
     left, right = write_two_datasets(
         tmp_path, {"table_left": ["a"]}, {"table_right": ["a"]}
     )
@@ -74,6 +84,10 @@ def test_run_dataset_diff_records_why_there_is_nothing_to_compare(
 def test_run_dataset_diff_reports_a_failure_to_list_the_tables(
     mock_loggers, tmp_path: Path, write_two_datasets, mocker
 ):
+    """A failure to list the tables, like an unreachable bucket, is recorded, and not raised.
+
+    The report has the error, isn't a success, and the failure is logged with its traceback.
+    """
     left, right = write_two_datasets(tmp_path, {"t": ["a"]}, {"t": ["a"]})
     mocker.patch("pudl_diff.runner.resolve_tables", side_effect=OSError("no bucket"))
 

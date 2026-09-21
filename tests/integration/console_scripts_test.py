@@ -59,6 +59,7 @@ def test_pudl_diff_compares_two_datasets_and_shows_the_report_again(
 def test_pudl_diff_rejects_a_report_that_is_not_one(
     script_runner, tmp_path: Path
 ) -> None:
+    """The installed script says so, on stderr, when `--from-report` isn't given a report."""
     (tmp_path / "junk.json").write_text("{}")
 
     ret = script_runner.run(["pudl_diff", "--from-report", str(tmp_path / "junk.json")])

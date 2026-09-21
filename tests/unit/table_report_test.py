@@ -18,6 +18,7 @@ from pudl_diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON, run_table_diff
 
 
 def test_row_count_summary_fields():
+    """Row count summary fields."""
     left = pl.LazyFrame({"year": [2020, 2020, 2020, 2021]})
     right = pl.LazyFrame({"year": [2020, 2021, 2021]})
     summary = table_report.RowCountDiffSummary.from_row_count_diff(
@@ -32,6 +33,14 @@ def test_row_count_summary_fields():
 def test_build_table_diff_report_identical_pk_table(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """The report of an identical table with a primary key, field by field.
+
+    Rows come in a different order on the two sides, which doesn't matter. The report
+    succeeds, and says so; has the sizes of the two Parquet files, their names and paths,
+    and the schema and row counts; compares by primary key, with the section for tables
+    without one skipped because a key is available; has no Parquet outputs, as no rows
+    differ; and can be written as JSON.
+    """
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
         tmp_path / "left",
@@ -82,6 +91,7 @@ def test_build_table_diff_report_identical_pk_table(
 def test_build_table_diff_report_differing_pk_table(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """Build table diff report differing primary-key table."""
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
         tmp_path / "left",
@@ -118,6 +128,7 @@ def test_build_table_diff_report_differing_pk_table(
 def test_build_table_diff_report_differing_non_pk_table(
     tmp_path: Path, no_pk_resource, make_dataset
 ):
+    """Build table diff report differing non-primary-key table."""
     resources = [no_pk_resource("table_without_pk")]
     left = make_dataset(
         tmp_path / "left",
@@ -147,6 +158,7 @@ def test_build_table_diff_report_differing_non_pk_table(
 
 
 def test_row_count_difference_is_right_minus_left():
+    """Row count difference is right minus left."""
     left = pl.LazyFrame({"x": [1, 2]})
     right = pl.LazyFrame({"x": [1, 2, 3, 4, 5]})
     summary = table_report.RowCountDiffSummary.from_row_count_diff(
@@ -158,6 +170,10 @@ def test_row_count_difference_is_right_minus_left():
 def test_build_table_diff_report_schema_mismatch(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """A column only in the right table shows in the report's schema diff.
+
+    The comparison still succeeded, but the table isn't identical.
+    """
     left_resources = [pk_resource("table_with_pk", ["x"])]
     right_resources = [
         {
@@ -195,6 +211,11 @@ def test_build_table_diff_report_schema_mismatch(
 def test_build_table_diff_report_skipped_large_table(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """A table whose rows weren't compared succeeded, but isn't identical, and says why.
+
+    The section for tables with a primary key gives the reason `too_many_rows`. The one for
+    tables without a primary key is skipped for a different reason, that a key is available.
+    """
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
         tmp_path / "left",
@@ -226,6 +247,14 @@ def test_build_table_diff_report_skipped_large_table(
 
 
 def test_build_table_diff_report_error_case(tmp_path: Path, pk_resource, make_dataset):
+    """The report of a comparison that failed has the error, and what is still known.
+
+    The left dataset has no datapackage, so nothing could be compared. There is no schema,
+    row count or row diff, and the report isn't identical. The tables' paths are still
+    reported, as they follow from the datasets' roots, and so is the size of the right
+    table's file, but not the left's, or the difference, which are unknown. The report can
+    still be written as JSON.
+    """
     left_root = tmp_path / "left"
     left_root.mkdir()
     left = PudlDiffDataset(left_root)
@@ -259,6 +288,7 @@ def test_build_table_diff_report_error_case(tmp_path: Path, pk_resource, make_da
 
 
 def test_size_comparison_derived_fields():
+    """The sizes written to a report include the derived ones: readable sizes and the change."""
     sizes = table_report.SizeComparison(
         left_table_bytes=2_000_000, right_table_bytes=1_500_000
     )
@@ -275,6 +305,10 @@ def test_size_comparison_derived_fields():
 
 
 def test_size_comparison_with_unknown_or_empty_left_size():
+    """A change in size isn't known if a size isn't, and has no percentage if the left is empty.
+
+    The percentage is of the left size, so an empty left table would divide by zero.
+    """
     unknown = table_report.SizeComparison(left_table_bytes=None, right_table_bytes=10)
     assert unknown.bytes_difference is None
     assert unknown.bytes_difference_size is None
@@ -308,7 +342,15 @@ def test_table_report_derived_fields_agree_with_the_comparison(
     no_pk_resource,
     make_dataset,
 ):
-    """`is_identical` and `success` are derived from the report's other fields."""
+    """`is_identical` and `success` are derived from the report's other fields.
+
+    Whatever the outcome of the comparison, the report agrees with the comparison it was
+    built from: on whether the table is identical, and on whether its schema, row counts
+    and rows are. This is checked for a table with, and without, a primary key, and for
+    each way that a table can differ or be identical: a value changed, a row added, a row
+    removed, columns changed, or its rows not compared, when the report can't say the
+    table is identical.
+    """
     resource = pk_resource("t", ["x"]) if has_pk else no_pk_resource("t")
     left_df = pl.DataFrame({"x": [1, 2, 3], "y": ["a", "b", "c"]})
     left = make_dataset(tmp_path / "left", [resource], {"t": left_df})
@@ -344,6 +386,7 @@ def test_table_report_derived_fields_agree_with_the_comparison(
 def test_table_report_of_a_failed_comparison_is_not_a_success(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """A table whose comparison failed has an error, and is neither a success nor identical."""
     left = make_dataset(
         tmp_path / "left", [pk_resource("t", ["x"])], {"t": pl.DataFrame({"x": [1]})}
     )
@@ -358,6 +401,8 @@ def test_table_report_of_a_failed_comparison_is_not_a_success(
 
 
 def test_row_count_summary_is_identical_only_if_the_totals_match():
+    """Row counts are identical only if the two tables have the same number of rows."""
+
     def summary(left: int, right: int) -> table_report.RowCountDiffSummary:
         return table_report.RowCountDiffSummary(
             left_row_count=left,
@@ -372,6 +417,13 @@ def test_row_count_summary_is_identical_only_if_the_totals_match():
 def test_parquet_output_paths_are_relative_to_the_report_directory(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """The paths of the Parquet outputs are relative to the report's directory.
+
+    That is so that the directory can be moved, and everything in it can still be found.
+    The datasets and the output directory are all given relative to the working
+    directory, which isn't where the report is, and the outputs are still recorded as
+    just their names. The paths of the tables in the datasets, though, are absolute.
+    """
     resources = [pk_resource("t", ["x"])]
     make_dataset(tmp_path / "left", resources, {"t": pl.DataFrame({"x": [1, 2]})})
     make_dataset(tmp_path / "right", resources, {"t": pl.DataFrame({"x": [2, 3]})})
@@ -397,6 +449,12 @@ def test_parquet_output_paths_are_relative_to_the_report_directory(
 def test_parquet_output_paths_are_relative_to_a_report_directory_above_them(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """Outputs in a directory below the report's are recorded relative to the report's.
+
+    The outputs are written in `out/files`, and the report is in `out`, so they are
+    `files/t_left_only.parquet`. If the report's directory isn't given, it is assumed to
+    be the outputs' own.
+    """
     resources = [pk_resource("t", ["x"])]
     left = make_dataset(
         tmp_path / "left", resources, {"t": pl.DataFrame({"x": [1, 2]})}
@@ -429,6 +487,13 @@ def test_parquet_output_paths_are_relative_to_a_report_directory_above_them(
 def test_report_table_diff_removes_the_temporary_files_of_the_differing_rows(
     tmp_path: Path, pk_resource, make_dataset, mocker
 ):
+    """The temporary files holding the differing rows are deleted once they are written.
+
+    Comparing rows spills them to Parquet files in a temporary directory. Once the rows
+    have been copied into the report's outputs, they aren't kept until the comparison is
+    garbage collected, which for large tables would leave a lot of files around. The
+    temporary directory is replaced with an empty one, to see that nothing is left in it.
+    """
     resources = [pk_resource("t", ["x"])]
     left = make_dataset(
         tmp_path / "left", resources, {"t": pl.DataFrame({"x": [1, 2]})}
@@ -450,5 +515,6 @@ def test_report_table_diff_removes_the_temporary_files_of_the_differing_rows(
 def test_a_row_diff_summary_needs_a_reason_if_the_rows_were_not_compared(
     tmp_path: Path,
 ):
+    """Summarizing rows that weren't compared, without a reason why, is a bug that asserts."""
     with pytest.raises(AssertionError, match="no skip reason"):
         table_report._build_row_diff_summary(None, [], None, None, tmp_path)

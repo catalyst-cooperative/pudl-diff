@@ -61,6 +61,7 @@ def test_run_table_diff_succeeds_without_left_datapackage(tmp_path: Path, make_d
 def test_compare_table_records_elapsed_time_and_performance_stats(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """Every comparison records how long it took, its peak memory and its peak CPU use."""
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
         tmp_path / "left",
@@ -79,6 +80,7 @@ def test_compare_table_records_elapsed_time_and_performance_stats(
 
 
 def test_compare_table_identical_with_pk(tmp_path: Path, pk_resource, make_dataset):
+    """Compare table identical with a primary key."""
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
         tmp_path / "left",
@@ -103,6 +105,12 @@ def test_compare_table_identical_with_pk(tmp_path: Path, pk_resource, make_datas
 def test_compare_table_incompatible_dtypes_skip_reason(
     mock_loggers, tmp_path: Path, mocker, pk_resource, make_dataset
 ):
+    """A Polars error from the row comparison skips it, with the reason `incompatible_dtypes`.
+
+    The error is simulated, by patching the row comparison to raise one, as if the join
+    had failed on columns whose dtypes don't match. The table is then not identical, since
+    its rows were never compared, and the skip is logged with a warning.
+    """
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
         tmp_path / "left",
@@ -150,6 +158,12 @@ def test_compare_table_mismatched_key_dtypes_skip_row_diff(
 def test_compare_table_different_right_table_name(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """A table can be compared against a differently named one on the right.
+
+    This is for comparing a `core_` table with the `out_` table built from it. The right
+    table has an extra column, which is a schema difference, but the columns that they
+    share match, so their rows do too. Overall the tables are not identical.
+    """
     left_resources = [pk_resource("core_table", ["x"])]
     right_resources = [
         {
@@ -187,6 +201,7 @@ def test_compare_table_different_right_table_name(
 
 
 def test_compare_table_differing_with_pk(tmp_path: Path, pk_resource, make_dataset):
+    """Compare table differing with a primary key."""
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
         tmp_path / "left",
@@ -208,6 +223,7 @@ def test_compare_table_differing_with_pk(tmp_path: Path, pk_resource, make_datas
 def test_compare_table_identical_without_pk(
     tmp_path: Path, no_pk_resource, make_dataset
 ):
+    """Compare table identical without a primary key."""
     resources = [no_pk_resource("table_without_pk")]
     left = make_dataset(
         tmp_path / "left",
@@ -227,6 +243,7 @@ def test_compare_table_identical_without_pk(
 def test_compare_table_differing_without_pk(
     tmp_path: Path, no_pk_resource, make_dataset
 ):
+    """Compare table differing without a primary key."""
     resources = [no_pk_resource("table_without_pk")]
     left = make_dataset(
         tmp_path / "left",
@@ -249,6 +266,12 @@ def test_compare_table_differing_schema_with_pk_falls_back_to_shared_columns(
     tmp_path: Path,
     make_dataset,
 ):
+    """With a primary key in both tables, differing columns are compared as far as they match.
+
+    The left table has a column `w` and the right one `z`, which the schema diff reports.
+    The rows are compared on the columns they share, `x` and `y`, where the change to `y`
+    is found. A warning is logged that only those columns were compared.
+    """
     left_resources = [
         {
             "name": "table_with_pk",
@@ -301,6 +324,11 @@ def test_compare_table_differing_schema_with_pk_falls_back_to_shared_columns(
 def test_compare_table_differing_schema_missing_pk_column(
     mock_loggers, tmp_path: Path, pk_resource, make_dataset
 ):
+    """If a primary key column isn't in both tables, rows can't be matched, so it's skipped.
+
+    The right table has only a column `z`, which is its key, but not the left table's key
+    `x`. The reason recorded is `mismatched_columns`, and a warning is logged.
+    """
     left_resources = [pk_resource("table_with_pk", ["x"])]
     right_resources = [
         {
@@ -332,6 +360,12 @@ def test_compare_table_differing_schema_missing_pk_column(
 def test_compare_table_differing_schema_without_pk_skips_row_diff(
     mock_loggers, tmp_path: Path, no_pk_resource, make_dataset
 ):
+    """Tables with no primary key and different columns aren't compared row by row.
+
+    Rows can only be matched by their whole contents, or by a key, so rows with different
+    columns can't be compared meaningfully. The row comparison is skipped, with the reason
+    `mismatched_columns`, and a warning is logged.
+    """
     left_resources = [no_pk_resource("table_without_pk")]
     right_resources = [
         {
@@ -365,6 +399,7 @@ def test_compare_table_differing_schema_without_pk_skips_row_diff(
 def test_compare_table_compares_row_counts(
     tmp_path: Path, no_pk_resource, make_dataset
 ):
+    """Compare table compares row counts."""
     resources = [no_pk_resource("table_without_pk")]
     left = make_dataset(
         tmp_path / "left",
@@ -385,6 +420,12 @@ def test_compare_table_compares_row_counts(
 def test_compare_table_skips_row_diff_above_max_rows(
     mock_loggers, tmp_path, pk_resource, make_dataset
 ):
+    """A table with more rows than the limit is not compared row by row.
+
+    The limit is lowered to 1 for this. The schema and row count are still compared, and
+    match, but the table is conservatively reported as not identical, since its rows
+    were never checked. The reason is `too_many_rows`, and a warning is logged.
+    """
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
         tmp_path / "left",
@@ -433,6 +474,7 @@ def test_compare_table_default_max_rows_for_row_level_comparison(
 
 
 def test_run_table_diff_success(tmp_path: Path, pk_resource, make_dataset):
+    """A comparison that completes is a successful run, holding its result."""
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
         tmp_path / "left",
@@ -477,6 +519,12 @@ def test_run_table_diff_missing_datapackage(
 def test_run_table_diff_unknown_table(
     mock_loggers, tmp_path: Path, pk_resource, make_dataset
 ):
+    """A table in neither dataset is a failed run, and not an exception.
+
+    The run records the error, which names the Parquet file that couldn't be found, since
+    the path of a table isn't checked against the datapackage, and Polars fails to find
+    the file itself. The failure is logged with its traceback.
+    """
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
         tmp_path / "left",
@@ -504,6 +552,7 @@ def test_run_table_diff_unknown_table(
 def test_compare_table_ignores_row_and_column_order(
     has_pk: bool, tmp_path: Path, pk_resource, no_pk_resource, make_dataset
 ):
+    """The order of a table's rows and columns doesn't matter, with or without a primary key."""
     resource = pk_resource if has_pk else no_pk_resource
     resources = [resource("some_table", ["x"]) if has_pk else resource("some_table")]
     left_df = pl.DataFrame({"x": [1, 2, 3, 4], "y": ["a", "b", "c", "d"]})

@@ -28,6 +28,11 @@ def _schema_objects(schema: dict) -> dict[str, dict]:
 
 
 def test_every_field_of_the_report_schema_is_described():
+    """Every field of every model has a description, as they are the reference documentation.
+
+    The descriptions are the models' attribute docstrings, so a field added without one
+    would be undocumented in the schema and on the documentation site.
+    """
     schema = report_json_schema()
 
     undescribed = [
@@ -41,6 +46,12 @@ def test_every_field_of_the_report_schema_is_described():
 
 
 def test_report_schema_descriptions_are_plain_text():
+    """The schema's descriptions are Markdown, without Sphinx syntax or hard line breaks.
+
+    They are the models' docstrings, which are wrapped to the width of the source, and
+    may have been written with reStructuredText. In the schema, each paragraph is a single
+    line, and only the items of a bullet list keep their own lines.
+    """
     descriptions = [
         node["description"]
         for node in _walk(report_json_schema())
@@ -59,6 +70,11 @@ def test_report_schema_descriptions_are_plain_text():
 
 
 def test_report_schema_descriptions_use_json_words_for_python_constants():
+    """`None`, `True` and `False` in a description are written as JSON's `null`, `true` and `false`.
+
+    The schema describes JSON, which is what its readers see, and not the Python that
+    the models are written in.
+    """
     descriptions = [
         node["description"]
         for node in _walk(report_json_schema())
@@ -82,6 +98,12 @@ def _walk(node):
 
 
 def test_report_schema_requires_every_field_and_marks_derived_ones_read_only():
+    """Every field is required in the schema, and derived ones are read only.
+
+    Fields with defaults are still always written to a report, so a reader can rely on them
+    being there. Fields that are derived from others, like `is_identical`, are marked read
+    only, as they're written for convenience but not read back.
+    """
     schema = report_json_schema()
 
     # Fields with defaults, like schema_version and error, are always written.
@@ -93,6 +115,11 @@ def test_report_schema_requires_every_field_and_marks_derived_ones_read_only():
 
 
 def test_the_row_diff_sections_are_discriminated_by_status():
+    """`pk_diff` and `non_pk_diff` are each one of two kinds of section, told apart by `status`.
+
+    A `"compared"` section is the summary of that kind of comparison, and a `"skipped"` one
+    is a stand-in that says why there isn't one.
+    """
     schema = report_json_schema()
     row_diff = schema["$defs"]["RowDiffSummary"]["properties"]
 
@@ -110,6 +137,11 @@ def test_the_row_diff_sections_are_discriminated_by_status():
 
 
 def test_the_committed_report_schema_is_up_to_date():
+    """The JSON Schema in the repository is what the report's models generate now.
+
+    It is published with the documentation, and used by others to validate reports, so it
+    mustn't fall behind the code. The pre-commit hook updates it, and this checks that it was.
+    """
     committed = SCHEMA_PATH.read_text()
 
     assert committed == report_json_schema_text(), (
@@ -120,6 +152,7 @@ def test_the_committed_report_schema_is_up_to_date():
 
 
 def test_the_committed_report_documentation_is_up_to_date():
+    """The page documenting the report's fields is what the report's models generate now."""
     assert DOCS_PATH.read_text() == report_docs_text(), (
         f"{DOCS_PATH} is out of date with the report's models. Update it with "
         "`pixi run python -m pudl_diff.report_schema`."
@@ -127,6 +160,11 @@ def test_the_committed_report_documentation_is_up_to_date():
 
 
 def test_main_updates_out_of_date_files_and_reports_it(tmp_path: Path):
+    """The generator rewrites the schema and its documentation if they're out of date.
+
+    It exits 1 if it changed either, and 0 if it changed nothing, so that as a pre-commit
+    hook it fails when it updates a file, and the change gets committed.
+    """
     schema_path = tmp_path / "schema.json"
     docs_path = tmp_path / "report_schema.md"
 
@@ -143,6 +181,7 @@ def test_main_updates_out_of_date_files_and_reports_it(tmp_path: Path):
 
 
 def test_the_report_documentation_lists_every_model_and_links_between_them():
+    """The documentation has a section for each model, and models link to the ones they use."""
     text = report_docs_text()
 
     assert "## PudlDiffReport" in text
@@ -151,6 +190,7 @@ def test_the_report_documentation_lists_every_model_and_links_between_them():
 
 
 def test_the_report_schema_is_a_valid_json_schema():
+    """The generated schema is itself a valid JSON Schema, so that tools can use it."""
     Draft202012Validator.check_schema(report_json_schema())
 
 
@@ -184,6 +224,12 @@ def report_documents(tmp_path: Path, write_two_datasets) -> dict[str, dict]:
 
 
 def test_reports_validate_against_the_schema(report_documents):
+    """Reports of every kind of outcome are valid according to the schema.
+
+    They cover changes found, a comparison skipped for having too many rows, a table that
+    failed, and a run with nothing to compare, so that the schema describes the reports
+    that are actually written, and not only the successful ones.
+    """
     validator = Draft202012Validator(report_json_schema())
 
     for name, document in report_documents.items():
@@ -192,6 +238,11 @@ def test_reports_validate_against_the_schema(report_documents):
 
 
 def test_the_schema_rejects_reports_that_are_not_valid(report_documents):
+    """The schema isn't so loose that it accepts a report that is wrong.
+
+    A report is broken in each of a series of ways, and each is rejected: a missing
+    field, one of the wrong type, and a row diff section that is not one of its two kinds.
+    """
     validator = Draft202012Validator(report_json_schema())
     document = report_documents["changes"]
 
@@ -246,16 +297,22 @@ def test_the_schema_rejects_reports_that_are_not_valid(report_documents):
     ],
 )
 def test_schema_type_describes_a_property_in_a_few_words(spec, expected):
+    """The type of a property is summarised in a few words, for the documentation."""
     assert schema_type(spec) == expected
 
 
 def test_schema_type_can_link_the_models_it_refers_to():
+    """The names of models in a type can be written as links, to their sections of the page."""
     spec = {"anyOf": [{"$ref": "#/$defs/DiffOptions"}, {"type": "null"}]}
 
     assert schema_type(spec, lambda name: f"<{name}>") == "<DiffOptions> or null"
 
 
 def test_schema_models_lists_the_report_first_and_then_each_model_it_refers_to():
+    """The documentation is ordered with the report first, then each model as it's reached.
+
+    Every model in the schema is in the list once, and the derived fields are marked.
+    """
     schema = report_json_schema()
 
     models = schema_models(schema)

@@ -16,11 +16,13 @@ REPORT = {
 
 
 def test_coverage_is_the_percentage_typed_and_full_if_nothing_is_typable():
+    """Coverage is the percentage typed and full if nothing is typable."""
     assert _coverage(4, 1) == 75.0
     assert _coverage(0, 0) == 100.0
 
 
 def test_main_prints_a_row_per_module_and_the_total_from_stdin():
+    """Main prints a row per module and the total from stdin."""
     result = CliRunner().invoke(main, input=json.dumps(REPORT))
 
     assert result.exit_code == 0, result.output
@@ -32,6 +34,7 @@ def test_main_prints_a_row_per_module_and_the_total_from_stdin():
 
 
 def test_main_reads_a_file(tmp_path: Path):
+    """Main reads a file."""
     report_path = tmp_path / "report.json"
     report_path.write_text(json.dumps(REPORT))
 
@@ -42,6 +45,7 @@ def test_main_reads_a_file(tmp_path: Path):
 
 
 def test_main_of_a_report_without_modules():
+    """Main of a report without modules."""
     empty = {"module_reports": [], "summary": REPORT["summary"]}
 
     result = CliRunner().invoke(main, input=json.dumps(empty))

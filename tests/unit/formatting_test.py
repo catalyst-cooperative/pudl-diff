@@ -9,6 +9,7 @@ from pudl_diff.formatting import (
 
 
 def test_format_bytes():
+    """Format bytes."""
     assert format_bytes(0) == "0 B"
     assert format_bytes(999) == "999 B"
     assert format_bytes(1_500) == "1.5 KB"
@@ -20,6 +21,7 @@ def test_format_bytes():
 
 
 def test_format_percent():
+    """Format percent."""
     assert format_percent(0, 100) == "0%"
     assert format_percent(0, 0) == "0%"
     assert format_percent(1, 0) == "n/a"
@@ -30,6 +32,7 @@ def test_format_percent():
 
 
 def test_format_duration():
+    """Format duration."""
     assert format_duration(0.0432) == "0.043s"
     assert format_duration(38.0) == "38.000s"
     assert format_duration(125.4) == "2m 05.4s"
@@ -37,6 +40,7 @@ def test_format_duration():
 
 
 def test_format_signed_percent():
+    """Format signed percent."""
     assert format_signed_percent(0) == "0%"
     assert format_signed_percent(1.234) == "+1.23%"
     assert format_signed_percent(-1.234) == "-1.23%"

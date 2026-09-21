@@ -21,6 +21,7 @@ from pudl_diff.logs import get_logger
 
 
 def test_version_option_shows_the_package_version():
+    """Version option shows the package version."""
     result = CliRunner().invoke(main, ["--version"])
 
     assert result.exit_code == 0
@@ -28,6 +29,10 @@ def test_version_option_shows_the_package_version():
 
 
 def test_identical_table_exits_zero(tmp_path: Path, pk_resource, make_dataset):
+    """Exit code 0 means the tables are functionally identical.
+
+    The rows are in a different order on each side, which doesn't count as a difference.
+    """
     resources = [pk_resource("table_with_pk", ["x"])]
     make_dataset(
         tmp_path / "left",
@@ -63,6 +68,11 @@ def test_identical_table_exits_zero(tmp_path: Path, pk_resource, make_dataset):
 def test_differing_pk_table_exits_one_and_writes_parquet(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """Exit code 1 means the tables differ, and their differing rows are written out.
+
+    With a primary key, the row whose value changed is one changed row, and not one removed
+    and one added. The rows of each side that differ go in a Parquet file beside the report.
+    """
     resources = [pk_resource("table_with_pk", ["x"])]
     make_dataset(
         tmp_path / "left",
@@ -99,6 +109,7 @@ def test_differing_pk_table_exits_one_and_writes_parquet(
 
 
 def test_differing_non_pk_table_exits_one(tmp_path: Path, no_pk_resource, make_dataset):
+    """Differing non-primary-key table exits one."""
     resources = [no_pk_resource("table_without_pk")]
     make_dataset(
         tmp_path / "left",
@@ -131,6 +142,7 @@ def test_differing_non_pk_table_exits_one(tmp_path: Path, no_pk_resource, make_d
 
 
 def test_unknown_table_exits_two(tmp_path: Path, pk_resource, make_dataset):
+    """Unknown table exits two."""
     resources = [pk_resource("table_with_pk", ["x"])]
     make_dataset(
         tmp_path / "left",
@@ -193,6 +205,12 @@ def test_missing_dataset_exits_two(tmp_path: Path, pk_resource, make_dataset):
 
 
 def test_large_table_skip_still_exits_one(tmp_path: Path, pk_resource, make_dataset):
+    """A table too big to compare row by row is not passed as identical: it exits 1.
+
+    The schema and row counts match, but nobody has checked the rows, so the table isn't
+    called identical. Its report says why, and no Parquet files are written, as no rows
+    were compared.
+    """
     resources = [pk_resource("table_with_pk", ["x"])]
     make_dataset(
         tmp_path / "left",
@@ -238,6 +256,11 @@ def test_large_table_skip_still_exits_one(tmp_path: Path, pk_resource, make_data
 
 
 def test_max_rows_per_output_parquet(tmp_path: Path, no_pk_resource, make_dataset):
+    """`--max-output-rows` limits the rows written to each Parquet file, but not the counts.
+
+    All five rows are only in the left table, and the report says so, but only two of
+    them are written to its Parquet file.
+    """
     resources = [no_pk_resource("table_without_pk")]
     make_dataset(
         tmp_path / "left",
@@ -281,8 +304,7 @@ def test_max_rows_per_output_parquet(tmp_path: Path, no_pk_resource, make_datase
 def all_tables_datasets(
     tmp_path: Path, pk_resource, no_pk_resource, make_dataset
 ) -> tuple[Path, Path]:
-    """Two datasets sharing an identical and a changed table, plus one table
-    unique to each side."""
+    """Two datasets sharing an identical and a changed table, plus one unique to each."""
     resources = [
         pk_resource("same_table", ["x"]),
         pk_resource("changed_table", ["x"]),
@@ -312,6 +334,11 @@ def all_tables_datasets(
 def test_no_table_name_compares_every_table_in_both_datasets(
     tmp_path: Path, all_tables_datasets
 ):
+    """With no table names, every table found in both datasets is compared.
+
+    The results all go in one report. One of the tables differs, so the exit code is 1.
+    Tables in only one dataset aren't compared, and are listed in the report.
+    """
     left, right = all_tables_datasets
     output_path = tmp_path / "out"
 
@@ -371,6 +398,7 @@ def test_no_table_name_compares_every_table_in_both_datasets(
 def test_no_table_name_all_identical_exits_zero(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """No table name all identical exits zero."""
     resources = [pk_resource("a", ["x"]), pk_resource("b", ["x"])]
     df = pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})
     make_dataset(tmp_path / "left", resources, {"a": df, "b": df})
@@ -431,6 +459,11 @@ def test_no_table_name_failed_comparison_exits_two(
 def test_no_table_name_no_tables_in_common_exits_two(
     tmp_path: Path, no_pk_resource, make_dataset
 ):
+    """Datasets with no tables in common can't be compared, which is exit code 2.
+
+    The report is still written, and records the error, so that a caller can tell what
+    went wrong, and not only that something did.
+    """
     df = pl.DataFrame({"x": [1]})
     make_dataset(tmp_path / "left", [no_pk_resource("a")], {"a": df})
     make_dataset(tmp_path / "right", [no_pk_resource("b")], {"b": df})
@@ -458,6 +491,7 @@ def test_no_table_name_no_tables_in_common_exits_two(
 
 
 def test_summary_shows_total_size_and_change(tmp_path: Path, two_table_args):
+    """Summary shows total size and change."""
     result = CliRunner().invoke(main, ["same_table", "changed_table", *two_table_args])
 
     assert re.search(r"Total size: +[\d.]+ K?B left, [\d.]+ K?B right", result.output)
@@ -465,6 +499,11 @@ def test_summary_shows_total_size_and_change(tmp_path: Path, two_table_args):
 
 
 def test_right_table_requires_a_table_name(tmp_path: Path, all_tables_datasets):
+    """`--right-table` renames the table on the right, so it needs exactly one table name.
+
+    With none, or with more than one, there is no single table for it to apply to, which
+    is a usage error.
+    """
     left, right = all_tables_datasets
     base = ["--left", str(left), "--right", str(right)]
 
@@ -483,6 +522,7 @@ def test_right_table_requires_a_table_name(tmp_path: Path, all_tables_datasets):
 def test_multiple_table_names_compares_only_those_tables(
     tmp_path: Path, all_tables_datasets
 ):
+    """Multiple table names compares only those tables."""
     left, right = all_tables_datasets
     output_path = tmp_path / "out"
 
@@ -516,6 +556,11 @@ def test_multiple_table_names_compares_only_those_tables(
 def test_multiple_table_names_including_a_missing_table_exits_two(
     tmp_path: Path, all_tables_datasets
 ):
+    """A table missing from a dataset fails on its own, and the others are still compared.
+
+    `left_only_table` isn't in the right dataset, so its comparison fails, and the exit code
+    is 2, but `same_table` was compared and is in the report.
+    """
     left, right = all_tables_datasets
     output_path = tmp_path / "out"
 
@@ -543,11 +588,13 @@ def test_multiple_table_names_including_a_missing_table_exits_two(
 
 @pytest.fixture
 def two_table_args(tmp_path: Path, all_tables_datasets) -> list[str]:
+    """The arguments that compare `all_tables_datasets`, writing to a new directory."""
     left, right = all_tables_datasets
     return ["-l", str(left), "-r", str(right), "-o", str(tmp_path / "out")]
 
 
 def test_short_flags(tmp_path: Path, two_table_args):
+    """Short flags."""
     result = CliRunner().invoke(main, ["changed_table", *two_table_args])
 
     assert result.exit_code == 1, result.output
@@ -555,6 +602,7 @@ def test_short_flags(tmp_path: Path, two_table_args):
 
 
 def test_color_flag_forces_ansi_output(tmp_path: Path, two_table_args):
+    """`--color` writes ANSI color codes even when the output isn't a terminal."""
     result = CliRunner().invoke(
         main, ["same_table", "changed_table", *two_table_args, "--color"]
     )
@@ -566,6 +614,7 @@ def test_color_flag_forces_ansi_output(tmp_path: Path, two_table_args):
 def test_no_color_flag_and_non_tty_default_have_no_ansi_output(
     tmp_path: Path, two_table_args
 ):
+    """Output has no color codes when it isn't a terminal, or if `--no-color` is given."""
     args = ["same_table", "changed_table", *two_table_args]
 
     # CliRunner's stdout isn't a terminal, so that's the default.
@@ -580,6 +629,7 @@ def test_no_color_flag_and_non_tty_default_have_no_ansi_output(
 def test_progress_shows_sub_second_runtimes_with_millisecond_precision(
     tmp_path: Path, two_table_args
 ):
+    """A table's runtime is shown to the millisecond, so that fast tables don't all say 0s."""
     result = CliRunner().invoke(main, ["same_table", "changed_table", *two_table_args])
 
     assert re.search(
@@ -630,6 +680,7 @@ def test_cli_row_shows_status_and_changes(tmp_path: Path, pk_resource, make_data
 def test_cli_shows_header_and_summary_with_paths_time_and_memory(
     tmp_path: Path, all_tables_datasets
 ):
+    """CLI shows header and summary with paths time and memory."""
     left, right = all_tables_datasets
 
     result = CliRunner().invoke(
@@ -654,6 +705,7 @@ def test_cli_shows_header_and_summary_with_paths_time_and_memory(
 
 
 def test_cli_shows_added_and_removed_columns(tmp_path: Path, pk_resource, make_dataset):
+    """CLI shows added and removed columns."""
     resources = [pk_resource("t", ["x"])]
     make_dataset(
         tmp_path / "left",
@@ -690,6 +742,12 @@ def test_cli_shows_added_and_removed_columns(tmp_path: Path, pk_resource, make_d
 
 
 def test_summary_totals_count_uncompared_tables(tmp_path: Path, all_tables_datasets):
+    """Tables whose rows weren't compared still count towards the summary's total rows.
+
+    With `--max-compare-rows 1`, neither table is compared row by row, so there are no row
+    changes, but their rows are in the total, and a separate line says how many tables and
+    rows weren't compared. Otherwise those tables would look like they were empty.
+    """
     left, right = all_tables_datasets
 
     result = CliRunner().invoke(
@@ -715,6 +773,11 @@ def test_summary_totals_count_uncompared_tables(tmp_path: Path, all_tables_datas
 
 
 def test_set_log_level_hides_lower_severities_and_restores(caplog):
+    """Only messages of at least the given level are shown, until the level is restored.
+
+    Afterwards the tool's logger is as it was before, so that using the command line
+    function from a program doesn't change that program's logging.
+    """
     logger = get_logger("pudl_diff_test")
     before = logging.getLogger("pudl_diff").level
 
@@ -732,6 +795,7 @@ def test_set_log_level_hides_lower_severities_and_restores(caplog):
 
 
 def test_cli_leaves_logging_as_it_found_it(tmp_path: Path, all_tables_datasets):
+    """Running the command doesn't leave the tool's log level changed afterwards."""
     left, right = all_tables_datasets
     before = logging.getLogger("pudl_diff").level
 
@@ -746,6 +810,11 @@ def test_cli_leaves_logging_as_it_found_it(tmp_path: Path, all_tables_datasets):
 def test_cli_shows_dtype_changes_in_the_columns_cell(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """A column whose dtype changed is counted, and makes the table changed.
+
+    No columns were added or removed and no values differ (1 and 1.0 are equal), but `y`
+    went from an integer to a float, so the columns' changes are `+0/1/-0`.
+    """
     resources = [pk_resource("t", ["x"])]
     make_dataset(
         tmp_path / "left",
@@ -781,9 +850,11 @@ def test_cli_shows_dtype_changes_in_the_columns_cell(
 def schema_change_datasets(
     tmp_path: Path, pk_resource, make_dataset
 ) -> tuple[Path, Path]:
-    """Two datasets sharing four tables: one with added and removed columns, one
-    with a changed dtype, one with both, and one identical; plus a table removed
-    from and a table added to the right dataset."""
+    """Two datasets sharing four tables, plus one removed from and one added to the right.
+
+    Of the shared tables, one has added and removed columns, one a changed dtype, one
+    both, and one is identical.
+    """
     resources = [
         pk_resource(name, ["x"])
         for name in ["cols", "dtype", "both", "same", "removed", "added"]
@@ -816,6 +887,13 @@ def schema_change_datasets(
 
 
 def test_summary_totals_schema_changes(tmp_path: Path, schema_change_datasets):
+    """The summary totals the schema changes, and lists the tables that had any.
+
+    Of four shared tables, three have schema changes: `cols` +2/-1, `dtype` one dtype
+    change, and `both` +1/-1 and a dtype change. So the totals are +3/2/-2 in 3 tables,
+    each listed with its own changes, and the unchanged table isn't. Tables only in one
+    dataset are listed too.
+    """
     left, right = schema_change_datasets
 
     result = CliRunner().invoke(
@@ -840,6 +918,7 @@ def test_summary_totals_schema_changes(tmp_path: Path, schema_change_datasets):
 def test_summary_schema_totals_are_gray_when_nothing_changed(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """With no schema changes the summary says so, and has no lists of removed or added tables."""
     resources = [pk_resource("t", ["x"])]
     df = pl.DataFrame({"x": [1, 2], "y": ["a", "b"]})
     make_dataset(tmp_path / "left", resources, {"t": df})
@@ -865,6 +944,11 @@ def test_summary_schema_totals_are_gray_when_nothing_changed(
 
 
 def test_summary_schema_and_table_list_colors(tmp_path: Path, schema_change_datasets):
+    """The schema totals and each table's own changes use the colors of the table's rows.
+
+    Added columns are cyan, changed dtypes hot pink and removed columns magenta. The
+    headings of the lists of tables that were removed and added are bold, and not colored.
+    """
     left, right = schema_change_datasets
 
     result = CliRunner().invoke(
@@ -894,6 +978,10 @@ def test_summary_schema_and_table_list_colors(tmp_path: Path, schema_change_data
 
 
 def test_summary_descriptors_are_bold(tmp_path: Path, all_tables_datasets):
+    """The labels of the summary's lines are bold, and their values stay aligned.
+
+    The alignment is checked with the styling stripped, since the codes have no width.
+    """
     left, right = all_tables_datasets
 
     result = CliRunner().invoke(
@@ -923,6 +1011,10 @@ def test_summary_descriptors_are_bold(tmp_path: Path, all_tables_datasets):
 def test_summary_headline_is_bold_and_separated_from_the_rest(
     tmp_path: Path, all_tables_datasets
 ):
+    """The headline counts of identical, changed and errored tables are colored and bold.
+
+    A line under it sets it apart from the rest of the summary.
+    """
     left, right = all_tables_datasets
 
     result = CliRunner().invoke(
@@ -944,6 +1036,12 @@ def test_summary_headline_is_bold_and_separated_from_the_rest(
 def test_report_paths_do_not_depend_on_the_working_directory_and_it_can_be_moved(
     tmp_path: Path, pk_resource, make_dataset
 ):
+    """Everything a report refers to can be found from the report, wherever it is run from.
+
+    The datasets and output directory are given as relative paths, but the report records
+    the datasets' absolute paths, and its Parquet outputs relative to itself. So the
+    directory can be moved, or copied, and the outputs are still found from the report.
+    """
     resources = [pk_resource("t", ["x"])]
     make_dataset(tmp_path / "left", resources, {"t": pl.DataFrame({"x": [1, 2]})})
     make_dataset(tmp_path / "right", resources, {"t": pl.DataFrame({"x": [2, 3]})})
@@ -985,6 +1083,11 @@ def _without_intro_and_footer(output: str) -> list[str]:
 def test_from_report_shows_what_the_comparison_showed(
     tmp_path: Path, two_table_args, tables
 ):
+    """`--from-report` shows the same table and summary as the comparison it was made from.
+
+    Everything but the first and last lines is the same. Those say that this is a saved
+    report, and where it was read from. It also exits with the comparison's exit code.
+    """
     original = CliRunner().invoke(main, [*tables, *two_table_args])
     assert original.exit_code == 1, original.output
 
@@ -999,6 +1102,7 @@ def test_from_report_shows_what_the_comparison_showed(
 
 
 def test_from_report_accepts_the_report_file_itself(tmp_path: Path, two_table_args):
+    """`--from-report` takes the report file, as well as the directory that has it."""
     CliRunner().invoke(main, ["same_table", *two_table_args])
 
     replay = CliRunner().invoke(
@@ -1012,6 +1116,7 @@ def test_from_report_accepts_the_report_file_itself(tmp_path: Path, two_table_ar
 def test_from_report_does_not_compare_or_write_anything(
     tmp_path: Path, two_table_args, mocker
 ):
+    """Showing a report again does no comparison, and leaves the directory as it was."""
     CliRunner().invoke(main, ["same_table", *two_table_args])
     run = mocker.patch("pudl_diff.cli.run_dataset_diff")
     before = sorted(p.name for p in (tmp_path / "out").iterdir())
@@ -1023,6 +1128,7 @@ def test_from_report_does_not_compare_or_write_anything(
 
 
 def test_from_report_shows_a_failed_run(tmp_path: Path, pk_resource, make_dataset):
+    """A report of a run that failed as a whole is shown, with its error, and exits 2."""
     make_dataset(tmp_path / "left", [pk_resource("a", ["x"])], {})
     make_dataset(tmp_path / "right", [pk_resource("b", ["x"])], {})
     args = ["-l", str(tmp_path / "left"), "-r", str(tmp_path / "right")]
@@ -1037,6 +1143,11 @@ def test_from_report_shows_a_failed_run(tmp_path: Path, pk_resource, make_datase
 def test_from_report_rejects_options_that_control_a_comparison(
     tmp_path: Path, two_table_args
 ):
+    """Options that only make sense for a new comparison can't be combined with `--from-report`.
+
+    Table names and `--rtol` are given, and both are named in the error, which is a usage
+    error, exit code 2.
+    """
     CliRunner().invoke(main, ["same_table", *two_table_args])
 
     replay = CliRunner().invoke(
@@ -1050,6 +1161,7 @@ def test_from_report_rejects_options_that_control_a_comparison(
 
 
 def test_from_report_rejects_something_that_isnt_a_report(tmp_path: Path):
+    """A file that isn't a report gives an error saying so, with exit code 1."""
     (tmp_path / "junk.json").write_text('{"not": "a report"}')
 
     replay = CliRunner().invoke(main, ["--from-report", str(tmp_path / "junk.json")])
@@ -1059,6 +1171,11 @@ def test_from_report_rejects_something_that_isnt_a_report(tmp_path: Path):
 
 
 def test_missing_default_right_dataset_is_a_usage_error(tmp_path: Path, mocker):
+    """If the default right dataset can't be determined, the user is told to give one.
+
+    Its default is `$PUDL_OUTPUT/parquet`, which can't be used if PUDL isn't installed and
+    that isn't set. This is a usage error, exit code 2, and not a crash.
+    """
     mocker.patch(
         "pudl_diff.cli.default_right_root",
         side_effect=RuntimeError("give the right dataset's root explicitly"),
@@ -1071,6 +1188,11 @@ def test_missing_default_right_dataset_is_a_usage_error(tmp_path: Path, mocker):
 
 
 def test_set_log_level_keeps_the_handlers_the_application_configured():
+    """An application's own log handler is kept, and doesn't get a second one beside it.
+
+    The level is applied to the handler that's there, and restored later, but no handler
+    of the tool's own is added.
+    """
     logger = logging.getLogger("pudl_diff")
     handler = logging.NullHandler()
     logger.addHandler(handler)

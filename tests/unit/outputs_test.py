@@ -13,6 +13,13 @@ from pudl_diff.rows import (
 
 
 def test_write_row_diff_parquet_pk_table(tmp_path: Path):
+    """For a table with a primary key, each file has that side's differing rows.
+
+    A key only on the left is in the left file, and one only on the right in the right file.
+    A key on both sides whose values differ is in both, each with its own side's values,
+    so that they can be compared. The files are named for their tables, and have the
+    schemas of the tables that they came from.
+    """
     left = pl.LazyFrame({"id": [1, 2, 3], "val": [1, 2, 3]})
     right = pl.LazyFrame({"id": [2, 3, 4], "val": [2, 99, 4]})
     row_diff = compare_rows_with_pk(left, right, ["id"])
@@ -53,6 +60,11 @@ def test_write_row_diff_parquet_differing_table_names(tmp_path: Path):
 def test_write_row_diff_parquet_keyed_combines_one_sided_and_mismatched(
     tmp_path: Path,
 ):
+    """The one-sided and the changed rows are combined in each file, and counted together.
+
+    Key 1 is only on the left, key 4 only on the right, and key 3 is on both with a
+    different value, so each file has two rows.
+    """
     left = pl.LazyFrame({"id": [1, 2, 3], "val": [1, 2, 3]})
     right = pl.LazyFrame({"id": [2, 3, 4], "val": [2, 30, 4]})
     row_diff = compare_rows_with_pk(left, right, ["id"])
@@ -67,6 +79,7 @@ def test_write_row_diff_parquet_keyed_combines_one_sided_and_mismatched(
 
 
 def test_write_row_diff_parquet_without_pk_table(tmp_path: Path):
+    """For a table without a primary key, each file has the rows that are only on its side."""
     left = pl.LazyFrame({"x": [1, 2, 3]})
     right = pl.LazyFrame({"x": [2, 3, 4]})
     row_diff = compare_rows_without_pk(left, right)
@@ -83,6 +96,11 @@ def test_write_row_diff_parquet_without_pk_table(tmp_path: Path):
 
 
 def test_write_row_diff_parquet_row_cap(tmp_path: Path):
+    """The row cap limits how many rows are written, but not how many are said to differ.
+
+    Five rows differ, and two are written, so a reader of the report can tell that the file
+    isn't complete, and by how much.
+    """
     left = pl.LazyFrame({"x": [1, 2, 3, 4, 5]})
     right = pl.LazyFrame({"x": []}, schema={"x": pl.Int64})
     row_diff = compare_rows_without_pk(left, right)
@@ -100,6 +118,11 @@ def test_write_row_diff_parquet_row_cap(tmp_path: Path):
 
 
 def test_write_row_diff_parquet_bytes_and_hash(tmp_path: Path):
+    """Each file is recorded with its size in bytes and a hash of its contents.
+
+    The hash is written as `sha256:<hexdigest>`, as PUDL's datapackage writes the hashes of
+    its own files, so that the file can be checked against its report later.
+    """
     left = pl.LazyFrame({"x": [1]})
     right = pl.LazyFrame({"x": []}, schema={"x": pl.Int64})
     row_diff = compare_rows_without_pk(left, right)
@@ -113,6 +136,7 @@ def test_write_row_diff_parquet_bytes_and_hash(tmp_path: Path):
 
 
 def test_write_row_diff_parquet_none_row_diff_writes_nothing(tmp_path: Path):
+    """Write row diff parquet `None` row diff writes nothing."""
     output_dir = tmp_path / "out"
     outputs = write_row_diff_parquet(None, output_dir, "my_table")
     assert outputs is None

@@ -38,6 +38,7 @@ def test_performance_sampler_rss_never_negative(mocker):
 
 
 def test_performance_sampler_tracks_peak_cpu_percent(mocker):
+    """The peak CPU use is the highest sample, and can be over 100% for several cores."""
     sampler = PerformanceSampler()
     mocker.patch.object(
         sampler._process, "memory_info", return_value=mocker.Mock(rss=1_000)
@@ -59,6 +60,7 @@ def test_performance_sampler_context_manager():
 
 
 def test_exiting_a_sampler_that_was_never_entered_is_harmless():
+    """Exiting a sampler that was never entered is harmless."""
     sampler = PerformanceSampler()
 
     sampler.__exit__(None, None, None)
