@@ -1,13 +1,45 @@
 """Fixtures for building the datasets that the diff tests compare."""
 
+import importlib
 import json
+import logging
+import pkgutil
 from collections.abc import Callable
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import polars as pl
 import pytest
+from pytest_mock import MockerFixture
 
+import pudl_diff
 from pudl_diff.dataset import PudlDiffDataset
+
+
+def _modules_with_loggers() -> list[str]:
+    """The modules of the package that log, found so that new ones are covered too."""
+    names = []
+    for module_info in pkgutil.iter_modules(pudl_diff.__path__):
+        module = importlib.import_module(f"pudl_diff.{module_info.name}")
+        if isinstance(getattr(module, "logger", None), logging.Logger):
+            names.append(module_info.name)
+    return names
+
+
+@pytest.fixture(autouse=True)
+def mock_loggers(mocker: MockerFixture) -> dict[str, MagicMock]:
+    """Replace the logger of each module with a mock, so tests are quiet.
+
+    Many tests exercise expected failures, which would otherwise log alarming errors
+    and warnings into the output of any test that fails. A test that cares what was
+    logged can ask for this fixture, and check the mock of a module's logger, which
+    is keyed by the module's name, e.g. ``mock_loggers["table"]``.
+    """
+    return {
+        name: mocker.patch(f"pudl_diff.{name}.logger", spec=True)
+        for name in _modules_with_loggers()
+    }
+
 
 # Each fixture provides a function, so that a test can build as many datasets as it
 # needs.

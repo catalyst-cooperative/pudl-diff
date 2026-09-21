@@ -72,7 +72,7 @@ def test_run_dataset_diff_records_why_there_is_nothing_to_compare(
 
 
 def test_run_dataset_diff_reports_a_failure_to_list_the_tables(
-    tmp_path: Path, write_two_datasets, mocker
+    mock_loggers, tmp_path: Path, write_two_datasets, mocker
 ):
     left, right = write_two_datasets(tmp_path, {"t": ["a"]}, {"t": ["a"]})
     mocker.patch("pudl_diff.runner.resolve_tables", side_effect=OSError("no bucket"))
@@ -83,3 +83,4 @@ def test_run_dataset_diff_reports_a_failure_to_list_the_tables(
     assert "no bucket" in report.error
     assert not report.success
     assert report.tables == {}
+    mock_loggers["runner"].exception.assert_called_once()

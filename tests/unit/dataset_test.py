@@ -42,7 +42,7 @@ def test_primary_key(dataset: PudlDiffDataset):
 
 
 def test_primary_key_falls_back_when_the_table_is_missing_from_the_datapackage(
-    dataset: PudlDiffDataset, mocker
+    mock_loggers, dataset: PudlDiffDataset, mocker
 ):
     """A table absent from the local datapackage uses the fallback metadata."""
     fallback = mocker.patch(
@@ -51,19 +51,26 @@ def test_primary_key_falls_back_when_the_table_is_missing_from_the_datapackage(
 
     assert dataset.primary_key("some_other_table") == ["code"]
     fallback.assert_called_once_with("some_other_table")
+    mock_loggers["dataset"].warning.assert_called_once()
 
 
-def test_primary_key_falls_back_when_the_datapackage_is_missing(tmp_path: Path, mocker):
+def test_primary_key_falls_back_when_the_datapackage_is_missing(
+    mock_loggers, tmp_path: Path, mocker
+):
     """A dataset with no datapackage.json at all also falls back cleanly."""
     mocker.patch("pudl_diff.dataset.fallback_primary_key", return_value=["code"])
 
     assert PudlDiffDataset(tmp_path).primary_key("some_table") == ["code"]
+    mock_loggers["dataset"].warning.assert_called_once()
 
 
-def test_primary_key_is_empty_if_no_fallback_finds_one(tmp_path: Path, mocker):
+def test_primary_key_is_empty_if_no_fallback_finds_one(
+    mock_loggers, tmp_path: Path, mocker
+):
     mocker.patch("pudl_diff.dataset.fallback_primary_key", return_value=None)
 
     assert PudlDiffDataset(tmp_path).primary_key("some_table") == []
+    assert mock_loggers["dataset"].warning.call_count == 2
 
 
 def test_primary_key_falls_back_to_pudls_metadata_when_pudl_is_installed(

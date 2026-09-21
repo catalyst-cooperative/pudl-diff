@@ -107,6 +107,22 @@ explain *why* the codebase looks the way it does.
     `[tool.coverage.report]`.
 - New behavior needs a test. Bug fixes should add a regression test that fails
     without the fix.
+- Test output is deliberately quiet: one character per test and one line per module,
+    with logs captured rather than shown. To see test names or live logs while
+    debugging, use `pixi run pytest -v -o log_cli=true <path>`.
+- The `mock_loggers` fixture in `tests/unit/conftest.py` is autouse, and replaces the
+    `logger` of every module with a mock, so that expected failures don't spew errors
+    into the output of a failing test. A test that cares what was logged asks for
+    `mock_loggers` and checks `mock_loggers["table"].warning`, keyed by module name.
+    Don't call the package's loggers for real in tests.
+- Test output is deliberately quiet: one character per test and one line per module,
+    with logs captured rather than shown. To see test names or live logs while
+    debugging, use `pixi run pytest -v -o log_cli=true <path>`.
+- The `mock_loggers` fixture in `tests/unit/conftest.py` is autouse, and replaces the
+    `logger` of every module with a mock, so that expected failures don't spew errors
+    into the output of a failing test. A test that cares what was logged asks for
+    `mock_loggers` and checks `mock_loggers["table"].warning`, keyed by module name.
+    Don't call the package's loggers for real in tests.
 - Test coverage of `src/` must stay at 100%, counting branches as well as lines
     (`[tool.coverage.run]` and `[tool.coverage.report]`); `pixi run test` fails
     otherwise. Don't work around it with `pragma: no cover`: test the code, or if it's

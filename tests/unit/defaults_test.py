@@ -119,10 +119,13 @@ def test_nightly_primary_key_is_fetched_once(mocker):
 
 
 @pytest.mark.parametrize("failure", [OSError("offline"), "not json"])
-def test_nightly_primary_key_when_the_descriptor_cant_be_read(mocker, failure):
+def test_nightly_primary_key_when_the_descriptor_cant_be_read(
+    mock_loggers, mocker, failure
+):
     _nightly_descriptor(mocker, failure)
 
     assert defaults._nightly_primary_key("t") is None
+    mock_loggers["defaults"].warning.assert_called_once()
 
 
 def test_fallback_primary_key_prefers_pudl_then_the_nightly_build(mocker):

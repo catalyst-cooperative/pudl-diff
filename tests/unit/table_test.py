@@ -101,7 +101,7 @@ def test_compare_table_identical_with_pk(tmp_path: Path, pk_resource, make_datas
 
 
 def test_compare_table_incompatible_dtypes_skip_reason(
-    tmp_path: Path, mocker, pk_resource, make_dataset
+    mock_loggers, tmp_path: Path, mocker, pk_resource, make_dataset
 ):
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
@@ -123,10 +123,11 @@ def test_compare_table_incompatible_dtypes_skip_reason(
     assert result.row_diff is None
     assert result.row_diff_skipped_reason == "incompatible_dtypes"
     assert not result.is_identical
+    mock_loggers["table"].warning.assert_called_once()
 
 
 def test_compare_table_mismatched_key_dtypes_skip_row_diff(
-    tmp_path: Path, pk_resource, make_dataset
+    mock_loggers, tmp_path: Path, pk_resource, make_dataset
 ):
     """Key hashes of different dtypes differ silently, so this must be caught."""
     resources = [pk_resource("table_with_pk", ["x"])]
@@ -143,6 +144,7 @@ def test_compare_table_mismatched_key_dtypes_skip_row_diff(
     result = compare_table(left, right, "table_with_pk")
     assert result.row_diff is None
     assert result.row_diff_skipped_reason == "incompatible_dtypes"
+    mock_loggers["table"].warning.assert_called_once()
 
 
 def test_compare_table_different_right_table_name(
@@ -243,6 +245,7 @@ def test_compare_table_differing_without_pk(
 
 
 def test_compare_table_differing_schema_with_pk_falls_back_to_shared_columns(
+    mock_loggers,
     tmp_path: Path,
     make_dataset,
 ):
@@ -292,10 +295,11 @@ def test_compare_table_differing_schema_with_pk_falls_back_to_shared_columns(
     assert isinstance(result.row_diff, KeyedRowDiff)
     assert result.row_diff.pk_diff.is_identical
     assert result.row_diff.column_changes == {"y": 1}
+    mock_loggers["table"].warning.assert_called_once()
 
 
 def test_compare_table_differing_schema_missing_pk_column(
-    tmp_path: Path, pk_resource, make_dataset
+    mock_loggers, tmp_path: Path, pk_resource, make_dataset
 ):
     left_resources = [pk_resource("table_with_pk", ["x"])]
     right_resources = [
@@ -322,10 +326,11 @@ def test_compare_table_differing_schema_missing_pk_column(
     assert not result.schema_diff.is_identical
     assert result.row_diff is None
     assert result.row_diff_skipped_reason == "mismatched_columns"
+    mock_loggers["table"].warning.assert_called_once()
 
 
 def test_compare_table_differing_schema_without_pk_skips_row_diff(
-    tmp_path: Path, no_pk_resource, make_dataset
+    mock_loggers, tmp_path: Path, no_pk_resource, make_dataset
 ):
     left_resources = [no_pk_resource("table_without_pk")]
     right_resources = [
@@ -354,6 +359,7 @@ def test_compare_table_differing_schema_without_pk_skips_row_diff(
     assert not result.schema_diff.is_identical
     assert result.row_diff is None
     assert result.row_diff_skipped_reason == "mismatched_columns"
+    mock_loggers["table"].warning.assert_called_once()
 
 
 def test_compare_table_compares_row_counts(
@@ -377,7 +383,7 @@ def test_compare_table_compares_row_counts(
 
 
 def test_compare_table_skips_row_diff_above_max_rows(
-    tmp_path, pk_resource, make_dataset
+    mock_loggers, tmp_path, pk_resource, make_dataset
 ):
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
@@ -403,6 +409,7 @@ def test_compare_table_skips_row_diff_above_max_rows(
     # is_identical is conservatively False since row content was never checked,
     # even though schema and row counts alone match.
     assert not result.is_identical
+    mock_loggers["table"].warning.assert_called_once()
 
 
 def test_compare_table_default_max_rows_for_row_level_comparison(
@@ -444,7 +451,9 @@ def test_run_table_diff_success(tmp_path: Path, pk_resource, make_dataset):
     assert run.result.is_identical
 
 
-def test_run_table_diff_missing_datapackage(tmp_path: Path, pk_resource, make_dataset):
+def test_run_table_diff_missing_datapackage(
+    mock_loggers, tmp_path: Path, pk_resource, make_dataset
+):
     """A dataset whose datapackage.json can't even be read yields a failed run."""
     left_root = tmp_path / "left"
     left_root.mkdir()
@@ -462,9 +471,12 @@ def test_run_table_diff_missing_datapackage(tmp_path: Path, pk_resource, make_da
     assert run.result is None
     assert run.error is not None
     assert "FileNotFoundError" in run.error
+    mock_loggers["table"].exception.assert_called_once()
 
 
-def test_run_table_diff_unknown_table(tmp_path: Path, pk_resource, make_dataset):
+def test_run_table_diff_unknown_table(
+    mock_loggers, tmp_path: Path, pk_resource, make_dataset
+):
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
         tmp_path / "left",
@@ -485,6 +497,7 @@ def test_run_table_diff_unknown_table(tmp_path: Path, pk_resource, make_dataset)
     # now comes from Polars failing to find the file itself.
     assert "FileNotFoundError" in run.error
     assert "nonexistent_table.parquet" in run.error
+    mock_loggers["table"].exception.assert_called_once()
 
 
 @pytest.mark.parametrize("has_pk", [True, False])

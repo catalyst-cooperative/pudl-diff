@@ -66,7 +66,6 @@ lint = [
 ]
 tests = [
   "coverage>=7.15.2",              # Lets us track what code is being tested
-  "ipython>=9",                    # Used by the --pdbcls option in the pytest config
   "jsonschema>=4.26",              # Validates reports against their JSON Schema
   "numpy>=2",                      # Used to check float comparisons against numpy's
   "pytest-console-scripts>=1.4.1", # Allow automatic testing of scripts
@@ -99,11 +98,19 @@ filterwarnings = [
   # "ignore:Deprecated call to.*declare_namespace:DeprecationWarning:pkg_resources",
 ]
 
-addopts = ["--verbose", "--pdbcls=IPython.terminal.debugger:TerminalPdb"]
+# Quiet output: one character per test and one line per module. If you need to see the
+# names of the tests, or logs as they are emitted, override the options:
+#   pytest -v -o log_cli=true tests/unit/foo_test.py
+# Failing tests still show the logs they captured, and the reasons that tests were
+# skipped or xfailed (-ra), with short tracebacks.
+addopts = ["-ra", "--tb=short"]
 log_format = "%(asctime)s [%(levelname)8s] %(name)s:%(lineno)s %(message)s"
 log_date_format = "%Y-%m-%d %H:%M:%S"
-log_cli = true
-log_cli_level = "DEBUG"
+log_cli = false
+log_cli_level = "INFO"
+# The level of the logs that are captured, and shown for failing tests. Without this
+# pytest would capture DEBUG messages too, which are noise in a failure's output.
+log_level = "INFO"
 doctest_optionflags = [
   "NORMALIZE_WHITESPACE",
   "IGNORE_EXCEPTION_DETAIL",
@@ -271,13 +278,13 @@ default = { features = ["lint"], solve-group = "default" }
 
 [tool.pixi.tasks]
 test-erase = { cmd = "coverage erase", description = "Wipe previously recorded coverage data before the test suites run." }
-test-unit = { cmd = "pytest --cov=pudl_diff --cov-append --cov-report=xml --cov-fail-under=0 --doctest-modules src/pudl_diff tests/unit", depends-on = [
+test-unit = { cmd = "pytest --cov=pudl_diff --cov-append --cov-report= --cov-fail-under=0 --doctest-modules src/pudl_diff tests/unit", depends-on = [
   "test-erase",
 ], description = "Run unit tests (and doctests) with coverage instrumentation." }
-test-integration = { cmd = "pytest --cov=pudl_diff --cov-append --cov-report=xml --cov-fail-under=0 tests/integration", depends-on = [
+test-integration = { cmd = "pytest --cov=pudl_diff --cov-append --cov-report= --cov-fail-under=0 tests/integration", depends-on = [
   "test-erase",
 ], description = "Run integration tests with coverage instrumentation." }
-test = { cmd = "coverage report --sort=cover", depends-on = [
+test = { cmd = "coverage xml --quiet && coverage report --sort=cover", depends-on = [
   "test-unit",
   "test-integration",
 ], description = "Run all tests and report combined coverage, failing if it's below the configured threshold." }
