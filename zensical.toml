@@ -24,10 +24,19 @@ logo = "_static/catalyst_logo-200x200.png"
 favicon = "_static/favicon.ico"
 
 features = [
+  "content.code.annotate",
   "content.code.copy",
+  "content.code.select",
+  "content.footnote.tooltips",
+  "content.tabs.link",
+  "content.tooltips",
   "navigation.footer",
   "navigation.indexes",
+  "navigation.instant",
+  "navigation.instant.prefetch",
+  "navigation.path",
   "navigation.top",
+  "navigation.tracking",
   "search.highlight",
 ]
 
@@ -71,8 +80,16 @@ paths = ["src"]
 
 [project.plugins.mkdocstrings.handlers.python.options]
 docstring_style = "google"
+# Without a heading for each module, its members are bare top-level headings that run
+# together in the page and the sidebar, with nothing showing which module they're in.
+show_root_heading = true
+show_root_full_path = true
 show_source = true
 
+# Setting any markdown_extensions replaces Zensical's default set wholesale rather than
+# adding to it, so this table is that default set (minus math, which nothing here
+# uses) plus the two extensions the defaults lack: snippets and configured magiclink.
+# Zensical's own defaults are in zensical/config.py, DEFAULT_MARKDOWN_EXTENSIONS.
 [project.markdown_extensions.abbr]
 [project.markdown_extensions.admonition]
 [project.markdown_extensions.attr_list]
@@ -82,12 +99,17 @@ show_source = true
 [project.markdown_extensions.toc]
 permalink = true
 [project.markdown_extensions.pymdownx.betterem]
+[project.markdown_extensions.pymdownx.caret]
 [project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.pymdownx.emoji]
+emoji_generator = "zensical.extensions.emoji.to_svg"
+emoji_index = "zensical.extensions.emoji.twemoji"
 [project.markdown_extensions.pymdownx.highlight]
 anchor_linenums = true
 line_spans = "__span"
 pygments_lang_class = true
 [project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.keys]
 # Enables shorthand references instead of full Markdown links: `#123` for issues,
 # `!123` for pull requests, `@user` for users, and raw commit SHAs -- all resolved
 # against the `user`/`repo` below unless another owner/repo is spelled out explicitly.
@@ -96,9 +118,17 @@ repo_url_shorthand = true
 social_url_shorthand = true
 user = "catalyst-cooperative"
 repo = "pudl-diff"
+[project.markdown_extensions.pymdownx.mark]
+[project.markdown_extensions.pymdownx.smartsymbols]
+# Includes README.md and LICENSE.txt in pages with `--8<-- "file"`.
 [project.markdown_extensions.pymdownx.snippets]
 base_path = ["."]
 check_paths = true
 [project.markdown_extensions.pymdownx.superfences]
+custom_fences = [{ name = "mermaid", class = "mermaid" }]
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+combine_header_slug = true
 [project.markdown_extensions.pymdownx.tasklist]
 custom_checkbox = true
+[project.markdown_extensions.pymdownx.tilde]

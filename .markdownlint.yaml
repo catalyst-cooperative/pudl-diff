@@ -18,3 +18,7 @@ MD024:
 # collides with this rule's Jekyll-style front-matter-title heuristic.
 MD025:
   front_matter_title: ""
+# Code block style. Disabled because Zensical content tabs (=== "Tab") indent their
+# content 4 spaces, which CommonMark also reads as an indented code block, so no single
+# style setting can satisfy both.
+MD046: false

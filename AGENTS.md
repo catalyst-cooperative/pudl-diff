@@ -56,7 +56,7 @@ so agents use the same invocations CI does:
     `lint-pyrefly-coverage` fails.
 - `pixi run format` -- automatically reformat code and other files with `ruff`,
     `taplo`, `mdformat`, and `prettier`. Run this before committing.
-- `pixi run docs` -- build the documentation with `zensical` into `site/`.
+- `pixi run docs-build` -- build the documentation with `zensical` into `site/`.
 - `pixi run docs-serve` -- serve the documentation locally with live reload.
 - `pixi run build` -- build the sdist/wheel and check them with `twine`.
 - `pixi run prek-update` -- bump the hook `rev` pins in `.pre-commit-config.yaml` to
@@ -118,14 +118,6 @@ explain *why* the codebase looks the way it does.
     into the output of a failing test. A test that cares what was logged asks for
     `mock_loggers` and checks `mock_loggers["table"].warning`, keyed by module name.
     Don't call the package's loggers for real in tests.
-- Test output is deliberately quiet: one character per test and one line per module,
-    with logs captured rather than shown. To see test names or live logs while
-    debugging, use `pixi run pytest -v -o log_cli=true <path>`.
-- The `mock_loggers` fixture in `tests/unit/conftest.py` is autouse, and replaces the
-    `logger` of every module with a mock, so that expected failures don't spew errors
-    into the output of a failing test. A test that cares what was logged asks for
-    `mock_loggers` and checks `mock_loggers["table"].warning`, keyed by module name.
-    Don't call the package's loggers for real in tests.
 - Test coverage must stay at 100%, counting branches as well as lines, and measured
     over the tests and `scripts/` as well as the package (`[tool.coverage.run]` and
     `[tool.coverage.report]`); `pixi run test` fails otherwise. Measuring the tests
@@ -145,6 +137,10 @@ whether the agent should skip them, mock them, or ask a human to run them.
 - Documentation source lives under `docs/` as Markdown, built with
     [Zensical](https://zensical.org/) (configured in `zensical.toml`) and published to
     GitHub Pages.
+- `[project.markdown_extensions.*]` in `zensical.toml` *replaces* Zensical's default
+    extension set rather than adding to it, so `zensical.toml` lists that whole set
+    (see `DEFAULT_MARKDOWN_EXTENSIONS` in `zensical/config.py`) plus `snippets`, which
+    isn't a default. An extension left out of the list silently stops working.
 - API reference docs are generated from docstrings via `mkdocstrings` -- add a new
     `::: module.path` line to `docs/reference.md` for any new module that should appear
     in the API reference; it is not automatic.

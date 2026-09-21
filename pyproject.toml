@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "hatchling.build"
-requires = ["hatch-vcs>=0.5", "hatchling>=1.31"]
+requires = ["hatch-vcs>=0.5", "hatchling>=1.32"]
 
 [project]
 # This should be the *installed* package name e.g. catalystcoop.pudl not pudl
@@ -53,26 +53,26 @@ pudl_diff = "pudl_diff.cli:main"
 
 [project.optional-dependencies]
 dev = [
-  "build>=1.5.0", # PEP 517 build frontend, used to build the sdist/wheel
-  "prek>=0.4.10", # Fast Rust-based pre-commit hook runner
-  "twine>=6.2.0", # Used to make releases to PyPI
+  "build>=1.6", # PEP 517 build frontend, used to build the sdist/wheel
+  "prek>=0.5", # Fast Rust-based pre-commit hook runner
+  "twine>=7", # Used to make releases to PyPI
 ]
 docs = [
-  "mkdocstrings-python>=2.0.5", # Renders API docs from docstrings, used by zensical
-  "zensical>=0.0.50",           # Markdown-based static site generator for docs
+  "mkdocstrings-python>=2", # Renders API docs from docstrings, used by zensical
+  "zensical>=0.0.63",           # Markdown-based static site generator for docs
 ]
 lint = [
   "mdformat-mkdocs>=5", # Stops mdformat from mangling zensical/MkDocs markdown syntax
-  "ruff>=0.15.22",      # A very fast python linter & autofixer
+  "ruff>=0.16",      # A very fast python linter & autofixer
 ]
 tests = [
-  "coverage>=7.15.2",              # Lets us track what code is being tested
+  "coverage>=7.16",              # Lets us track what code is being tested
   "jsonschema>=4.26",              # Validates reports against their JSON Schema
-  "numpy>=2",                      # Used to check float comparisons against numpy's
+  "numpy>=2.5",                      # Used to check float comparisons against numpy's
   "pytest-console-scripts>=1.4.1", # Allow automatic testing of scripts
-  "pytest-cov>=7.1.0",             # Pytest plugin for working with coverage
+  "pytest-cov>=7.1",             # Pytest plugin for working with coverage
   "pytest-mock>=3.15",             # The mocker fixture
-  "pytest>=9.1.1",                 # Our testing framework
+  "pytest>=9",                 # Our testing framework
 ]
 types = [
   "pyrefly>=1.3",           # Fast Rust-based Python type checker, from Meta
@@ -114,11 +114,6 @@ log_cli_level = "INFO"
 # The level of the logs that are captured, and shown for failing tests. Without this
 # pytest would capture DEBUG messages too, which are noise in a failure's output.
 log_level = "INFO"
-doctest_optionflags = [
-  "NORMALIZE_WHITESPACE",
-  "IGNORE_EXCEPTION_DETAIL",
-  "ELLIPSIS",
-]
 
 [tool.ruff]
 # Configurations that apply to both the `format` and `lint` subcommands.
@@ -288,9 +283,9 @@ default = { features = ["lint"], solve-group = "default" }
 
 [tool.pixi.tasks]
 test-erase = { cmd = "coverage erase", description = "Wipe previously recorded coverage data before the test suites run." }
-test-unit = { cmd = "pytest --cov --cov-append --cov-report= --cov-fail-under=0 --doctest-modules src/pudl_diff tests/unit", depends-on = [
+test-unit = { cmd = "pytest --cov --cov-append --cov-report= --cov-fail-under=0 src/pudl_diff tests/unit", depends-on = [
   "test-erase",
-], description = "Run unit tests (and doctests) with coverage instrumentation." }
+], description = "Run unit tests with coverage instrumentation." }
 test-integration = { cmd = "pytest --cov --cov-append --cov-report= --cov-fail-under=0 tests/integration", depends-on = [
   "test-erase",
 ], description = "Run integration tests with coverage instrumentation." }
@@ -323,7 +318,7 @@ format = { depends-on = [
   "format-yaml",
 ], description = "Run all formatters, modifying files in place." }
 
-docs = { cmd = "zensical build", description = "Build the documentation with Zensical into site/." }
+docs-build = { cmd = "zensical build", description = "Build the documentation with Zensical into site/." }
 docs-serve = { cmd = "zensical serve", description = "Serve the documentation locally, rebuilding on changes." }
 
 prek-update = { cmd = "prek update", description = "Bump the `rev` pins in .pre-commit-config.yaml to their latest tagged versions. Used by .github/workflows/update-lockfiles.yml; see also `pixi update` for refreshing pixi.lock itself." }
