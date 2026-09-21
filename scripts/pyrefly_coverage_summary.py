@@ -12,7 +12,7 @@ typable symbol count, how many are untyped, and the resulting coverage percentag
 followed by the same metrics summed across the whole project. It only needs ``click``,
 so it can be run without installing this package, e.g.::
 
-    pyrefly coverage report src | uv run src/pudl_diff/pyrefly_coverage_summary.py
+    pyrefly coverage report src | uv run scripts/pyrefly_coverage_summary.py
 """
 
 import json

@@ -1,11 +1,10 @@
-"""Unit tests for pudl_diff.pyrefly_coverage_summary."""
+"""Unit tests for scripts/pyrefly_coverage_summary.py."""
 
 import json
 from pathlib import Path
 
 from click.testing import CliRunner
-
-from pudl_diff.pyrefly_coverage_summary import _coverage, main
+from pyrefly_coverage_summary import _coverage, main
 
 REPORT = {
     "module_reports": [

@@ -91,6 +91,8 @@ packages = ["src/pudl_diff"]
 
 [tool.pytest]
 testpaths = ["."]
+# So that the tests can import the scripts.
+pythonpath = ["scripts"]
 filterwarnings = [
   # Examples of how to filter out pytest warnings from dependencies
   # "ignore:distutils Version classes are deprecated:DeprecationWarning",
@@ -239,7 +241,8 @@ exclude_lines = [
 [tool.pyrefly]
 # Check the tests too: they are typed like everything else, and the checker runs in the
 # full pixi environment, so it can resolve the test dependencies.
-project-includes = ["src", "tests"]
+project-includes = ["src", "tests", "scripts"]
+search-path = ["scripts"]
 python-version = "3.14"
 python-platform = "linux"
 python-interpreter-path = ".pixi/envs/default/bin/python3"
@@ -306,7 +309,7 @@ lint-pyrefly = { cmd = "pyrefly check", description = "Type check the code with 
 # per-module names for the test suite, so it reports those files under a single
 # "__unknown__" bucket that would distort the overall percentage.
 lint-pyrefly-coverage = { cmd = "pyrefly coverage check --fail-under 100 src", description = "Fail if any part of src/ is missing type annotations." }
-pyrefly-coverage-report = { cmd = "pyrefly coverage report src | uv run src/pudl_diff/pyrefly_coverage_summary.py", description = "Show the type annotation coverage of each module in src/." }
+pyrefly-coverage-report = { cmd = "pyrefly coverage report src | uv run scripts/pyrefly_coverage_summary.py", description = "Show the type annotation coverage of each module in src/." }
 lint = { depends-on = [
   "lint-ruff",
   "lint-pyrefly",
