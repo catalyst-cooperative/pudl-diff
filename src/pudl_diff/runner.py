@@ -1,5 +1,6 @@
 """Comparing many tables between two datasets."""
 
+import logging
 import time
 import traceback
 from collections.abc import Callable, Sequence
@@ -14,7 +15,7 @@ from pudl_diff.table_report import (
     report_table_diff,
 )
 
-logger = get_logger(__name__)
+logger: logging.Logger = get_logger(__name__)
 
 
 def run_dataset_diff(

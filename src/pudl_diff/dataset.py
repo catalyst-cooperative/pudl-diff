@@ -1,8 +1,10 @@
 """Access to a PUDL Parquet dataset: its datapackage, tables, and provenance."""
 
 import json
+import logging
 import os
 from collections.abc import Sequence
+from typing import Any
 
 import polars as pl
 from upath import UPath
@@ -15,7 +17,7 @@ from pudl_diff.defaults import (
 )
 from pudl_diff.logs import get_logger
 
-logger = get_logger(__name__)
+logger: logging.Logger = get_logger(__name__)
 
 
 class DatasetProvenance(ReportModel):
@@ -74,8 +76,7 @@ class PudlDiffDataset:
                 deployed to a permanent URL, or a public dataset read through a
                 faster mirror. Purely descriptive: all reads use ``root``.
         """
-        # ty flags UPath as abstract, but its __new__ returns a concrete subclass.
-        dataset_root = UPath(root)  # ty: ignore[call-non-callable]
+        dataset_root = UPath(root)
         if dataset_root.protocol in ("", "file", "local"):
             # A dataset on the local filesystem is always identified by its absolute
             # path, so that it doesn't depend on the directory this was run from.
@@ -83,11 +84,11 @@ class PudlDiffDataset:
                 dataset_root = dataset_root.expanduser()
             dataset_root = dataset_root.resolve()
         self.root: UPath = dataset_root
-        self.descriptor_name = descriptor_name or self._default_descriptor_name(
+        self.descriptor_name: str = descriptor_name or self._default_descriptor_name(
             self.root
         )
         self.display_root: str = display_root or str(self.root)
-        self._datapackage: dict | None = None
+        self._datapackage: dict[str, Any] | None = None
 
     @staticmethod
     def _default_descriptor_name(root: UPath) -> str:
@@ -103,7 +104,7 @@ class PudlDiffDataset:
         return "datapackage.json"
 
     @property
-    def datapackage(self) -> dict:
+    def datapackage(self) -> dict[str, Any]:
         """The parsed datapackage descriptor for this dataset."""
         if self._datapackage is None:
             path = self.root / self.descriptor_name
@@ -111,7 +112,7 @@ class PudlDiffDataset:
         return self._datapackage
 
     @property
-    def _resources_by_name(self) -> dict[str, dict]:
+    def _resources_by_name(self) -> dict[str, dict[str, Any]]:
         return {
             resource["name"]: resource
             for resource in self.datapackage.get("resources", [])
@@ -132,7 +133,7 @@ class PudlDiffDataset:
             path.name.removesuffix(".parquet") for path in self.root.glob("*.parquet")
         )
 
-    def get_resource(self, table_name: str) -> dict:
+    def get_resource(self, table_name: str) -> dict[str, Any]:
         """Return the datapackage resource descriptor for ``table_name``.
 
         Raises:

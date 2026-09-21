@@ -1,6 +1,7 @@
 """Comparing a single table between two datasets."""
 
 import dataclasses
+import logging
 import time
 import traceback
 from dataclasses import dataclass
@@ -20,7 +21,7 @@ from pudl_diff.rows import (
 )
 from pudl_diff.schema import SchemaDiff, compare_schemas
 
-logger = get_logger(__name__)
+logger: logging.Logger = get_logger(__name__)
 
 
 #: Fixed set of reasons :func:`compare_table` skips the row-level comparison

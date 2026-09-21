@@ -39,5 +39,5 @@ __author__ = "Catalyst Cooperative"
 __contact__ = "pudl@catalyst.coop"
 __maintainer__ = "Catalyst Cooperative"
 __license__ = "MIT License"
-__version__ = importlib.metadata.version("catalystcoop.pudl_diff")
+__version__: str = importlib.metadata.version("catalystcoop.pudl_diff")
 __projecturl__ = "https://github.com/catalyst-cooperative/pudl-diff"

@@ -48,8 +48,12 @@ so agents use the same invocations CI does:
 
 - `pixi run test` -- run the unit and integration tests under `tests/` with pytest,
     and report combined test coverage.
-- `pixi run lint` -- run `ruff` and `ty` (static analysis and type checking). Doesn't
-    modify files.
+- `pixi run lint` -- run `ruff` (static analysis), `pyrefly` (type checking), and the
+    check that all of `src/` is type annotated. Doesn't modify files. The pieces are
+    also available separately as `lint-ruff`, `lint-pyrefly` and
+    `lint-pyrefly-coverage`.
+- `pixi run pyrefly-coverage-report` -- show which modules have untyped code, when
+    `lint-pyrefly-coverage` fails.
 - `pixi run format` -- automatically reformat code and other files with `ruff`,
     `taplo`, `mdformat`, and `prettier`. Run this before committing.
 - `pixi run docs` -- build the documentation with `zensical` into `site/`.
@@ -74,8 +78,12 @@ description of what each one does and when to use it.
     `pyproject.toml`) and applied automatically by `pixi run format` / the `ruff` and
     `ruff-format` pre-commit hooks. Don't hand-format code to match a personal
     preference that conflicts with what `ruff format` produces.
-- Type checking is done with `ty` (see `[tool.ty.src]`). New code should be typed;
-    if you must suppress a false positive, use a `# ty: ignore[rule-name]` comment
+- Type checking is done with `pyrefly` at the `strict` preset (see `[tool.pyrefly]`),
+    blocking in pre-commit and CI. The tests are checked too, but are exempt from the
+    rules that require annotating every fixture argument. The package ships a
+    `py.typed` marker, and `src/` must stay at 100% type coverage
+    (`pixi run lint-pyrefly-coverage`): annotate every function, method and attribute.
+    If you must suppress a false positive, use a `# pyrefly: ignore[rule-name]` comment
     with a short note explaining *why* it's a false positive, not just that it is one.
 - Docstrings use the Google convention (`[tool.ruff.lint.pydocstyle]`).
 
@@ -99,6 +107,10 @@ explain *why* the codebase looks the way it does.
     `[tool.coverage.report]`.
 - New behavior needs a test. Bug fixes should add a regression test that fails
     without the fix.
+- Test coverage of `src/` must stay at 100%, counting branches as well as lines
+    (`[tool.coverage.run]` and `[tool.coverage.report]`); `pixi run test` fails
+    otherwise. Don't work around it with `pragma: no cover`: test the code, or if it's
+    truly unreachable, delete it.
 
 <!--
 If this project has integration tests that require credentials, network access, a

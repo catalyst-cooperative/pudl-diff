@@ -10,15 +10,17 @@ when this module is, so PUDL can itself depend on this tool.
 import functools
 import importlib
 import json
+import logging
 import os
 import types
 from pathlib import Path
+from typing import Any
 
 from upath import UPath
 
 from pudl_diff.logs import get_logger
 
-logger = get_logger(__name__)
+logger: logging.Logger = get_logger(__name__)
 
 PUDL_CATALYST_COOP_HOST = "pudl.catalyst.coop"
 """The bucket of PUDL's published outputs, on both S3 and GCS."""
@@ -42,8 +44,7 @@ def nightly_root() -> UPath:
     """Where the last nightly build's outputs are, readable anonymously."""
     if (pudl := _import_pudl()) is not None:
         return pudl.PUDL_NIGHTLY_BUILDS_BASE_PATH
-    # ty flags UPath as abstract, but its __new__ returns a concrete subclass.
-    return UPath(NIGHTLY_ROOT, anon=True)  # ty: ignore[call-non-callable]
+    return UPath(NIGHTLY_ROOT, anon=True)
 
 
 def default_right_root() -> Path:
@@ -73,7 +74,7 @@ def _pudl_package_primary_key(table_name: str) -> list[str] | None:
 
 
 @functools.cache
-def _nightly_descriptor() -> dict | None:
+def _nightly_descriptor() -> dict[str, Any] | None:
     """The datapackage descriptor of the last nightly build, fetched once.
 
     ``None`` if it can't be fetched, which is logged.

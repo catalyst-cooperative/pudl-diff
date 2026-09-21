@@ -75,7 +75,9 @@ tests = [
   "pytest>=9.1.1",                 # Our testing framework
 ]
 types = [
-  "ty>=0.0.61", # Extremely fast Rust-based Python type checker, from Astral
+  "pyrefly>=1.3",           # Fast Rust-based Python type checker, from Meta
+  "types-jsonschema>=4.26", # Type stubs for jsonschema, used in the tests
+  "types-psutil>=7",        # Type stubs for psutil
 ]
 
 [tool.hatch.version]
@@ -187,11 +189,16 @@ docstring-quotes = "double"
 inline-quotes = "double"
 multiline-quotes = "double"
 
+[tool.coverage.run]
+# Count every branch as well as every line, so that a condition that is only ever
+# true, or only ever false, in the tests shows up as missing coverage.
+branch = true
+
 [tool.coverage.report]
 precision = 2
 sort = "miss"
 skip_empty = true
-fail_under = 90
+fail_under = 100
 # fail_under is enforced once, after unit and integration coverage are combined, by
 # the final "coverage report" invocation in the `test` pixi task below -- not here,
 # since pytest-cov would otherwise also enforce it after unit or integration tests
@@ -212,15 +219,20 @@ exclude_lines = [
   "logger.debug",
 ]
 
-[tool.ty.src]
-# Unlike pyrefly's pre-commit hook, ty always runs with the full pixi environment
-# (see the local "ty" pre-commit hook below), so there's no need to limit checking
-# to "src" alone the way pyrefly's config used to.
-include = ["src", "tests"]
-
-# No [tool.ty.environment] python-version setting -- ty already infers it from
-# `project.requires-python` above, so pinning it again here would just be tracking
-# the same version in two places.
+[tool.pyrefly]
+# Check the tests too: they are typed like everything else, and the checker runs in the
+# full pixi environment, so it can resolve the test dependencies.
+project-includes = ["src", "tests"]
+python-version = "3.14"
+python-platform = "linux"
+python-interpreter-path = ".pixi/envs/default/bin/python3"
+# Strict for the package that gets published with a py.typed marker. The tests are
+# only exempt from the rules that demand annotating every fixture argument and
+# container; everything else applies to them too.
+preset = "strict"
+sub-config = [
+  { matches = "tests/**", errors = { implicit-any-parameter = false, implicit-any-type-argument = false, implicit-any-lambda = false, implicit-any-empty-container = false } },
+]
 
 [tool.pixi.workspace]
 channels = ["conda-forge", "bioconda"]
@@ -271,15 +283,21 @@ test = { cmd = "coverage report --sort=cover", depends-on = [
 ], description = "Run all tests and report combined coverage, failing if it's below the configured threshold." }
 
 lint-ruff = { cmd = "ruff check .", description = "Check code style and correctness with ruff, without modifying files." }
-lint-ty = { cmd = "ty check", description = "Type check the code with ty." }
+lint-pyrefly = { cmd = "pyrefly check", description = "Type check the code with pyrefly." }
+# Type coverage is only measured against src/, not tests/: pyrefly can't derive stable
+# per-module names for the test suite, so it reports those files under a single
+# "__unknown__" bucket that would distort the overall percentage.
+lint-pyrefly-coverage = { cmd = "pyrefly coverage check --fail-under 100 src", description = "Fail if any part of src/ is missing type annotations." }
+pyrefly-coverage-report = { cmd = "pyrefly coverage report src | python scripts/pyrefly_coverage_summary.py", description = "Show the type annotation coverage of each module in src/." }
 lint = { depends-on = [
   "lint-ruff",
-  "lint-ty",
+  "lint-pyrefly",
+  "lint-pyrefly-coverage",
 ], description = "Run all linters and type checks, without modifying files." }
 
 format-ruff = { cmd = "ruff format . && ruff check --fix .", description = "Reformat code and auto-fix lint issues with ruff." }
 format-toml = { cmd = "taplo fmt pyproject.toml zensical.toml", description = "Reformat TOML files with taplo." }
-format-md = { cmd = "mdformat README.md AGENTS.md docs", description = "Reformat Markdown files with mdformat." }
+format-md = { cmd = "mdformat --exclude docs/report_schema.md README.md AGENTS.md docs", description = "Reformat Markdown files with mdformat." }
 format-yaml = { cmd = "prettier --write '**/*.{yaml,yml}'", description = "Reformat YAML files with prettier." }
 format = { depends-on = [
   "format-ruff",

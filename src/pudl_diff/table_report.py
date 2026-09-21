@@ -5,6 +5,7 @@ tables, assembled into a :class:`TableDiffReport`, and :func:`report_table_diff`
 compares a table and builds its report.
 """
 
+import logging
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -37,7 +38,7 @@ from pudl_diff.table import (
     run_table_diff,
 )
 
-logger = get_logger(__name__)
+logger: logging.Logger = get_logger(__name__)
 
 
 class SchemaDiffSummary(ReportModel):

@@ -20,10 +20,13 @@ jobs:
         with:
           cache: true
 
-      - name: Type check with ty
-        # Not covered by pre-commit.ci (see .pre-commit-config.yaml's "ty" hook and
-        # its `ci.skip` entry), so it's enforced here instead.
-        run: pixi run lint-ty
+      - name: Type check with pyrefly
+        # Not covered by pre-commit.ci (see .pre-commit-config.yaml's "pyrefly" hook
+        # and its `ci.skip` entry), so it's enforced here instead.
+        run: pixi run lint-pyrefly
+
+      - name: Check that all of src/ is type annotated
+        run: pixi run lint-pyrefly-coverage
 
       - name: Run PyTest with coverage
         run: pixi run test

@@ -35,7 +35,7 @@ def test_nightly_root_without_pudl(without_pudl):
 
 
 def test_nightly_root_uses_pudls_when_installed(mocker):
-    pudl_root = UPath("s3://elsewhere/nightly/", anon=True)  # ty: ignore[call-non-callable]
+    pudl_root = UPath("s3://elsewhere/nightly/", anon=True)
     mocker.patch.object(
         defaults,
         "_import_pudl",
