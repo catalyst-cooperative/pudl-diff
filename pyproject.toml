@@ -244,6 +244,10 @@ python-interpreter-path = ".pixi/envs/default/bin/python3"
 # only exempt from the rules that demand annotating every fixture argument and
 # container; everything else applies to them too.
 preset = "strict"
+# Any written out explicitly is as good as no type at all, so the tests and scripts
+# have to say what they mean too. JSON is described by the types in datapackage.py, or
+# by pydantic's own JsonSchemaValue for a JSON Schema.
+errors = { explicit-any = true }
 sub-config = [
   { matches = "tests/**", errors = { implicit-any-parameter = false, implicit-any-type-argument = false, implicit-any-lambda = false, implicit-any-empty-container = false } },
 ]

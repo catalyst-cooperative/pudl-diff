@@ -14,10 +14,10 @@ import logging
 import os
 import types
 from pathlib import Path
-from typing import Any
 
 from upath import UPath
 
+from pudl_diff.datapackage import Datapackage
 from pudl_diff.logs import get_logger
 
 logger: logging.Logger = get_logger(__name__)
@@ -74,7 +74,7 @@ def _pudl_package_primary_key(table_name: str) -> list[str] | None:
 
 
 @functools.cache
-def _nightly_descriptor() -> dict[str, Any] | None:
+def _nightly_descriptor() -> Datapackage | None:
     """The datapackage descriptor of the last nightly build, fetched once.
 
     `None` if it can't be fetched, which is logged.
@@ -93,7 +93,8 @@ def _nightly_primary_key(table_name: str) -> list[str] | None:
         return None
     for resource in descriptor.get("resources", []):
         if resource.get("name") == table_name:
-            return list(resource.get("schema", {}).get("primaryKey", []))
+            schema = resource.get("schema")
+            return list(schema.get("primaryKey", [])) if schema else []
     return None
 
 

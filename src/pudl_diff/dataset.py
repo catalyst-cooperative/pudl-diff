@@ -4,12 +4,12 @@ import json
 import logging
 import os
 from collections.abc import Sequence
-from typing import Any
 
 import polars as pl
 from upath import UPath
 
 from pudl_diff.base import ReportModel
+from pudl_diff.datapackage import Datapackage, Resource
 from pudl_diff.defaults import (
     PUDL_CATALYST_COOP_DESCRIPTOR_NAME,
     PUDL_CATALYST_COOP_HOST,
@@ -88,7 +88,7 @@ class PudlDiffDataset:
             self.root
         )
         self.display_root: str = display_root or str(self.root)
-        self._datapackage: dict[str, Any] | None = None
+        self._datapackage: Datapackage | None = None
 
     @staticmethod
     def _default_descriptor_name(root: UPath) -> str:
@@ -104,7 +104,7 @@ class PudlDiffDataset:
         return "datapackage.json"
 
     @property
-    def datapackage(self) -> dict[str, Any]:
+    def datapackage(self) -> Datapackage:
         """The parsed datapackage descriptor for this dataset."""
         if self._datapackage is None:
             path = self.root / self.descriptor_name
@@ -112,7 +112,7 @@ class PudlDiffDataset:
         return self._datapackage
 
     @property
-    def _resources_by_name(self) -> dict[str, dict[str, Any]]:
+    def _resources_by_name(self) -> dict[str, Resource]:
         return {
             resource["name"]: resource
             for resource in self.datapackage.get("resources", [])
@@ -133,7 +133,7 @@ class PudlDiffDataset:
             path.name.removesuffix(".parquet") for path in self.root.glob("*.parquet")
         )
 
-    def get_resource(self, table_name: str) -> dict[str, Any]:
+    def get_resource(self, table_name: str) -> Resource:
         """Return the datapackage resource descriptor for `table_name`.
 
         Raises:

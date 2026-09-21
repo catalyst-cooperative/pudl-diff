@@ -7,6 +7,8 @@ See `pudl_diff` itself for an overview.
 
 ::: pudl_diff.logs
 
+::: pudl_diff.datapackage
+
 ::: pudl_diff.defaults
 
 ::: pudl_diff.base

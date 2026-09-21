@@ -14,10 +14,12 @@ The `pudl_diff` command line tool is a thin wrapper around it.
 
 The modules are layered, each importing only from those before it in this list:
 
-* [`logs`][pudl_diff.logs] and [`defaults`][pudl_diff.defaults]:
-  standard library logging, and the few things the tool knows about PUDL (its nightly
-  build, and where its metadata is), which are all optional so that the tool doesn't
-  depend on the rest of PUDL.
+* [`logs`][pudl_diff.logs], [`datapackage`][pudl_diff.datapackage] and
+  [`defaults`][pudl_diff.defaults]:
+  standard library logging, the parts of a datapackage descriptor that the tool reads,
+  and the few things the tool knows about PUDL (its nightly build, and where its
+  metadata is), which are all optional so that the tool doesn't depend on the rest of
+  PUDL.
 * [`base`][pudl_diff.base], [`formatting`][pudl_diff.formatting],
   [`dataset`][pudl_diff.dataset] and [`performance`][pudl_diff.performance]:
   the base class of the report's models, formatting sizes and durations, access to a

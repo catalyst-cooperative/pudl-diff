@@ -10,11 +10,11 @@ what the `pudl-diff-schema` pre-commit hook does.
 import json
 import re
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any
 
 import click
+from pydantic.json_schema import JsonSchemaValue
 
 from pudl_diff.dataset_report import PudlDiffReport
 
@@ -54,7 +54,7 @@ def _plain_description(description: str) -> str:
     return "\n\n".join(paragraphs)
 
 
-def report_json_schema() -> dict[str, Any]:
+def report_json_schema() -> JsonSchemaValue:
     """The JSON Schema of the JSON report, which every `PudlDiffReport` conforms to.
 
     Generated from the report's models, so that the schema and the descriptions of
@@ -65,7 +65,7 @@ def report_json_schema() -> dict[str, Any]:
     """
     schema = PudlDiffReport.model_json_schema(mode="serialization")
 
-    def clean(node: Any) -> None:
+    def clean(node: object) -> None:
         if isinstance(node, dict):
             if isinstance(node.get("description"), str):
                 node["description"] = _plain_description(node["description"])
@@ -88,7 +88,7 @@ def _model_name(ref: str) -> str:
     return ref.removeprefix("#/$defs/")
 
 
-def schema_type(spec: dict[str, Any], link: Callable[[str], str] = str) -> str:
+def schema_type(spec: JsonSchemaValue, link: Callable[[str], str] = str) -> str:
     """Describe the type of a property of the schema in a few words.
 
     Args:
@@ -121,8 +121,8 @@ def schema_type(spec: dict[str, Any], link: Callable[[str], str] = str) -> str:
 
 
 def schema_models(
-    schema: dict[str, Any], link: Callable[[str], str] = str
-) -> list[dict[str, Any]]:
+    schema: JsonSchemaValue, link: Callable[[str], str] = str
+) -> list[JsonSchemaValue]:
     """Flatten a report schema into a list of models, for rendering as documentation.
 
     The report's own model comes first, followed by the models it refers to, in the
@@ -155,7 +155,7 @@ def schema_models(
     ]
 
 
-def _walk(node: Any) -> Any:
+def _walk(node: object) -> Iterator[JsonSchemaValue]:
     """Each dictionary in a nested structure of dictionaries and lists."""
     if isinstance(node, dict):
         yield node

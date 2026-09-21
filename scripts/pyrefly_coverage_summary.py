@@ -18,9 +18,32 @@ pyrefly coverage report src | uv run scripts/pyrefly_coverage_summary.py
 """
 
 import json
-from typing import Any, TextIO
+from typing import TextIO, TypedDict
 
 import click
+
+
+class ModuleReport(TypedDict):
+    """The type coverage of a module, in `pyrefly coverage report`'s JSON."""
+
+    name: str
+    n_typable: int
+    n_untyped: int
+
+
+class Summary(TypedDict):
+    """The type coverage of the whole project."""
+
+    n_typable: int
+    n_untyped: int
+    coverage: float
+
+
+class CoverageReport(TypedDict):
+    """The parts of `pyrefly coverage report`'s JSON that this uses."""
+
+    module_reports: list[ModuleReport]
+    summary: Summary
 
 
 def _coverage(n_typable: int, n_untyped: int) -> float:
@@ -37,7 +60,7 @@ def main(report: TextIO) -> None:
 
     REPORT is the file to read, or - (the default) for stdin.
     """
-    data: dict[str, Any] = json.load(report)
+    data: CoverageReport = json.load(report)
 
     rows = sorted(
         (
