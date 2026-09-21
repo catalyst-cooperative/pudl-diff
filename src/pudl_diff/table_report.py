@@ -547,7 +547,7 @@ def _table_bytes(dataset: PudlDiffDataset, table_name: str) -> int | None:
     """
     try:
         return dataset.table_bytes(table_name)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.debug(f"Couldn't get the size of {table_name!r}.", exc_info=True)
         return None
 

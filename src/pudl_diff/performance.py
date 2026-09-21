@@ -1,6 +1,7 @@
 """Sampling the memory and CPU use of a comparison."""
 
 import threading
+from typing import Self
 
 import psutil
 
@@ -28,7 +29,7 @@ class PerformanceSampler:
         self._peak_rss = 0
         self._peak_cpu_percent = 0.0
 
-    def __enter__(self) -> PerformanceSampler:
+    def __enter__(self) -> Self:
         """Record the baseline RSS and start sampling on a background thread."""
         self._baseline_rss = self._process.memory_info().rss
         self._peak_rss = self._baseline_rss
