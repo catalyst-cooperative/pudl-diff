@@ -13,22 +13,22 @@ the JSON report. The ``pudl_diff`` command line tool is a thin wrapper around it
 
 The modules are layered, each importing only from those before it in this list:
 
-* :mod:`~pudl.validate.diff.logs` and :mod:`~pudl.validate.diff.defaults`: standard
+* :mod:`~pudl_diff.logs` and :mod:`~pudl_diff.defaults`: standard
   library logging, and the few things the tool knows about PUDL (its nightly build,
   and where its metadata is), which are all optional so that the tool doesn't depend
   on the rest of PUDL.
-* :mod:`~pudl.validate.diff.base`, :mod:`~pudl.validate.diff.formatting`,
-  :mod:`~pudl.validate.diff.dataset` and :mod:`~pudl.validate.diff.performance`: the
+* :mod:`~pudl_diff.base`, :mod:`~pudl_diff.formatting`,
+  :mod:`~pudl_diff.dataset` and :mod:`~pudl_diff.performance`: the
   base class of the report's models, formatting sizes and durations, access to a
   dataset and its tables, and sampling memory and CPU use.
-* :mod:`~pudl.validate.diff.schema`, :mod:`~pudl.validate.diff.row_counts` and
-  :mod:`~pudl.validate.diff.rows`: the three comparisons of a pair of tables, from
+* :mod:`~pudl_diff.schema`, :mod:`~pudl_diff.row_counts` and
+  :mod:`~pudl_diff.rows`: the three comparisons of a pair of tables, from
   cheapest to most expensive.
-* :mod:`~pudl.validate.diff.table` and :mod:`~pudl.validate.diff.outputs`: running
+* :mod:`~pudl_diff.table` and :mod:`~pudl_diff.outputs`: running
   all of them on one table, and writing the differing rows to Parquet files.
-* :mod:`~pudl.validate.diff.table_report` and
-  :mod:`~pudl.validate.diff.dataset_report`: the serializable reports on one table
+* :mod:`~pudl_diff.table_report` and
+  :mod:`~pudl_diff.dataset_report`: the serializable reports on one table
   and on a whole dataset.
-* :mod:`~pudl.validate.diff.terminal`: rendering reports as text for a terminal.
-* :mod:`~pudl.validate.diff.runner`: comparing many tables and building the report.
+* :mod:`~pudl_diff.terminal`: rendering reports as text for a terminal.
+* :mod:`~pudl_diff.runner`: comparing many tables and building the report.
 """

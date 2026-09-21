@@ -1,8 +1,8 @@
-"""Unit tests for pudl.validate.diff.row_counts."""
+"""Unit tests for pudl_diff.row_counts."""
 
 import polars as pl
 
-from pudl.validate.diff.row_counts import compare_row_counts, count_rows
+from pudl_diff.row_counts import compare_row_counts, count_rows
 
 
 def test_count_rows():

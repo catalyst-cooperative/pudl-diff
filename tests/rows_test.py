@@ -1,4 +1,4 @@
-"""Unit tests for pudl.validate.diff.rows."""
+"""Unit tests for pudl_diff.rows."""
 
 import gc
 from collections import Counter
@@ -8,7 +8,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from pudl.validate.diff.rows import (
+from pudl_diff.rows import (
     compare_rows_with_pk,
     compare_rows_without_pk,
 )

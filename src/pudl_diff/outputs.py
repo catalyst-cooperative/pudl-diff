@@ -7,11 +7,11 @@ from pathlib import Path
 
 import polars as pl
 
-from pudl.validate.diff.rows import (
+from pudl_diff.rows import (
     KeyedRowDiff,
     RowSetDiff,
 )
-from pudl.validate.diff.table import (
+from pudl_diff.table import (
     row_diff_left_right_frames,
 )
 

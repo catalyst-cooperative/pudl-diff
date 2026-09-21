@@ -7,13 +7,13 @@ from collections.abc import Sequence
 import polars as pl
 from upath import UPath
 
-from pudl.validate.diff.base import ReportModel
-from pudl.validate.diff.defaults import (
+from pudl_diff.base import ReportModel
+from pudl_diff.defaults import (
     PUDL_CATALYST_COOP_DESCRIPTOR_NAME,
     PUDL_CATALYST_COOP_HOST,
     fallback_primary_key,
 )
-from pudl.validate.diff.logs import get_logger
+from pudl_diff.logs import get_logger
 
 logger = get_logger(__name__)
 

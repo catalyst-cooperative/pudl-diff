@@ -1,9 +1,9 @@
-"""Unit tests for pudl.validate.diff.schema."""
+"""Unit tests for pudl_diff.schema."""
 
 import polars as pl
 
-from pudl.validate.diff import table_report
-from pudl.validate.diff.schema import compare_schemas
+from pudl_diff import table_report
+from pudl_diff.schema import compare_schemas
 
 
 def test_compare_schemas_identical():

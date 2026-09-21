@@ -3,7 +3,7 @@
 The schema is generated from the report's Pydantic models, so it always matches the
 code. A copy is committed at :data:`SCHEMA_PATH` so that it can be linked to and used
 without running any PUDL code, and a test checks that the copy is up to date. To
-update it, run ``pixi run python -m pudl.validate.diff.report_schema``, which is also
+update it, run ``pixi run python -m pudl_diff.report_schema``, which is also
 what the ``pudl-diff-schema`` pre-commit hook does.
 """
 
@@ -14,7 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from pudl.validate.diff.dataset_report import PudlDiffReport
+from pudl_diff.dataset_report import PudlDiffReport
 
 SCHEMA_PATH = Path(__file__).with_name("report.schema.json")
 """Where the committed copy of the report's JSON Schema is, next to this module."""

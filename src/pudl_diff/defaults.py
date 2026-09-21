@@ -16,7 +16,7 @@ from pathlib import Path
 
 from upath import UPath
 
-from pudl.validate.diff.logs import get_logger
+from pudl_diff.logs import get_logger
 
 logger = get_logger(__name__)
 

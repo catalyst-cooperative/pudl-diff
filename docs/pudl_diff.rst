@@ -19,11 +19,11 @@ Typical uses include:
 * Giving a coding agent a concrete, checkable definition of "no unintended data
   changes" to work against while it does a refactor or dependency migration.
 
-The underlying comparison logic lives in the :mod:`pudl.validate.diff` subpackage,
+The underlying comparison logic lives in the :mod:`pudl_diff` subpackage,
 which the CLI described here wraps. See its docstrings for the programmatic API
-(start with :func:`pudl.validate.diff.runner.run_dataset_diff`) if you want to run
+(start with :func:`pudl_diff.runner.run_dataset_diff`) if you want to run
 comparisons from a script or notebook rather than the CLI, or
-:mod:`pudl.scripts.pudl_diff` for the CLI's own implementation. The pipeline tests
+:mod:`pudl_diff.cli` for the CLI's own implementation. The pipeline tests
 in ``tests/pipeline/validate/pudl_diff_test.py`` also double as runnable examples
 of the underlying functions.
 

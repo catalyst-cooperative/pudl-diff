@@ -1,17 +1,17 @@
-"""Unit tests for pudl.validate.diff.table."""
+"""Unit tests for pudl_diff.table."""
 
 from pathlib import Path
 
 import polars as pl
 import pytest
 
-from pudl.validate.diff import table as diff_table
-from pudl.validate.diff.dataset import PudlDiffDataset
-from pudl.validate.diff.rows import (
+from pudl_diff import table as diff_table
+from pudl_diff.dataset import PudlDiffDataset
+from pudl_diff.rows import (
     KeyedRowDiff,
     RowSetDiff,
 )
-from pudl.validate.diff.table import TableDiffResult, compare_table, run_table_diff
+from pudl_diff.table import TableDiffResult, compare_table, run_table_diff
 
 
 def test_run_table_diff_succeeds_without_left_datapackage(tmp_path: Path, make_dataset):

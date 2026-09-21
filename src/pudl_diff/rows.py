@@ -7,7 +7,7 @@ from pathlib import Path
 
 import polars as pl
 
-from pudl.validate.diff.row_counts import (
+from pudl_diff.row_counts import (
     count_rows,
 )
 

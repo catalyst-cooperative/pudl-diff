@@ -15,8 +15,8 @@ Pydantic:
 
 .. code-block:: python
 
-   from pudl.validate.diff.dataset_report import PudlDiffReport
-   from pudl.validate.diff.report_schema import report_json_schema
+   from pudl_diff.dataset_report import PudlDiffReport
+   from pudl_diff.report_schema import report_json_schema
 
    schema = report_json_schema()
    report = PudlDiffReport.model_validate_json(report_path.read_text())
@@ -26,10 +26,10 @@ A field marked *derived* is calculated from the others: it is written to the rep
 for convenience, but ignored when a report is loaded. The version of the report format
 is in its ``schema_version`` field, which follows the ``major.minor.patch`` convention.
 
-The copy of the schema in the repository, ``src/pudl/validate/diff/report.schema.json``,
+The copy of the schema in the repository, ``src/pudl_diff/report.schema.json``,
 is kept up to date by the ``pudl-diff-schema`` pre-commit hook, which rewrites it when
-the code in ``pudl.validate.diff`` changes, and checked by a unit test. To update it by
-hand, run ``pixi run python -m pudl.validate.diff.report_schema``.
+the code in ``pudl_diff`` changes, and checked by a unit test. To update it by
+hand, run ``pixi run python -m pudl_diff.report_schema``.
 
 {% for model in models %}
 .. _pudl-diff-schema-{{ model.name }}:

@@ -1,8 +1,8 @@
-"""Unit tests for pudl.validate.diff.runner."""
+"""Unit tests for pudl_diff.runner."""
 
 from pathlib import Path
 
-from pudl.validate.diff.runner import run_dataset_diff
+from pudl_diff.runner import run_dataset_diff
 
 
 def test_run_dataset_diff_reports_progress_and_builds_the_report(

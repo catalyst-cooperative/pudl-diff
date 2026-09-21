@@ -13,24 +13,24 @@ from typing import Annotated, Literal
 
 import pydantic
 
-from pudl.validate.diff.base import ReportModel
-from pudl.validate.diff.dataset import PudlDiffDataset
-from pudl.validate.diff.formatting import format_bytes
-from pudl.validate.diff.logs import get_logger
-from pudl.validate.diff.outputs import (
+from pudl_diff.base import ReportModel
+from pudl_diff.dataset import PudlDiffDataset
+from pudl_diff.formatting import format_bytes
+from pudl_diff.logs import get_logger
+from pudl_diff.outputs import (
     ParquetOutput,
     RowDiffParquetOutputs,
     write_row_diff_parquet,
 )
-from pudl.validate.diff.row_counts import (
+from pudl_diff.row_counts import (
     RowCountDiff,
 )
-from pudl.validate.diff.rows import (
+from pudl_diff.rows import (
     KeyedRowDiff,
     RowSetDiff,
 )
-from pudl.validate.diff.schema import SchemaDiff
-from pudl.validate.diff.table import (
+from pudl_diff.schema import SchemaDiff
+from pudl_diff.table import (
     MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
     RowComparisonSkipReason,
     TableDiffRun,

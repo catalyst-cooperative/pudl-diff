@@ -1,4 +1,4 @@
-"""Unit tests for pudl.validate.diff.defaults."""
+"""Unit tests for pudl_diff.defaults."""
 
 import ast
 import types
@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from upath import UPath
 
-from pudl.validate.diff import defaults
+from pudl_diff import defaults
 
 
 @pytest.fixture(autouse=True)
@@ -151,7 +151,7 @@ def test_fallback_primary_key_found_nowhere(without_pudl, mocker):
 def test_only_the_defaults_module_depends_on_the_rest_of_pudl():
     """Keep the tool separable from PUDL: PUDL is imported only in defaults.py."""
     package = Path(defaults.__file__).parent
-    modules = [*package.glob("*.py"), package.parents[1] / "scripts/pudl_diff.py"]
+    modules = list(package.glob("*.py"))
     offenders = []
     for module in modules:
         if module.name == "defaults.py":
@@ -168,7 +168,7 @@ def test_only_the_defaults_module_depends_on_the_rest_of_pudl():
                 f"{module.name}: {name}"
                 for name in names
                 if (name == "pudl" or name.startswith("pudl."))
-                and not name.startswith("pudl.validate.diff")
+                and not name.startswith("pudl_diff")
             ]
 
     assert offenders == []

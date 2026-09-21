@@ -5,10 +5,10 @@ import traceback
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from pudl.validate.diff.dataset import NoTablesError, PudlDiffDataset, resolve_tables
-from pudl.validate.diff.dataset_report import PudlDiffReport, build_pudl_diff_report
-from pudl.validate.diff.logs import get_logger
-from pudl.validate.diff.table_report import (
+from pudl_diff.dataset import NoTablesError, PudlDiffDataset, resolve_tables
+from pudl_diff.dataset_report import PudlDiffReport, build_pudl_diff_report
+from pudl_diff.logs import get_logger
+from pudl_diff.table_report import (
     DiffOptions,
     TableDiffReport,
     report_table_diff,

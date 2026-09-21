@@ -1,12 +1,12 @@
-"""Unit tests for pudl.validate.diff.outputs."""
+"""Unit tests for pudl_diff.outputs."""
 
 import hashlib
 from pathlib import Path
 
 import polars as pl
 
-from pudl.validate.diff.outputs import write_row_diff_parquet
-from pudl.validate.diff.rows import (
+from pudl_diff.outputs import write_row_diff_parquet
+from pudl_diff.rows import (
     compare_rows_with_pk,
     compare_rows_without_pk,
 )

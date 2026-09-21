@@ -7,7 +7,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from pudl.validate.diff.dataset import PudlDiffDataset
+from pudl_diff.dataset import PudlDiffDataset
 
 # Each fixture provides a function, so that a test can build as many datasets as it
 # needs.

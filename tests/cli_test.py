@@ -11,12 +11,12 @@ import polars as pl
 import pytest
 from click.testing import CliRunner
 
-from pudl.scripts.pudl_diff import (
+from pudl_diff.cli import (
     REPORT_FILENAME,
     _set_log_level,
     main,
 )
-from pudl.validate.diff.logs import get_logger
+from pudl_diff.logs import get_logger
 
 
 def test_identical_table_exits_zero(tmp_path: Path, pk_resource, make_dataset):
@@ -1004,7 +1004,7 @@ def test_from_report_does_not_compare_or_write_anything(
     tmp_path: Path, two_table_args, mocker
 ):
     CliRunner().invoke(main, ["same_table", *two_table_args])
-    run = mocker.patch("pudl.scripts.pudl_diff.run_dataset_diff")
+    run = mocker.patch("pudl_diff.cli.run_dataset_diff")
     before = sorted(p.name for p in (tmp_path / "out").iterdir())
 
     CliRunner().invoke(main, ["--from-report", str(tmp_path / "out")])

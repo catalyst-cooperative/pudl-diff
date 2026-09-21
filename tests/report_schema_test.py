@@ -1,4 +1,4 @@
-"""Unit tests for pudl.validate.diff.report_schema."""
+"""Unit tests for pudl_diff.report_schema."""
 
 import copy
 import json
@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from pudl.validate.diff.report_schema import (
+from pudl_diff.report_schema import (
     SCHEMA_PATH,
     main,
     report_json_schema,
@@ -16,8 +16,8 @@ from pudl.validate.diff.report_schema import (
     schema_models,
     schema_type,
 )
-from pudl.validate.diff.runner import run_dataset_diff
-from pudl.validate.diff.table_report import DiffOptions
+from pudl_diff.runner import run_dataset_diff
+from pudl_diff.table_report import DiffOptions
 
 
 def _schema_objects(schema: dict) -> dict[str, dict]:
@@ -99,7 +99,7 @@ def test_the_committed_report_schema_is_up_to_date():
 
     assert committed == report_json_schema_text(), (
         f"{SCHEMA_PATH} is out of date with the report's models. Update it with "
-        "`pixi run python -m pudl.validate.diff.report_schema`."
+        "`pixi run python -m pudl_diff.report_schema`."
     )
     assert json.loads(committed) == report_json_schema()
 

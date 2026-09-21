@@ -7,10 +7,10 @@ from datetime import UTC, datetime
 
 import pydantic
 
-from pudl.validate.diff.base import ReportModel
-from pudl.validate.diff.dataset import DatasetProvenance, PudlDiffDataset
-from pudl.validate.diff.formatting import format_bytes
-from pudl.validate.diff.table_report import (
+from pudl_diff.base import ReportModel
+from pudl_diff.dataset import DatasetProvenance, PudlDiffDataset
+from pudl_diff.formatting import format_bytes
+from pudl_diff.table_report import (
     DiffOptions,
     RowChanges,
     SizeComparison,

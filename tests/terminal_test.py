@@ -1,12 +1,12 @@
-"""Unit tests for pudl.validate.diff.terminal."""
+"""Unit tests for pudl_diff.terminal."""
 
 import re
 from pathlib import Path
 
-from pudl.validate.diff import table_report
-from pudl.validate.diff.dataset_report import TableOutcome
-from pudl.validate.diff.runner import run_dataset_diff
-from pudl.validate.diff.terminal import TerminalProgress, format_header, format_outcome
+from pudl_diff import table_report
+from pudl_diff.dataset_report import TableOutcome
+from pudl_diff.runner import run_dataset_diff
+from pudl_diff.terminal import TerminalProgress, format_header, format_outcome
 
 
 def table_outcome(

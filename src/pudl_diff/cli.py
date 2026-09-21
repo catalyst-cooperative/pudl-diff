@@ -7,14 +7,14 @@ from pathlib import Path
 
 import click
 
-from pudl.validate.diff import table_report
-from pudl.validate.diff.dataset import PudlDiffDataset
-from pudl.validate.diff.dataset_report import REPORT_FILENAME, PudlDiffReport
-from pudl.validate.diff.defaults import default_right_root, nightly_root
-from pudl.validate.diff.logs import LOGGER_NAME
-from pudl.validate.diff.runner import run_dataset_diff
-from pudl.validate.diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON
-from pudl.validate.diff.terminal import TerminalProgress, echo_summary
+from pudl_diff import table_report
+from pudl_diff.dataset import PudlDiffDataset
+from pudl_diff.dataset_report import REPORT_FILENAME, PudlDiffReport
+from pudl_diff.defaults import default_right_root, nightly_root
+from pudl_diff.logs import LOGGER_NAME
+from pudl_diff.runner import run_dataset_diff
+from pudl_diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON
+from pudl_diff.terminal import TerminalProgress, echo_summary
 
 _EPILOG = """
 \b

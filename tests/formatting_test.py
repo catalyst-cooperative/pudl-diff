@@ -1,6 +1,6 @@
-"""Unit tests for pudl.validate.diff.formatting."""
+"""Unit tests for pudl_diff.formatting."""
 
-from pudl.validate.diff.formatting import (
+from pudl_diff.formatting import (
     format_bytes,
     format_duration,
     format_percent,

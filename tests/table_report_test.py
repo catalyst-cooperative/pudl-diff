@@ -1,4 +1,4 @@
-"""Unit tests for pudl.validate.diff.table_report."""
+"""Unit tests for pudl_diff.table_report."""
 
 import contextlib
 import json
@@ -7,14 +7,14 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from pudl.validate.diff import table_report
-from pudl.validate.diff.dataset import PudlDiffDataset
-from pudl.validate.diff.formatting import format_bytes
-from pudl.validate.diff.outputs import write_row_diff_parquet
-from pudl.validate.diff.row_counts import (
+from pudl_diff import table_report
+from pudl_diff.dataset import PudlDiffDataset
+from pudl_diff.formatting import format_bytes
+from pudl_diff.outputs import write_row_diff_parquet
+from pudl_diff.row_counts import (
     compare_row_counts,
 )
-from pudl.validate.diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON, run_table_diff
+from pudl_diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON, run_table_diff
 
 
 def test_row_count_summary_fields():

@@ -5,14 +5,14 @@ from pathlib import Path
 
 import click
 
-from pudl.validate.diff import table_report
-from pudl.validate.diff.dataset_report import (
+from pudl_diff import table_report
+from pudl_diff.dataset_report import (
     PudlDiffReport,
     PudlDiffSummary,
     TableOutcome,
     table_outcome,
 )
-from pudl.validate.diff.formatting import (
+from pudl_diff.formatting import (
     format_duration,
     format_elapsed,
     format_percent,

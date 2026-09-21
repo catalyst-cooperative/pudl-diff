@@ -1,6 +1,6 @@
-"""Unit tests for pudl.validate.diff.performance."""
+"""Unit tests for pudl_diff.performance."""
 
-from pudl.validate.diff.performance import PerformanceSampler
+from pudl_diff.performance import PerformanceSampler
 
 
 def test_performance_sampler_tracks_peak_rss(mocker):

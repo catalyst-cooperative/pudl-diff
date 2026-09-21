@@ -1,4 +1,4 @@
-"""Unit tests for pudl.validate.diff.dataset_report."""
+"""Unit tests for pudl_diff.dataset_report."""
 
 import json
 from pathlib import Path
@@ -7,13 +7,13 @@ import polars as pl
 import pydantic
 import pytest
 
-from pudl.validate.diff import table_report
-from pudl.validate.diff.dataset import PudlDiffDataset
-from pudl.validate.diff.dataset_report import (
+from pudl_diff import table_report
+from pudl_diff.dataset import PudlDiffDataset
+from pudl_diff.dataset_report import (
     PudlDiffReport,
     build_pudl_diff_report,
 )
-from pudl.validate.diff.runner import run_dataset_diff
+from pudl_diff.runner import run_dataset_diff
 
 
 def test_build_pudl_diff_report_dataset_provenance(tmp_path: Path, pk_resource):

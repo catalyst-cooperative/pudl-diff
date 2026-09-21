@@ -8,17 +8,17 @@ from typing import Literal
 
 import polars as pl
 
-from pudl.validate.diff.dataset import PudlDiffDataset
-from pudl.validate.diff.logs import get_logger
-from pudl.validate.diff.performance import PerformanceSampler
-from pudl.validate.diff.row_counts import RowCountDiff, compare_row_counts
-from pudl.validate.diff.rows import (
+from pudl_diff.dataset import PudlDiffDataset
+from pudl_diff.logs import get_logger
+from pudl_diff.performance import PerformanceSampler
+from pudl_diff.row_counts import RowCountDiff, compare_row_counts
+from pudl_diff.rows import (
     KeyedRowDiff,
     RowSetDiff,
     compare_rows_with_pk,
     compare_rows_without_pk,
 )
-from pudl.validate.diff.schema import SchemaDiff, compare_schemas
+from pudl_diff.schema import SchemaDiff, compare_schemas
 
 logger = get_logger(__name__)
 
