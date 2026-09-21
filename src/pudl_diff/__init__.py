@@ -36,9 +36,17 @@ The modules are layered, each importing only from those before it in this list:
 
 import importlib.metadata
 
+import polars as pl
+
 __author__ = "Catalyst Cooperative"
 __contact__ = "pudl@catalyst.coop"
 __maintainer__ = "Catalyst Cooperative"
 __license__ = "MIT License"
 __version__: str = importlib.metadata.version("catalystcoop.pudl_diff")
 __projecturl__ = "https://github.com/catalyst-cooperative/pudl-diff"
+
+# PUDL stores geometries as GeoArrow WKB, an Arrow extension type that Polars doesn't
+# know, so it warns every time it loads one, and will load it as an extension type by
+# default in Polars 2.0. Registering it as its storage type, binary, says that this is
+# what we want: geometries are compared as the bytes they are stored as.
+pl.register_extension_type("geoarrow.wkb", as_storage=True)

@@ -2,6 +2,7 @@
 
 import contextlib
 import os
+import warnings
 from pathlib import Path
 
 import polars as pl
@@ -233,3 +234,21 @@ def test_display_root_only_changes_what_is_recorded(
     assert dataset.display_table_path("t") == "s3://pudl.catalyst.coop/v1/t.parquet"
     assert dataset.table_path("t") == tmp_path.resolve() / "t.parquet"
     assert dataset.scan_table("t").collect().height == 1
+
+
+def test_geoarrow_wkb_columns_load_as_binary_without_a_warning(tmp_path: Path):
+    """Regression test: Polars warned that it didn't know the extension type."""
+    geometry = pl.Series(
+        "geom", [b"\x01", b"\x02"], dtype=pl.Extension("geoarrow.wkb", pl.Binary)
+    )
+    frame = pl.DataFrame({"x": [1, 2], "geom": geometry})
+    frame.write_parquet(tmp_path / "t.parquet")
+
+    # Polars raises its warning from Rust, where an error filter would be swallowed, so
+    # record the warnings rather than relying on the tests turning them into errors.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        schema = PudlDiffDataset(tmp_path).scan_table("t").collect_schema()
+
+    assert not [str(w.message) for w in caught]
+    assert schema["geom"] == pl.Binary
