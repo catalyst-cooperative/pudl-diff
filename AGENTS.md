@@ -123,10 +123,13 @@ explain *why* the codebase looks the way it does.
     into the output of a failing test. A test that cares what was logged asks for
     `mock_loggers` and checks `mock_loggers["table"].warning`, keyed by module name.
     Don't call the package's loggers for real in tests.
-- Test coverage of `src/` must stay at 100%, counting branches as well as lines
-    (`[tool.coverage.run]` and `[tool.coverage.report]`); `pixi run test` fails
-    otherwise. Don't work around it with `pragma: no cover`: test the code, or if it's
-    truly unreachable, delete it.
+- Test coverage must stay at 100%, counting branches as well as lines, and measured
+    over the tests and `scripts/` as well as the package (`[tool.coverage.run]` and
+    `[tool.coverage.report]`); `pixi run test` fails otherwise. Measuring the tests
+    finds tests that never run, and helpers and fixtures nothing uses: delete those.
+    Don't work around a gap with `pragma: no cover`: test the code, or if it's truly
+    unreachable, delete it. A test that can't run in this repository's CI, e.g. because
+    it needs PUDL installed, belongs in PUDL's tests instead.
 
 <!--
 If this project has integration tests that require credentials, network access, a

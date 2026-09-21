@@ -209,6 +209,9 @@ inline-quotes = "double"
 multiline-quotes = "double"
 
 [tool.coverage.run]
+# Measure the tests and scripts as well as the package, which finds tests that never run,
+# and helpers and fixtures nothing uses.
+source = ["src/pudl_diff", "tests", "scripts"]
 # Count every branch as well as every line, so that a condition that is only ever
 # true, or only ever false, in the tests shows up as missing coverage.
 branch = true
@@ -292,10 +295,10 @@ default = { features = ["lint"], solve-group = "default" }
 
 [tool.pixi.tasks]
 test-erase = { cmd = "coverage erase", description = "Wipe previously recorded coverage data before the test suites run." }
-test-unit = { cmd = "pytest --cov=pudl_diff --cov-append --cov-report= --cov-fail-under=0 --doctest-modules src/pudl_diff tests/unit", depends-on = [
+test-unit = { cmd = "pytest --cov --cov-append --cov-report= --cov-fail-under=0 --doctest-modules src/pudl_diff tests/unit", depends-on = [
   "test-erase",
 ], description = "Run unit tests (and doctests) with coverage instrumentation." }
-test-integration = { cmd = "pytest --cov=pudl_diff --cov-append --cov-report= --cov-fail-under=0 tests/integration", depends-on = [
+test-integration = { cmd = "pytest --cov --cov-append --cov-report= --cov-fail-under=0 tests/integration", depends-on = [
   "test-erase",
 ], description = "Run integration tests with coverage instrumentation." }
 test = { cmd = "coverage xml --quiet && coverage report --sort=cover", depends-on = [

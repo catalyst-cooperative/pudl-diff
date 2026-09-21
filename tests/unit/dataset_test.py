@@ -73,16 +73,6 @@ def test_primary_key_is_empty_if_no_fallback_finds_one(
     assert mock_loggers["dataset"].warning.call_count == 2
 
 
-def test_primary_key_falls_back_to_pudls_metadata_when_pudl_is_installed(
-    tmp_path: Path,
-):
-    pytest.importorskip("pudl.metadata.classes")
-
-    dataset = PudlDiffDataset(tmp_path)
-
-    assert dataset.primary_key("core_eia__codes_wet_dry_bottom") == ["code"]
-
-
 def test_field_names(dataset: PudlDiffDataset):
     assert dataset.field_names("table_with_pk") == ["x", "y"]
 
