@@ -107,6 +107,9 @@ explain *why* the codebase looks the way it does.
     `[tool.coverage.report]`.
 - New behavior needs a test. Bug fixes should add a regression test that fails
     without the fix.
+- Warnings are errors in the tests (`filterwarnings = ["error"]`): fix what raises
+    one, or filter it in `[tool.pytest]` with a comment saying why.
+- CI runs the tests on Linux, macOS and Windows, and the linters once, on Linux.
 - Test output is deliberately quiet: one character per test and one line per module,
     with logs captured rather than shown. To see test names or live logs while
     debugging, use `pixi run pytest -v -o log_cli=true <path>`.

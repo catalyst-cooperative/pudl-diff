@@ -93,12 +93,12 @@ packages = ["src/pudl_diff"]
 testpaths = ["."]
 # So that the tests can import the scripts.
 pythonpath = ["scripts"]
-filterwarnings = [
-  # Examples of how to filter out pytest warnings from dependencies
-  # "ignore:distutils Version classes are deprecated:DeprecationWarning",
-  # "ignore:Deprecated call to `pkg_resources.declare_namespace:DeprecationWarning",
-  # "ignore:Deprecated call to.*declare_namespace:DeprecationWarning:pkg_resources",
-]
+# Warnings are errors, so that they get fixed (or deliberately filtered here, with a
+# reason) instead of piling up unread.
+filterwarnings = ["error"]
+# Errors on unknown config keys and markers, unexpected passes of xfail tests, and
+# parametrized tests whose IDs aren't unique.
+strict = true
 
 # Quiet output: one character per test and one line per module. If you need to see the
 # names of the tests, or logs as they are emitted, override the options:
@@ -229,16 +229,8 @@ exclude_lines = [
   # Have to re-enable the standard pragma
   "pragma: no cover",
 
-  # Don't complain if tests don't hit defensive assertion code:
-  "raise AssertionError",
-  "raise NotImplementedError",
-
   # Don't complain if non-runnable code isn't run:
-  "if 0:",
   "if __name__ == .__main__.:",
-
-  # Stuff that's not expected to run normally...
-  "logger.debug",
 ]
 
 [tool.pyrefly]
