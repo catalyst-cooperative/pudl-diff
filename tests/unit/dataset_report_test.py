@@ -93,7 +93,6 @@ def test_pudl_diff_report_summary_and_status(tmp_path: Path, pk_resource, make_d
             right,
             name,
             tmp_path / "out",
-            options=table_report.DiffOptions(auto_partition=False),
         )
         for name in ["broken", "changed", "same"]
     }

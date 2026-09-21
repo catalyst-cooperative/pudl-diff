@@ -133,7 +133,7 @@ def _set_log_level(level: str) -> Callable[[], None]:
     loggers back as they were, so that running the CLI (e.g. in tests) doesn't leave
     logging reconfigured.
     """
-    numeric_level = logging.getLevelName(level.upper())
+    numeric_level = logging.getLevelNamesMapping()[level.upper()]
     logger = logging.getLogger(LOGGER_NAME)
     added: logging.Handler | None = None
     if not logger.handlers:

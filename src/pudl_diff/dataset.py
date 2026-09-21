@@ -74,7 +74,8 @@ class PudlDiffDataset:
                 deployed to a permanent URL, or a public dataset read through a
                 faster mirror. Purely descriptive: all reads use ``root``.
         """
-        dataset_root = UPath(root)
+        # ty flags UPath as abstract, but its __new__ returns a concrete subclass.
+        dataset_root = UPath(root)  # ty: ignore[call-non-callable]
         if dataset_root.protocol in ("", "file", "local"):
             # A dataset on the local filesystem is always identified by its absolute
             # path, so that it doesn't depend on the directory this was run from.

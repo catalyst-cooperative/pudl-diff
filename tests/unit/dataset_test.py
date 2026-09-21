@@ -55,9 +55,7 @@ def test_primary_key_falls_back_when_the_table_is_missing_from_the_datapackage(
 
 def test_primary_key_falls_back_when_the_datapackage_is_missing(tmp_path: Path, mocker):
     """A dataset with no datapackage.json at all also falls back cleanly."""
-    mocker.patch(
-        "pudl_diff.dataset.fallback_primary_key", return_value=["code"]
-    )
+    mocker.patch("pudl_diff.dataset.fallback_primary_key", return_value=["code"])
 
     assert PudlDiffDataset(tmp_path).primary_key("some_table") == ["code"]
 

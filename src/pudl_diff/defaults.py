@@ -42,7 +42,8 @@ def nightly_root() -> UPath:
     """Where the last nightly build's outputs are, readable anonymously."""
     if (pudl := _import_pudl()) is not None:
         return pudl.PUDL_NIGHTLY_BUILDS_BASE_PATH
-    return UPath(NIGHTLY_ROOT, anon=True)
+    # ty flags UPath as abstract, but its __new__ returns a concrete subclass.
+    return UPath(NIGHTLY_ROOT, anon=True)  # ty: ignore[call-non-callable]
 
 
 def default_right_root() -> Path:

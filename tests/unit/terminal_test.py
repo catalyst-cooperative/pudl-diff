@@ -2,6 +2,7 @@
 
 import re
 from pathlib import Path
+from typing import Any
 
 from pudl_diff import table_report
 from pudl_diff.dataset_report import TableOutcome
@@ -18,7 +19,7 @@ def table_outcome(
     skipped_reason: str | None = None,
     has_primary_key: bool | None = None,
     sizes: table_report.SizeComparison | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> TableOutcome:
     return TableOutcome(
         table_name="some_table",
@@ -95,7 +96,7 @@ def test_format_outcome_column_changes():
 
 def test_format_outcome_column_colors():
     gray, cyan, hot_pink, magenta = "\x1b[90m", "\x1b[36m", "\x1b[38;5;205m", "\x1b[35m"
-    kwargs = {"added": 0, "changed": 0, "removed": 0}
+    kwargs: dict[str, Any] = {"added": 0, "changed": 0, "removed": 0}
 
     changed = format_outcome(
         table_outcome(1, columns_added=2, columns_removed=1, dtypes_changed=3, **kwargs)
@@ -120,7 +121,7 @@ def test_format_outcome_error_has_no_column_counts():
 
 
 def test_format_outcome_left_columns():
-    kwargs = {"added": 0, "changed": 0, "removed": 0}
+    kwargs: dict[str, Any] = {"added": 0, "changed": 0, "removed": 0}
     line = _plain(
         format_outcome(
             table_outcome(

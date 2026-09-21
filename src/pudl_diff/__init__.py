@@ -2,7 +2,7 @@
 
 A "root" is a local or remote directory containing the Parquet outputs of a full
 PUDL ETL run, along with a datapackage descriptor of those outputs (e.g.
-``$PUDL_OUTPUT/parquet`` or ``s3://pudl.catalyst.coop/nightly``). This subpackage
+``$PUDL_OUTPUT/parquet`` or ``s3://pudl.catalyst.coop/nightly``). This package
 lets callers load and compare tables between two such roots, and report on the
 differences.
 
@@ -32,3 +32,12 @@ The modules are layered, each importing only from those before it in this list:
 * :mod:`~pudl_diff.terminal`: rendering reports as text for a terminal.
 * :mod:`~pudl_diff.runner`: comparing many tables and building the report.
 """
+
+import importlib.metadata
+
+__author__ = "Catalyst Cooperative"
+__contact__ = "pudl@catalyst.coop"
+__maintainer__ = "Catalyst Cooperative"
+__license__ = "MIT License"
+__version__ = importlib.metadata.version("catalystcoop.pudl_diff")
+__projecturl__ = "https://github.com/catalyst-cooperative/pudl-diff"
