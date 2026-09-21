@@ -11,12 +11,20 @@ import polars as pl
 import pytest
 from click.testing import CliRunner
 
+import pudl_diff
 from pudl_diff.cli import (
     REPORT_FILENAME,
     _set_log_level,
     main,
 )
 from pudl_diff.logs import get_logger
+
+
+def test_version_option_shows_the_package_version():
+    result = CliRunner().invoke(main, ["--version"])
+
+    assert result.exit_code == 0
+    assert result.output == f"pudl_diff, version {pudl_diff.__version__}\n"
 
 
 def test_identical_table_exits_zero(tmp_path: Path, pk_resource, make_dataset):
@@ -325,6 +333,7 @@ def test_no_table_name_compares_every_table_in_both_datasets(
     assert [p.name for p in output_path.glob("*.json")] == [REPORT_FILENAME]
     report = _load_report(output_path)
     assert report["schema_version"] == "1.0.0"
+    assert report["pudl_diff_version"] == pudl_diff.__version__
     assert report["is_identical"] is False
     assert report["success"] is True
     assert report["error"] is None

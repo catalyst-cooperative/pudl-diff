@@ -7,7 +7,7 @@ from pathlib import Path
 
 import click
 
-from pudl_diff import table_report
+from pudl_diff import __version__, table_report
 from pudl_diff.dataset import PudlDiffDataset
 from pudl_diff.dataset_report import REPORT_FILENAME, PudlDiffReport
 from pudl_diff.defaults import default_right_root, nightly_root
@@ -156,6 +156,7 @@ def _set_log_level(level: str) -> Callable[[], None]:
 
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]}, epilog=_EPILOG)
+@click.version_option(__version__, "--version", prog_name="pudl_diff")
 @click.argument("table_names", type=str, nargs=-1)
 @click.option(
     "-l",

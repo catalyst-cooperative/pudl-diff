@@ -985,6 +985,11 @@
       "title": "Schema Version",
       "type": "string"
     },
+    "pudl_diff_version": {
+      "description": "Version of the `pudl_diff` package that made this report, e.g. `0.1.0`, or for a development build, a version that says which commit it was built from. Unlike `schema_version`, which only changes when the report's format does, this changes with every release, so it records exactly which code produced the report. It has no default, so a report never claims to be from a version that didn't write it.",
+      "title": "Pudl Diff Version",
+      "type": "string"
+    },
     "created": {
       "description": "UTC ISO-8601 timestamp of when this report was generated.",
       "title": "Created",
@@ -1071,6 +1076,7 @@
   },
   "required": [
     "schema_version",
+    "pudl_diff_version",
     "created",
     "elapsed_seconds",
     "left_dataset",

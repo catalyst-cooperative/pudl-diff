@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 import pydantic
 
+from pudl_diff import __version__
 from pudl_diff.base import ReportModel
 from pudl_diff.dataset import DatasetProvenance, PudlDiffDataset
 from pudl_diff.formatting import format_bytes
@@ -181,6 +182,12 @@ class PudlDiffReport(ReportModel):
 
     schema_version: str = REPORT_SCHEMA_VERSION
     """Version of this report format, in `major.minor.patch` form."""
+    pudl_diff_version: str
+    """Version of the `pudl_diff` package that made this report, e.g. `0.1.0`, or for
+    a development build, a version that says which commit it was built from. Unlike
+    `schema_version`, which only changes when the report's format does, this changes
+    with every release, so it records exactly which code produced the report. It has
+    no default, so a report never claims to be from a version that didn't write it."""
     created: str
     """UTC ISO-8601 timestamp of when this report was generated."""
     elapsed_seconds: float | None = None
@@ -271,6 +278,7 @@ def build_pudl_diff_report(
         return DatasetInfo(root=dataset.display_root, **provenance.model_dump())
 
     return PudlDiffReport(
+        pudl_diff_version=__version__,
         created=datetime.now(UTC).isoformat(),
         elapsed_seconds=elapsed_seconds,
         left_dataset=_info(left),

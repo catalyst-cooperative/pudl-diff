@@ -30,7 +30,8 @@ For all tables, the summary also lists tables present in only one dataset, which
 `-l`, `-r` and `-o` are shorthand for `--left`, `--right` and `--output-path`.
 Output is colorized when stdout is a terminal; use `--color` or `--no-color` to override that, e.g. to keep the colors when paging through `less -R`.
 
-Run `pudl_diff --help` for the full list of options and a few example invocations.
+Run `pudl_diff --help` for the full list of options and a few example invocations,
+and `pudl_diff --version` to see which version you have.
 
 ### Examples
 
@@ -142,7 +143,8 @@ The report describes the comparison of the two datasets as a whole, with a `tabl
 Every field of the report, at every level, is described in the [report schema reference](report_schema.md), which is generated from the code and is also available as a [JSON Schema](https://json-schema.org) for validating a report.
 Its top level holds:
 
-- `schema_version` -- the version of the report format.
+- `schema_version` and `pudl_diff_version` -- the version of the report format, and of
+    the `pudl_diff` package that made the report (which `pudl_diff --version` shows).
 - `created` and `elapsed_seconds` -- when the report was generated, and how long the comparison took.
 - `left_dataset` and `right_dataset` -- each dataset's `root` path or URL and its own provenance (build ID, creation timestamp, git SHA and tags, read from its `datapackage.json` if present), so a saved report can be traced back to the builds it compared.
     The `root` of a dataset on the local filesystem (and the paths of its tables) is always an absolute path with any symlinks resolved, however it was given, so it doesn't depend on the directory `pudl_diff` was run from.

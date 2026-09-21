@@ -23,7 +23,8 @@ report = PudlDiffReport.model_validate_json(report_path.read_text())
 Every field listed here is always present in a report, even if its value is `null`.
 A field marked *derived* is calculated from the others: it is written to the report
 for convenience, but ignored when a report is loaded. The version of the report format
-is in its `schema_version` field, which follows the `major.minor.patch` convention.
+is in its `schema_version` field, which follows the `major.minor.patch` convention,
+and the version of `pudl_diff` that made the report is in its `pudl_diff_version`.
 
 The copies of the schema and of this page in the repository are kept up to date by the
 `pudl-diff-schema` pre-commit hook, which rewrites them when the code in `pudl_diff`
@@ -41,6 +42,12 @@ Built by `build_pudl_diff_report()`. Holds everything that pertains to the compa
 *Type:* string.
 
 Version of this report format, in `major.minor.patch` form.
+
+### `pudl_diff_version`
+
+*Type:* string.
+
+Version of the `pudl_diff` package that made this report, e.g. `0.1.0`, or for a development build, a version that says which commit it was built from. Unlike `schema_version`, which only changes when the report's format does, this changes with every release, so it records exactly which code produced the report. It has no default, so a report never claims to be from a version that didn't write it.
 
 ### `created`
 

@@ -7,6 +7,7 @@ import polars as pl
 import pydantic
 import pytest
 
+import pudl_diff
 from pudl_diff import table_report
 from pudl_diff.dataset import PudlDiffDataset
 from pudl_diff.dataset_report import (
@@ -105,6 +106,7 @@ def test_pudl_diff_report_summary_and_status(tmp_path: Path, pk_resource, make_d
     )
 
     assert report.schema_version == "1.0.0"
+    assert report.pudl_diff_version == pudl_diff.__version__
     assert list(report.tables) == ["broken", "changed", "same"]
     assert report.tables_only_in_left == ["a", "z"]
     assert not report.success
@@ -248,3 +250,21 @@ def test_report_records_display_roots(tmp_path: Path, pk_resource):
     assert report.right_dataset.root == "s3://bucket/right/"
     assert report.tables["t"].left_table_path == "s3://bucket/left/t.parquet"
     assert report.tables["t"].right_table_path == "s3://bucket/right/t.parquet"
+
+
+def test_a_loaded_report_keeps_the_version_of_the_tool_that_made_it(
+    tmp_path: Path, write_two_datasets
+):
+    left, right = write_two_datasets(tmp_path, {"t": ["a"]}, {"t": ["a"]})
+    document = json.loads(
+        run_dataset_diff(left, right, tmp_path / "out").model_dump_json()
+    )
+
+    document["pudl_diff_version"] = "0.0.1"
+    loaded = PudlDiffReport.model_validate_json(json.dumps(document))
+    assert loaded.pudl_diff_version == "0.0.1"
+
+    # A report that doesn't say must not be taken to be from the installed version.
+    del document["pudl_diff_version"]
+    with pytest.raises(pydantic.ValidationError, match="pudl_diff_version"):
+        PudlDiffReport.model_validate_json(json.dumps(document))
