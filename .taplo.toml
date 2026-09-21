@@ -1,0 +1,7 @@
+[formatting]
+align_entries = false
+align_comments = false
+array_auto_collapse = true
+array_auto_expand = true
+reorder_keys = false
+exclude = [".pixi/**", "build/**", "dist/**", "site/**"]
