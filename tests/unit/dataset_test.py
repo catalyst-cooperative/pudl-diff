@@ -158,7 +158,7 @@ def test_custom_descriptor_name(tmp_path: Path, write_datapackage, pk_resource):
 
 
 @pytest.mark.parametrize(
-    "root,expected",
+    ("root", "expected"),
     [
         ("/local/pudl/output/parquet", "datapackage.json"),
         ("s3://pudl.catalyst.coop/nightly", "pudl_parquet_datapackage.json"),

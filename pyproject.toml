@@ -134,54 +134,64 @@ line-ending = "auto"
 [tool.ruff.lint]
 # extend-select adds these to ruff's default rules, rather than replacing them.
 extend-select = [
-  "A",   # flake8-builtins
-  "B",   # flake8-bugbear
-  "C",   # Limit cyclomatic complexity using mccabe
-  "C4",  # flake8-comprehensions
-  "D",   # pydocstyle errors
-  "E",   # pycodestyle errors
-  "EXE", # executable file issues
-  "F",   # pyflakes
-  "I",   # isort
-  "ICN", # flake8 import conventions
-  "N",   # pep8-naming
-  "NPY", # NumPy specific checks
-  "PD",  # pandas checks
-  "PGH", # pygrep-hooks
-  "PIE", # flake8-pie miscellaneous linting
-  "PTH", # use pathlib
-  "Q",   # flake8-quotes
-  "RET", # check return values
-  "RSE", # unnecessary parenthises on raised exceptions
-  "S",   # flake8-bandit
-  "SIM", # flake8-simplify
-  "UP",  # pyupgrade (use modern python syntax)
-  "W",   # pycodestyle warnings
-  # "ARG", # unused arguments
-  # "ERA", # eradicate: find commented out code
-  # "PL",  # pylint
-  # "PT",  # pytest style
-  # "T",   # print statements found
-  "NPY201", # preview rule to ease migration to Numpy 2.0
+  "A",     # flake8-builtins
+  "ASYNC", # flake8-async
+  "B",     # flake8-bugbear
+  "BLE",   # flake8-blind-except
+  "C",     # Limit cyclomatic complexity using mccabe
+  "C4",    # flake8-comprehensions
+  "D",     # pydocstyle errors
+  "E",     # pycodestyle errors
+  "EXE",   # executable file issues
+  "F",     # pyflakes
+  "FA",    # flake8-future-annotations
+  "FLY",   # flynt: convert % and .format() to f-strings
+  "FURB",  # refurb: general code quality/modernization
+  "G",     # flake8-logging-format
+  "I",     # isort
+  "ICN",   # flake8 import conventions
+  "INT",   # flake8-gettext
+  "LOG",   # flake8-logging
+  "N",     # pep8-naming
+  "NPY",   # NumPy specific checks
+  "PERF",  # Perflint: performance issues
+  "PGH",   # pygrep-hooks
+  "PT",    # flake8-pytest-style
+  "PTH",   # use pathlib
+  "PYI",   # flake8-pyi: type stub conventions
+  "Q",     # flake8-quotes
+  "RET",   # check return values
+  "RSE",   # unnecessary parenthises on raised exceptions
+  "RUF",   # Ruff-specific rules
+  "S",     # flake8-bandit
+  "SIM",   # flake8-simplify
+  "T10",   # flake8-debugger
+  "T20",   # find print statements that should probably be logging
+  "TID",   # flake8-tidy-imports
+  "UP",    # pyupgrade (use modern python syntax)
+  "W",     # pycodestyle warnings
+
+  # Additional non-default rulesets to investigate enabling
+  # "ANN", # identify missing type annotations
+  # "ARG", # find unused arguments
+  # "ISC", # flake8-implicit-str-concat
+  # "PL",  # Pylint (Convention/Error/Refactor/Warning)
+  # "TC",  # flake8-type-checking
+  # "TRY", # tryceratops: exception handling anti-patterns
 ]
 ignore = [
-  "D401",   # Require imperative mood in docstrings.
+  "D401", # Require imperative mood in docstrings.
   "D417",
-  "E501",   # Overlong lines.
-  "PD010",  # Use of df.stack()
-  "PD013",  # Use of df.unstack()
-  "PD015",  # Use of pd.merge() rather than df.merge()
-  "RET504", # Ignore unnecessary assignment before return
-  "S101",   # Use of assert
+  "E501", # Overlong lines.
+  "G004", # Logging statement uses f-string
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"] # Ignore unused imports
-"tests/*" = ["D"]
-
-[tool.ruff.lint.pep8-naming]
-# Allow Pydantic's `@validator` decorator to trigger class method treatment.
-classmethod-decorators = ["pydantic.validator", "pydantic.root_validator"]
+"tests/*" = [
+  "D",    # Tests don't need docstrings
+  "S101", # Tests are made of asserts
+]
+"scripts/*" = ["T201"] # Scripts print their output
 
 [tool.ruff.lint.isort]
 known-first-party = ["pudl_diff"]

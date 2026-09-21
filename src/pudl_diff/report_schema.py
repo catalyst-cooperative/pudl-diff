@@ -14,6 +14,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import click
+
 from pudl_diff.dataset_report import PudlDiffReport
 
 REPO_ROOT = Path(__file__).parents[2]
@@ -222,7 +224,7 @@ def _write_if_changed(path: Path, text: str) -> bool:
     if path.exists() and path.read_text() == text:
         return False
     path.write_text(text)
-    print(f"Updated {path}")
+    click.echo(f"Updated {path}")
     return True
 
 
