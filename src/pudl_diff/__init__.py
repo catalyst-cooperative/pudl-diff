@@ -47,8 +47,24 @@ __license__ = "MIT License"
 __version__: str = importlib.metadata.version("catalystcoop.pudl_diff")
 __projecturl__ = "https://github.com/catalyst-cooperative/pudl-diff"
 
-# PUDL stores geometries as GeoArrow WKB, an Arrow extension type that Polars doesn't
-# know, so it warns every time it loads one, and will load it as an extension type by
-# default in Polars 2.0. Registering it as its storage type, binary, says that this is
-# what we want: geometries are compared as the bytes they are stored as.
-pl.register_extension_type("geoarrow.wkb", as_storage=True)
+
+def _register_geoarrow_wkb() -> None:
+    """Tell Polars to load GeoArrow WKB geometries as their storage type, binary.
+
+    PUDL stores geometries as GeoArrow WKB, an Arrow extension type that Polars doesn't
+    know, so it warns every time it loads one, and will load it as an extension type by
+    default in Polars 2.0. Registering it as its storage type says that this is what we
+    want: geometries are compared as the bytes they are stored as.
+
+    Polars can't say whether a type is registered, and refuses to register one twice.
+    PUDL registers it too, so a type that's already registered is what we want, not an
+    error.
+    """
+    try:
+        pl.register_extension_type("geoarrow.wkb", as_storage=True)
+    except pl.exceptions.ComputeError as error:
+        if "duplicate extension type" not in str(error):
+            raise
+
+
+_register_geoarrow_wkb()

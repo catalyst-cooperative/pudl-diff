@@ -7,7 +7,9 @@ from pathlib import Path
 
 import polars as pl
 import pytest
+from pytest_mock import MockerFixture
 
+import pudl_diff
 from pudl_diff.dataset import PudlDiffDataset
 
 
@@ -291,3 +293,19 @@ def test_geoarrow_wkb_columns_load_as_binary_without_a_warning(tmp_path: Path):
 
     assert not [str(w.message) for w in caught]
     assert schema["geom"] == pl.Binary
+
+
+def test_registering_geoarrow_wkb_again_is_not_an_error():
+    """PUDL registers the type too, so a duplicate registration must be tolerated."""
+    pudl_diff._register_geoarrow_wkb()
+
+
+def test_other_failures_to_register_geoarrow_wkb_are_errors(mocker: MockerFixture):
+    """Only a duplicate registration is tolerated: any other failure is raised."""
+    mocker.patch(
+        "pudl_diff.pl.register_extension_type",
+        side_effect=pl.exceptions.ComputeError("something else went wrong"),
+    )
+
+    with pytest.raises(pl.exceptions.ComputeError, match="something else"):
+        pudl_diff._register_geoarrow_wkb()
