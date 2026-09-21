@@ -5,9 +5,14 @@ from pathlib import Path
 from typing import Any
 
 from pudl_diff import table_report
-from pudl_diff.dataset_report import TableOutcome
+from pudl_diff.dataset_report import TableOutcome, build_pudl_diff_report
 from pudl_diff.runner import run_dataset_diff
-from pudl_diff.terminal import TerminalProgress, format_header, format_outcome
+from pudl_diff.terminal import (
+    TerminalProgress,
+    echo_summary,
+    format_header,
+    format_outcome,
+)
 
 
 def table_outcome(
@@ -304,3 +309,19 @@ def test_terminal_progress_prints_a_numbered_line_per_table(
     assert re.match(r"\[1/2\]\s+\[IDENTICAL\].*table_a$", lines[3])
     assert re.match(r"\[2/2\]\s+\[IDENTICAL\].*table_b$", lines[4])
     assert [o.table_name for o in progress.outcomes] == ["table_a", "table_b"]
+
+
+def test_summary_of_a_report_without_timing_memory_or_sizes(
+    tmp_path: Path, write_two_datasets, capsys
+):
+    """Lines for information a report doesn't have (e.g. no tables) are left out."""
+    left, right = write_two_datasets(tmp_path, {"only_left": ["a"]}, {"other": ["a"]})
+    report = build_pudl_diff_report(left, right, {})
+
+    echo_summary(report, [], tmp_path / "report.json")
+
+    output = capsys.readouterr().out
+    assert "Elapsed:" not in output
+    assert "Peak memory:" not in output
+    assert "Total size:" not in output
+    assert f"Report written to {tmp_path / 'report.json'}" in output

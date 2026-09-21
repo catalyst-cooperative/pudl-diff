@@ -1047,3 +1047,29 @@ def test_from_report_rejects_something_that_isnt_a_report(tmp_path: Path):
 
     assert replay.exit_code == 1
     assert "Couldn't read a report" in replay.output
+
+
+def test_missing_default_right_dataset_is_a_usage_error(tmp_path: Path, mocker):
+    mocker.patch(
+        "pudl_diff.cli.default_right_root",
+        side_effect=RuntimeError("give the right dataset's root explicitly"),
+    )
+
+    result = CliRunner().invoke(main, ["--left", str(tmp_path)])
+
+    assert result.exit_code == 2
+    assert "give the right dataset's root explicitly" in result.output
+
+
+def test_set_log_level_keeps_the_handlers_the_application_configured():
+    logger = logging.getLogger("pudl_diff")
+    handler = logging.NullHandler()
+    logger.addHandler(handler)
+    try:
+        restore = _set_log_level("ERROR")
+        assert handler.level == logging.ERROR
+        assert logger.handlers == [handler]  # no stderr handler was added
+        restore()
+        assert logger.handlers == [handler]
+    finally:
+        logger.removeHandler(handler)

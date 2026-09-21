@@ -56,3 +56,11 @@ def test_performance_sampler_context_manager():
         bytearray(10_000_000)
     assert sampler.peak_rss_bytes >= 0
     assert sampler.peak_cpu_percent >= 0.0
+
+
+def test_exiting_a_sampler_that_was_never_entered_is_harmless():
+    sampler = PerformanceSampler()
+
+    sampler.__exit__(None, None, None)
+
+    assert sampler.peak_rss_bytes is not None

@@ -69,3 +69,17 @@ def test_run_dataset_diff_records_why_there_is_nothing_to_compare(
     assert report.error is not None
     assert "No tables found in both" in report.error
     assert report.exit_code == 2
+
+
+def test_run_dataset_diff_reports_a_failure_to_list_the_tables(
+    tmp_path: Path, write_two_datasets, mocker
+):
+    left, right = write_two_datasets(tmp_path, {"t": ["a"]}, {"t": ["a"]})
+    mocker.patch("pudl_diff.runner.resolve_tables", side_effect=OSError("no bucket"))
+
+    report = run_dataset_diff(left, right, tmp_path / "out")
+
+    assert report.error is not None
+    assert "no bucket" in report.error
+    assert not report.success
+    assert report.tables == {}
