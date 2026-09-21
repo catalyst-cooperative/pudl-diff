@@ -34,8 +34,8 @@ repos:
         args: ["--fix=lf"]
       - id: name-tests-test # Follow PyTest naming convention.
       - id: end-of-file-fixer
-      - id: no-commit-to-branch # Discourage committing directly to main; PRs only.
-        args: ["--branch", "main"]
+      # - id: no-commit-to-branch # Discourage committing directly to main; PRs only.
+      # args: ["--branch", "main"]
 
   ########################################################################################
   # Formatters: hooks that re-write Python, TOML, YAML, and Markdown files

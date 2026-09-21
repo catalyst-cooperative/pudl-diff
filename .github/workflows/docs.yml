@@ -29,7 +29,7 @@ jobs:
           cache: true
 
       - name: Build documentation with Zensical
-        run: pixi run docs
+        run: pixi run docs-build
 
       - name: Upload documentation artifact
         uses: actions/upload-pages-artifact@v5
