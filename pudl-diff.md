@@ -906,11 +906,118 @@ fresh branch holding only the glue (deploy planning, asset, `dg_nightly.yml`).
 
 ### The PUDL Diff Marimo Notebook
 
-We are not yet ready to implement the Marimo notebook.
+Now that we have a stable, structured metadata report for each PUDL Diff output, and a
+clean, performant way to store the actual difference between two PUDL parquet datasets,
+it's time to build some tooling that will help us understand what's going on visually.
+
+Humans are visual creatures, and good visualizations (with accompanying data to back
+them up) make it much easier for us to parse large amounts of data quickly. This will
+help us understand and improve the open energy system data that PUDL produces, and
+ensure that it's of the highest quality possible.
+
+Marimo computational notebooks are a great way to build and share interactive data
+visualizations, and they are well integrated with coding agents. They can be run as
+scripts and exported to a variety of formats. They can also often run in-browser, and we
+are already hosting a number of Notebooks as PUDL examples, so it's a natural fit to
+build our PUDL Diff visualizations using Marimo Notebooks
+
+#### Goals of the PUDL Diff Marimo Notebook
+
+**Notebook Motivations**
+
+* Make it easy for developers and data users to understand how the PUDL datasets are evolvoing over time.
+* Make it easy to quickly identify unexpected changes in the PUDL datasets, and trace them back to their source.
+* Provide transparency into our data QA/QC processes for the public and our open data users.
+* The JSON report, summary, and terminal output can provide reasonable insight into the dataset and table level differences between two sets of PUDL outputs, but they can't easily provide compact column and row level insights.
+* The PUDL Diff Marimo notebook will provide visual summaries that correspond to the PUDL Diff Summary and the full terminal output that summarizes changes at the table level which are analogous to what the current CLI can do.
+* Additionally, the PUDL Diff Marimo notebook will allow the user to select individual columns within a table and visualize how the contents of that column differ between datasets.
+* For the most detailed level of data debugging, users will also be able to load the Parquet outputs of the PUDL Diff tool and visualize the actual rows that differ between datasets interactively.
+* If it's easy to do, we should also make it possible to query and load the full original parquet tables that are referred to as being the left and right datasets in the PUDL Diff report. This won't always be possible because the nightly build outputs are ephemeral, but for the most recent nightly build, and for stable releases within the last year or two, it should be possible. Outputs from all the nightly and branch builds from the last 30 days will also be available to Catalyst Cooperative members in the private builds.catalyst.coop bucket for debugging.
+
+**Notebook Legibility**
+
+* The notebook needs to tell a story about the data that's immediately legible visually, and help the user understand what has changed, and whether that might be a problem or be expected.
+* The notebook should be easy to read and understand, and should be visually compelling. It should also be easy to navigate, with clear headings and sections, that automatically generate a table of contents via the Marimo notebook infrastructure that allows the user to jump to different sections of the notebook.
+* The notebook should provide links and references that give the data additional context and provenance. For example a link to the PUDL repository at the git commit that produced the left and right datasets, a link to the underlying PUDL Diff JSON & Parquet report for the comparison, a link to the PUDL documentation for the datasets and tables being compared, and a link to the PUDL Diff documentation for the report schema and the meaning of the various fields in the report.
+
+#### Implementation Choices
+
+**Where to implement**
+
+* In general, we will want to implement the analysis required to make a visualization in a library module, not in the notebook itself. It is easier to do code review, testing, debugging, and development in modules, and also makes the code more reusable.
+* We will also probably want to implement some reusable visualization components in a library module, so that we can use them in multiple notebooks and other applications. This will also make it easier to test the visualizations and ensure that they are working correctly, and avoid wasteful duplication of code.
+* The notebook interface itself is mostly for presentation, publication, and interaction.
+
+**Technology choices**
+
+* We are using Marimo notebooks for the interface.
+* We are focused on 2-dimensional visualizations.
+* Where it is helpful, we want to enable users to interact with the visualiztaions, but we also don't want them to be overwhelmed, and we don't want to hide the interesting insights that the data holds by requiring users to set all the knobs and sliders to exactly the right (but invisible) values.
+* We are open to using any python based visualization library that is well maintained, documented, and integrates cleanly with Marimo notebooks. We want the visualizations to be beautiful, compelling, performant, and easy to understand.
+* You should provide a summary of the visualization library options, with the pros and cons of each, and a recommendation for which library to use for the PUDL Diff Marimo notebook.
+* Initially these notebooks will be running locally on the user's machine, which will probably be MacOS or Linux. They will have plenty of memory and probably work with local data a lot. However, eventually we want to host these notebooks online somewhere, and may want them to be able to run in-browser without the user needing to manage the data or a python environment, via WASM.
+
+**Querying the PUDL Diff Report**
+
+* The data sitting behind the PUDL Diff report is all stored in Apache Parquet files. This includes both the "left-only" and "right-only" subsets that are stored as part of the report, and the original full tables that are being compared (though they may be remotely stored, or no longer available at the time of visualizations).
+* Given that some of the tables are quite large, we should be careful about how we load and query the data, and use tools that are designed to deal with larger datasets. Both Polars and DuckDB are good options for doing the querying. We will need to figure out which one we want to work with. We might also use a hybrid, with dedicated SQL cells in the notebook that use DuckDB to query the data, and then load the results into Polars for further analysis and visualization interactively in the notebook, since most of us are more familiar with dataframes than SQL.
+* The structured JSON version of the report is pretty small, and many different tools can be used to read it. Pydantic will probably be used to load and validate it, and then the resulting model can be handed off however is most convenient for use by the rest of the functionality in the notebook.
+
+#### Visualizing the PUDL Diff Summary Report
+
+* At the top of the notebook, I want to have a summary of the whole PUDL Diff report.
+* Conceptually this will serve the same purpose as the high level summary that's generated by the CLI, but it will be primarily visual, instead of textual.
+* For indidivual headline numbers we can have a big number with a label.
+* For the row, column and schema summaries we can have a small bar chart or other visual representation of the number of added / removed / changed rows, columns and schema elements.
+* This section will probably be the least interactive sine the data is relatively shallow, but it will also be the first thing that the user sees when they open the notebook, so it should be visually compelling and easy to understand.
+
+#### Visualizing Table-Level Diffs
+
+* Show not just *that* the table, changed, but **how** it changed.
+* For each table, show a visual and textual representation of the number and percentage of rows that were added, removed, or changed, as well as the number that were unchanged.
+* Note that many of our tables have thousands to many millions of rows. A handful have more than a billion rows. This will require some thought about how to visualize the data in a way that is legible, informative, and also performant. The diffs will generally be only a small fraction of the size of the full tables, but can still be very substantial.
+* We have a mix of tables that have primary keys and those that don't, and the visualizations should be different for each case.
+* There's a lot more we can show about tables with primary keys, because we know which rows are supposed to correspond to each other across the two datasets. Whereas with the tables that lack primary keys we can only say that the contents of the table changed, but we can't say which rows correspond to each other.
+* A visual and textual representation of the **schema** changes should also be presented. This will include the number of columns that were added, removed, or changed, as well as the number of columns that were unchanged, and in the case of columns whose schema has changed, a visual representation of the nature of the change (e.g. data type change, nullability change, membership in the primary key, etc.).
+* For each **column** in the table, show numerical and visual representations of the number and percentage of **rows** that were added, removed, or changed, in that column as well as the number that were unchanged. This will help the user understand if there is a single mechanism that's responsible for change across all of the changed columns, or if there are multiple mechanisms that are responsible for the changes in the table, each affecting a different subset of the columns.
+* It would be nice to provide a "minimap" style visualization of the table, where each column is represented as a narrow vertical arrangement of points, where the color of each point represents how a corresponding row changed (green: added, yellow: changed, red: removed, gray: unchanged), and the position of the point along the line indicates **which** row changed. This will allow the user to quickly see which columns were most affected by changes between datasets, whether the changes across different columns are happening in the same or different rows, and at a coarse level, what kind of change is happening add, content change, removal, or no change). I imagine this visualization looking reminiscent of a genetic sequence alignment, where each column corresponds to the genetic sequence of a different organism, and the rows are individual genes, base-pairs, or highly conserved sequences, and the color of each point might indicate which allele of a given gene the organism has, or whether a sequence has been added or removed between individuals. In our case, the columns correspond to the different columns in the table, and the rows are the different rows in the table, and the color of each point indicates whether that row was added, removed, changed, or unchanged between datasets. This kind of visualization will probably only be possible for tables with primary keys, since we need to know which rows correspond to each other across datasets in order to visualize the changes in this way.
+
+#### Visualizing Column-Level Diffs
+
+* Within a specific table, the use should be able to select a column that they want to drill down into visually.
+* For different kinds of selected columns the provided visualizations will be different.
+* For all 2-dimensional visualizations, we can use the left vs. right datasets as the two dimensions. Left is always take as the reference dataset, and right is the changed dataset. This means that left should always be on the x-axis (independent variable), and right should always be on the y-axis (dependent variable).
+
+**Numerical columns**
+
+* For numerical columns, we can visualize the distribution of values in the left and right datasets.
+* We can use a scatter plot or a 2-dimensional histogram or heat map to visualize the distribution of values in the left and right datasets, with the x and y axes scaled to the numerical range of the column.
+* We can also show projected 1-dimensional histograms of the left and right datasets along the x and y axes, respectively, to show the distribution of values in each dataset individually.
+* In the case of a column that experienced no changes, we would expect to see a diagonal line of points from the bottom left to the top right of the plot, indicating that the values in the left and right datasets are identical. In the case of a column that experienced changes, we would expect to see points scattered away from the diagonal line, indicating that the values in the left and right datasets are different.
+* There are at least two different ways that we can use color in the context of this visualization. Color can indicate the density of points in a given area of the plot, or it can indicate whether a given point is an added, removed, or changed data point. We should probably provide both options to the user, and allow them to toggle between them. On plots with a small number of points, we might also be able to use the plotting symbol instead of color to indicate whether a given point was added, removed, or changed, but many of our plots will have thousands or millions of points, so the symbols will be too cluttered.
+* Another option here is to use **color** to indicate the **kind** of change, and **opacity** (or alpha) to indicate the **magnitude** of the change. For example, a point that was added might be colored green, a point that was removed might be colored red, and a point that was changed might be colored yellow, but if all of the points are semitransparent, then the density of points in a given area will be indicated by the opacity of the color. This will allow us to visualize both the kind and magnitude of changes in a single plot.
+* There may be other useful ways to combine color, opacity, symbols, and point location to visualize the changes in a numerical column. Feel free to provide examples of other ways to visualize the changes in a numerical column, and we can discuss them and decide which ones to implement.
+
+**Categorical columns**
+
+* We can treat categorical columns similarly to numerical columns, but in the case of categorical columns the axes don't represent numerical values, and instead the unique Focategorical values themselves.
+* We can have colored boxes (heatmap/matrix style) representing different combinations of left and right values, and we can label the axes to indicate the unique value that that x or y position pertains to in the plot.
+* I think the value that we want to use at each of these intersection points is the ratio of the number of occurrences of that value in the left dataset in that column, to the number of occurrences of that value in the right dataset in that column. If the two datasets were identical in that column then the diagonal cells would all have a value of 1.0, and the off-diagonal cells would all be 0/0 which we can represent as NA or 0.0. If a value is more common in the left dataset than the right dataset, then the ratio will be greater than 1.0, and if a value is more common in the right dataset than the left dataset, then the ratio will be less than 1.0. The two diagonal halves of the plot will represent the same information, so we might want to only show half of the matrix to avoid duplication. This will allow us to see which how the frequency of a given value changes between the left and right dataset for a given column. Alternatively, the color could correspond to the delta between the number of occurrences of a given value in the left and right datasets, or the percentage change between the two datasets. We should explore different options and see which ones work best.
+* For larger numbers of unique values, labeling all of the individual unique values on the x and y axes will become hard to read, and a
+pure heat map style diagram is not as useful in the categorical value case as it is for numerical values, because without the per-category axis labels, the axes don't have a lot of semantic meaning. However, we can work around this if there is any kind of hierarchical structure in the categorical values. For example, if the categories represent fuel types, we might have a set of categories which all represent coal (anthracite, bituminous, subbituminous, lignite...) and if they were all put next to each other and visually separated from the other higher level categories (e.g. liquid fuels, gaseous fuels) then the matrix of values would still convey visual information.
+
+#### Presenting Row-Level Diffs
+
+* The most detailed view of the data is the row-level diffs. These will be presented as actual dataframes (or interactive tables derived from dataframes).
+* The table of values should allow the user to sort and filter the rows, and should provide visual summaries and potentially numerical summaries of each column in association with the table to help the user understand what's going on.
+* Given that we have a left-only and a right-only set of rows for each table, we can present the left-only rows in one table, and the right-only rows in another table. They should be on the left and right sides, respectively.
+* We can also provide a way to join the two tables together on the primary key (if it exists) so that the user can see the left and right values for each row side by side, potentially with just a subset of columns selected. The left and right versions of a given column should be displayed adjacent to each other for easy comparison.
+* The user will also want to be able to do their own selection, manipulation, and plotting of the left-only, right-only, and potentially merged tables, probably using Polars or Pandas interactively.
+* We might also want to experiment with styling the tabular data display to highlight the differences between the left and right values in a given column, for example by coloring the background of the cells that have changed, or coloring the background with a colormap that's based on the numerical value stored in the cell, or by using a combination of both. We should experiment with different styling options and see which ones work best.
 
 ---
 
-## Time Tracking
+## Project Time Tracking
 
 ### Core Functionality:
 
@@ -941,3 +1048,9 @@ Elapsed: 1:51
 Resumed: 2026-09-18 19:05
 Stopped: 2026-09-18 23:01
 Elapsed: 3:56
+
+### The PUDL Diff Marimo Notebook:
+
+Started: 2026-09-26 19:05
+Stopped: 2026-09-26 21:01
+Elapsed: 1:56
