@@ -618,8 +618,8 @@ def test_no_color_flag_and_non_tty_default_have_no_ansi_output(
     args = ["same_table", "changed_table", *two_table_args]
 
     # CliRunner's stdout isn't a terminal, so that's the default.
-    default = CliRunner().invoke(main, args)
-    forced_off = CliRunner().invoke(main, [*args, "--no-color"])
+    default = CliRunner().invoke(main, [*args, "--verbose"])
+    forced_off = CliRunner().invoke(main, [*args, "--verbose", "--no-color"])
 
     assert "\x1b[" not in default.output
     assert "\x1b[" not in forced_off.output
@@ -630,11 +630,47 @@ def test_progress_shows_sub_second_runtimes_with_millisecond_precision(
     tmp_path: Path, two_table_args
 ):
     """A table's runtime is shown to the millisecond, so that fast tables don't all say 0s."""
-    result = CliRunner().invoke(main, ["same_table", "changed_table", *two_table_args])
+    result = CliRunner().invoke(
+        main, ["same_table", "changed_table", *two_table_args, "--verbose"]
+    )
 
     assert re.search(
         r"\[1/2\]  \[IDENTICAL\] .* \d+\.\d{3}s  same_table", result.output
     )
+
+
+def test_quiet_is_the_default_and_hides_identical_tables_and_sizes(
+    tmp_path: Path, two_table_args
+):
+    """By default only tables that differ are listed, without the size columns."""
+    args = ["same_table", "changed_table", *two_table_args]
+
+    quiet = CliRunner().invoke(main, args)
+    explicit_quiet = CliRunner().invoke(main, [*args, "--quiet"])
+    verbose = CliRunner().invoke(main, [*args, "--verbose"])
+
+    # Elapsed times differ between runs, so compare the headings instead.
+    assert quiet.output.splitlines()[2] == explicit_quiet.output.splitlines()[2]
+    assert "same_table" not in quiet.output.split("Identical")[0]
+    assert "changed_table" in quiet.output
+    assert "SIZE" not in quiet.output.split("Identical")[0]
+    assert "same_table" in verbose.output.split("Identical")[0]
+    assert "LEFT SIZE" in verbose.output
+    assert "[2/2]" in quiet.output
+
+
+def test_quiet_says_so_instead_of_a_table_when_all_tables_are_identical(
+    tmp_path: Path, two_table_args
+):
+    """If nothing differs, `--quiet` prints a message rather than an empty table."""
+    quiet = CliRunner().invoke(main, ["same_table", *two_table_args])
+    verbose = CliRunner().invoke(main, ["same_table", *two_table_args, "--verbose"])
+
+    assert quiet.exit_code == 0, quiet.output
+    assert "The table was found to be functionally identical." in quiet.output
+    assert "STATUS" not in quiet.output
+    assert "functionally identical" not in verbose.output
+    assert "STATUS" in verbose.output
 
 
 def _load_report(output_path: Path) -> dict:
@@ -1106,7 +1142,7 @@ def test_from_report_accepts_the_report_file_itself(tmp_path: Path, two_table_ar
     CliRunner().invoke(main, ["same_table", *two_table_args])
 
     replay = CliRunner().invoke(
-        main, ["--from-report", str(tmp_path / "out" / REPORT_FILENAME)]
+        main, ["--from-report", str(tmp_path / "out" / REPORT_FILENAME), "--verbose"]
     )
 
     assert replay.exit_code == 0, replay.output

@@ -36,3 +36,6 @@ would when cutting an actual release. See AGENTS.md's Documentation section for 
     what changed, as a colorized terminal summary and a JSON report described by a
     published JSON Schema. It began life inside the
     [PUDL repository](https://github.com/catalyst-cooperative/pudl).
+- By default (`--quiet`), the live table lists only the tables that aren't
+    identical, and leaves out the size columns.
+    `--verbose` lists every table with its sizes, as before.

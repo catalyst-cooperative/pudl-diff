@@ -52,6 +52,7 @@ def _echo_outcome(
 ) -> None:
     """Say how a comparison, or a saved report on one, turned out."""
     verb = "written to" if saved else "read from"
+    progress.finish()
     if report.error is not None:
         click.echo(f"Comparison failed: {report.error}", err=True)
         click.echo(f"Report {verb} {report_path}")
@@ -96,7 +97,7 @@ def _reject_comparison_options(ctx: click.Context) -> None:
         )
 
 
-def _show_saved_report(path: Path) -> int:
+def _show_saved_report(path: Path, *, verbose: bool) -> int:
     """Print a saved report as a comparison would have; return its exit code."""
     report_path = path / REPORT_FILENAME if path.is_dir() else path
     try:
@@ -112,6 +113,7 @@ def _show_saved_report(path: Path) -> int:
         report.right_dataset.root,
         explicit=True,
         show_progress=not single,
+        verbose=verbose,
         intro=(
             f"Report of {len(tables)} tables between {report.left_dataset.root!r} "
             f"and {report.right_dataset.root!r}, created {report.created}."
@@ -238,6 +240,14 @@ def _set_log_level(level: str) -> Callable[[], None]:
     "otherwise (e.g. when piped to a file).",
 )
 @click.option(
+    "--verbose/--quiet",
+    "verbose",
+    default=False,
+    help="With --quiet (the default), the live table only lists tables that aren't "
+    "identical, and leaves out the size columns. --verbose lists every table, "
+    "with sizes. The JSON report and final summary are the same either way.",
+)
+@click.option(
     "--loglevel",
     default="ERROR",
     type=click.Choice(
@@ -262,6 +272,7 @@ def main(
     atol: float,
     from_report: Path | None,
     color: bool | None,
+    verbose: bool,
     loglevel: str,
 ) -> None:
     """Compare tables between two PUDL Parquet datasets.
@@ -286,7 +297,7 @@ def main(
         _reject_comparison_options(ctx)
         ctx.call_on_close(_set_log_level(loglevel))
         ctx.color = sys.stdout.isatty() if color is None else color
-        ctx.exit(_show_saved_report(from_report))
+        ctx.exit(_show_saved_report(from_report, verbose=verbose))
     if right_table is not None and len(table_names) != 1:
         raise click.UsageError("--right-table requires exactly one TABLE_NAME.")
 
@@ -316,7 +327,11 @@ def main(
 
     single = len(table_names) == 1
     progress = TerminalProgress(
-        left_root, right_root, explicit=bool(table_names), show_progress=not single
+        left_root,
+        right_root,
+        explicit=bool(table_names),
+        show_progress=not single,
+        verbose=verbose,
     )
     report = run_dataset_diff(
         left_dataset,

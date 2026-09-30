@@ -165,8 +165,10 @@ def _format_key(has_primary_key: bool | None) -> str:
     return "PK" if has_primary_key else "no-PK"
 
 
-def format_header(progress_width: int = 0) -> str:
+def format_header(progress_width: int = 0, *, verbose: bool = True) -> str:
     """The two lines of column headings for the lines made by `format_outcome()`.
+
+    Unless `verbose`, leaves out the size columns, as `format_outcome()` does.
 
     A heading may name its column on the first line and say what it holds on the
     second, so that it needn't be wider than the values below it. The second line is
@@ -188,6 +190,8 @@ def format_header(progress_width: int = 0) -> str:
         (("", "TIME"), _ELAPSED_WIDTH, True),
         (("", "TABLE"), 0, False),
     ]
+    if not verbose:
+        del columns[7:11]
     lines = []
     for line in (0, 1):
         parts: list[str] = [" " * progress_width]
@@ -200,8 +204,12 @@ def format_header(progress_width: int = 0) -> str:
     return "\n".join(lines)
 
 
-def format_outcome(outcome: TableOutcome, progress: str = "") -> str:
+def format_outcome(
+    outcome: TableOutcome, progress: str = "", *, verbose: bool = True
+) -> str:
     """One line summarizing a table's comparison.
+
+    Unless `verbose`, leaves out the sizes and their change.
 
     The table name goes last, so that the (variable length) names don't disturb
     the alignment of everything before it.
@@ -218,6 +226,12 @@ def format_outcome(outcome: TableOutcome, progress: str = "") -> str:
     )
     row_counts, row_percents = _row_cells(outcome)
     size_change, size_percent = _size_change_segments(outcome.sizes)
+    size_cells = [
+        (outcome.sizes.left_table_size or "").rjust(_SIZE_WIDTH),
+        (outcome.sizes.right_table_size or "").rjust(_RIGHT_SIZE_WIDTH),
+        _render_right(size_change, _SIZE_CHANGE_WIDTH),
+        _render_right(size_percent, _PERCENT_CHANGE_WIDTH),
+    ]
     parts = [
         progress,
         click.style(tag.ljust(_TAG_WIDTH), fg=color),
@@ -227,10 +241,7 @@ def format_outcome(outcome: TableOutcome, progress: str = "") -> str:
         left_rows.rjust(_LEFT_ROWS_WIDTH),
         row_counts,
         row_percents,
-        (outcome.sizes.left_table_size or "").rjust(_SIZE_WIDTH),
-        (outcome.sizes.right_table_size or "").rjust(_RIGHT_SIZE_WIDTH),
-        _render_right(size_change, _SIZE_CHANGE_WIDTH),
-        _render_right(size_percent, _PERCENT_CHANGE_WIDTH),
+        *(size_cells if verbose else []),
         elapsed.rjust(_ELAPSED_WIDTH),
         outcome.table_name,
     ]
@@ -387,6 +398,9 @@ class TerminalProgress:
     Meant to be used as the callbacks of `run_dataset_diff()`.
     Keeps each table's `TableOutcome`, in
     `outcomes`, for the summary at the end.
+    Unless `verbose`, only prints the tables that aren't identical, and leaves out
+    the size columns; `outcomes` still has every table. The column headings wait for
+    the first table to print, and `finish()` says so if none did.
     """
 
     def __init__(
@@ -397,6 +411,7 @@ class TerminalProgress:
         explicit: bool,
         show_progress: bool,
         intro: str | None = None,
+        verbose: bool = True,
     ):
         """Set up to describe a comparison of two datasets.
 
@@ -408,12 +423,15 @@ class TerminalProgress:
             show_progress: Whether to start each line with a `[n/total]` count.
             intro: What to say before the column headings instead of the usual
                 description of the comparison, e.g. when showing a saved report.
+            verbose: Whether to print identical tables and the size columns.
         """
         self._intro = intro
         self._left_root = left_root
         self._right_root = right_root
         self._explicit = explicit
         self._show_progress = show_progress
+        self._verbose = verbose
+        self._header_printed = False
         self._total = 0
         self.outcomes: list[TableOutcome] = []
 
@@ -426,10 +444,27 @@ class TerminalProgress:
             echo_intro(
                 tables, self._left_root, self._right_root, explicit=self._explicit
             )
+        if self._verbose:
+            self._echo_header()
+
+    def _echo_header(self) -> None:
+        """Print the column headings, once."""
         total = self._total
         click.echo(
-            format_header(len(f"[{total}/{total}]") if self._show_progress else 0)
+            format_header(
+                len(f"[{total}/{total}]") if self._show_progress else 0,
+                verbose=self._verbose,
+            )
         )
+        self._header_printed = True
+
+    def finish(self) -> None:
+        """If no table was listed because all were identical, say so instead."""
+        if self.outcomes and not self._header_printed:
+            what = "The table was" if len(self.outcomes) == 1 else "All tables were"
+            click.echo(
+                click.style(f"{what} found to be functionally identical.", fg="green")
+            )
 
     def table_compared(
         self, table_name: str, report: table_report.TableDiffReport
@@ -443,4 +478,7 @@ class TerminalProgress:
             if self._show_progress
             else ""
         )
-        click.echo(format_outcome(outcome, progress))
+        if self._verbose or outcome.exit_code != 0:
+            if not self._header_printed:
+                self._echo_header()
+            click.echo(format_outcome(outcome, progress, verbose=self._verbose))

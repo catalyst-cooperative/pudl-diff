@@ -377,6 +377,58 @@ def test_terminal_progress_prints_a_numbered_line_per_table(
     assert [o.table_name for o in progress.outcomes] == ["table_a", "table_b"]
 
 
+def test_quiet_terminal_progress_skips_identical_tables_and_sizes(
+    tmp_path: Path, write_two_datasets, capsys
+):
+    """Unless verbose, identical tables aren't printed, but are still counted and kept."""
+    left, right = write_two_datasets(
+        tmp_path,
+        {"table_a": ["a", "b"], "table_b": ["a", "b"]},
+        {"table_a": ["a", "b"], "table_b": ["a", "c"]},
+    )
+    progress = TerminalProgress(
+        "left", "right", explicit=False, show_progress=True, verbose=False
+    )
+
+    run_dataset_diff(
+        left,
+        right,
+        tmp_path / "out",
+        on_tables_resolved=progress.tables_resolved,
+        on_table_compared=progress.table_compared,
+    )
+
+    lines = capsys.readouterr().out.splitlines()
+    assert "SIZE" not in "\n".join(lines)
+    assert len(lines) == 4
+    assert re.match(r"\[2/2\]\s+\[CHANGED\].*table_b$", lines[3])
+    assert [o.table_name for o in progress.outcomes] == ["table_a", "table_b"]
+
+
+def test_quiet_terminal_progress_says_when_all_tables_are_identical(
+    tmp_path: Path, write_two_datasets, capsys
+):
+    """If every table is identical, `finish()` says so, and no headings were printed."""
+    tables = {"table_a": ["a", "b"], "table_b": ["a", "b"]}
+    left, right = write_two_datasets(tmp_path, tables, tables)
+    progress = TerminalProgress(
+        "left", "right", explicit=False, show_progress=True, verbose=False
+    )
+
+    run_dataset_diff(
+        left,
+        right,
+        tmp_path / "out",
+        on_tables_resolved=progress.tables_resolved,
+        on_table_compared=progress.table_compared,
+    )
+    progress.finish()
+
+    lines = capsys.readouterr().out.splitlines()
+    assert len(lines) == 2
+    assert lines[1] == "All tables were found to be functionally identical."
+
+
 def test_summary_of_a_report_without_timing_memory_or_sizes(
     tmp_path: Path, write_two_datasets, capsys
 ):
