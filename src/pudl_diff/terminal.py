@@ -20,14 +20,16 @@ from pudl_diff.formatting import (
 )
 
 _GRAY = "bright_black"
-_TAGS = {
-    0: ("[IDENTICAL]", "green"),
-    1: ("[CHANGED]", "yellow"),
-    2: ("[ERROR]", "red"),
-}
-"""The log-level style tag and its color for each `exit_code`."""
-_TAG_WIDTH = 11
-_KEY_WIDTH = 5
+_TAGS = {0: "✅", 1: "⚠️", 2: "❌"}
+"""The emoji shown for each `exit_code`: identical, changed, or failed."""
+_PRIMARY_KEY_TAGS = {True: "🔑", False: "🚫"}
+"""The emoji shown for a table with, and without, a primary key."""
+_EMOJI_WIDTH = 2
+"""Terminal columns taken up by each of the emoji above.
+
+They're all double width, whatever their length in characters, so cells holding them
+are padded by this rather than by `len()`.
+"""
 _LEFT_COLUMNS_WIDTH = 4
 _COLUMNS_WIDTH = 14
 _LEFT_ROWS_WIDTH = 13
@@ -160,9 +162,10 @@ def _row_cells(outcome: TableOutcome) -> tuple[str, str]:
 
 
 def _format_key(has_primary_key: bool | None) -> str:
+    """An emoji for whether the table has a primary key, or blank spaces if unknown."""
     if has_primary_key is None:
-        return ""
-    return "PK" if has_primary_key else "no-PK"
+        return " " * _EMOJI_WIDTH
+    return _PRIMARY_KEY_TAGS[has_primary_key]
 
 
 def format_header(progress_width: int = 0, *, verbose: bool = True) -> str:
@@ -176,8 +179,8 @@ def format_header(progress_width: int = 0, *, verbose: bool = True) -> str:
     """
     # Each column's two lines of heading, its width, and whether it's right-aligned.
     columns = [
-        (("", "STATUS"), _TAG_WIDTH, False),
-        (("", "KEY"), _KEY_WIDTH, False),
+        (("", ""), _EMOJI_WIDTH, False),
+        (("", "PK"), _EMOJI_WIDTH, False),
         (("LEFT", "COLS"), _LEFT_COLUMNS_WIDTH, True),
         (("COL CHANGES", "+add/~chg/-del"), _COLUMNS_WIDTH, False),
         (("LEFT", "ROWS"), _LEFT_ROWS_WIDTH, True),
@@ -214,7 +217,6 @@ def format_outcome(
     The table name goes last, so that the (variable length) names don't disturb
     the alignment of everything before it.
     """
-    tag, color = _TAGS[outcome.exit_code]
     elapsed = (
         format_elapsed(outcome.elapsed_seconds)
         if outcome.elapsed_seconds is not None
@@ -234,8 +236,8 @@ def format_outcome(
     ]
     parts = [
         progress,
-        click.style(tag.ljust(_TAG_WIDTH), fg=color),
-        _format_key(outcome.rows.has_primary_key).ljust(_KEY_WIDTH),
+        _TAGS[outcome.exit_code],
+        _format_key(outcome.rows.has_primary_key),
         left_columns.rjust(_LEFT_COLUMNS_WIDTH),
         _render(_columns_segments(outcome), _COLUMNS_WIDTH),
         left_rows.rjust(_LEFT_ROWS_WIDTH),

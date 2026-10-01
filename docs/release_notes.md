@@ -39,3 +39,6 @@ would when cutting an actual release. See AGENTS.md's Documentation section for 
 - By default (`--quiet`), the live table lists only the tables that aren't
     identical, and leaves out the size columns.
     `--verbose` lists every table with its sizes, as before.
+- The live table is more compact: a table's status is an emoji (✅ identical,
+    ⚠️ changed, ❌ error) with no heading, and whether it has a primary key is 🔑 or
+    🚫, under a `PK` heading.

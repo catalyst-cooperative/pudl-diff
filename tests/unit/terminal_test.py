@@ -65,7 +65,7 @@ def test_format_outcome_table_with_primary_key():
     line = _plain(
         format_outcome(table_outcome(1, added=1_234_567, changed=221, removed=764))
     )
-    assert line.startswith("[CHANGED]")
+    assert line.startswith("⚠️")
     assert "+1,234,567/221/-764" in line
     assert line.endswith("1.500s  some_table")
 
@@ -84,18 +84,18 @@ def test_format_outcome_identical_and_progress_prefix():
     line = _plain(
         format_outcome(table_outcome(0, added=0, changed=0, removed=0), "[ 3/378]")
     )
-    assert line.startswith("[ 3/378]  [IDENTICAL]")
+    assert line.startswith("[ 3/378]  ✅")
     assert "+0/0/-0" in line
 
 
 def test_format_outcome_skipped_and_error_messages():
     """A table that wasn't row-compared, or failed, says so where its row changes would be."""
     skipped = _plain(format_outcome(table_outcome(1, skipped_reason="too_many_rows")))
-    assert "[CHANGED]" in skipped
+    assert "⚠️" in skipped
     assert "row diff skipped: too many rows" in skipped
 
     error = _plain(format_outcome(table_outcome(2)))
-    assert "[ERROR]" in error
+    assert "❌" in error
     assert "comparison failed" in error
 
 
@@ -191,8 +191,7 @@ def test_format_header_has_two_lines_naming_each_column():
     for heading in ["LEFT", "COL CHANGES", "ROW CHANGES", "% OF LEFT ROWS"]:
         assert heading in first
     for heading in [
-        "STATUS",
-        "KEY",
+        "PK",
         "COLS",
         "ROWS",
         "TIME",
@@ -218,8 +217,12 @@ def test_format_header_has_two_lines_naming_each_column():
             "[3/378]",
         )
     )
-    assert second.index("STATUS") == row.index("[IDENTICAL]")
-    assert second.index("KEY") == row.index("PK")
+    assert row.index("✅") == len("[3/378]  ")
+    assert row.index("🔑") == len("[3/378]  ✅  ")
+    # Each emoji is two terminal columns wide, but only one character, so widen them
+    # to compare the positions of what follows.
+    row = row.replace("✅", "XX").replace("🔑", "XX")
+    assert second.index("PK") == row.index("XX", 1 + row.index("XX"))
     # Column counts are right-aligned too.
     assert second.index("COLS") + len("COLS") == row.index("42") + 2
     assert first.index("COL CHANGES") == row.index("+1/3/-2")
@@ -239,16 +242,16 @@ def test_format_outcome_key_and_left_rows():
             )
         )
     )
-    assert re.search(r"\bPK\b.*\b1,500\b", pk)
+    assert re.search(r"🔑.*\b1,500\b", pk)
     no_pk = _plain(
         format_outcome(
             table_outcome(1, added=1, removed=1, has_primary_key=False, left_rows=1_500)
         )
     )
-    assert "no-PK" in no_pk
+    assert "🚫" in no_pk
     # An error means we don't know either.
     error = _plain(format_outcome(table_outcome(2)))
-    assert "PK" not in error
+    assert not {"🔑", "🚫"} & set(error)
 
 
 def test_format_outcome_percentages_are_relative_to_left_rows():
@@ -371,9 +374,9 @@ def test_terminal_progress_prints_a_numbered_line_per_table(
     lines = capsys.readouterr().out.splitlines()
     assert lines[0] == "Comparing 2 tables present in both 'left' and 'right'."
     # A two-line header
-    assert lines[2].split()[0] == "STATUS"
-    assert re.match(r"\[1/2\]\s+\[IDENTICAL\].*table_a$", lines[3])
-    assert re.match(r"\[2/2\]\s+\[IDENTICAL\].*table_b$", lines[4])
+    assert lines[2].split()[0] == "PK"
+    assert re.match(r"\[1/2\]\s+✅.*table_a$", lines[3])
+    assert re.match(r"\[2/2\]\s+✅.*table_b$", lines[4])
     assert [o.table_name for o in progress.outcomes] == ["table_a", "table_b"]
 
 
@@ -401,7 +404,7 @@ def test_quiet_terminal_progress_skips_identical_tables_and_sizes(
     lines = capsys.readouterr().out.splitlines()
     assert "SIZE" not in "\n".join(lines)
     assert len(lines) == 4
-    assert re.match(r"\[2/2\]\s+\[CHANGED\].*table_b$", lines[3])
+    assert re.match(r"\[2/2\]\s+⚠️.*table_b$", lines[3])
     assert [o.table_name for o in progress.outcomes] == ["table_a", "table_b"]
 
 

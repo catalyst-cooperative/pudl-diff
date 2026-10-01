@@ -623,7 +623,7 @@ def test_no_color_flag_and_non_tty_default_have_no_ansi_output(
 
     assert "\x1b[" not in default.output
     assert "\x1b[" not in forced_off.output
-    assert "[IDENTICAL]" in default.output
+    assert "✅" in default.output
 
 
 def test_progress_shows_sub_second_runtimes_with_millisecond_precision(
@@ -634,9 +634,7 @@ def test_progress_shows_sub_second_runtimes_with_millisecond_precision(
         main, ["same_table", "changed_table", *two_table_args, "--verbose"]
     )
 
-    assert re.search(
-        r"\[1/2\]  \[IDENTICAL\] .* \d+\.\d{3}s  same_table", result.output
-    )
+    assert re.search(r"\[1/2\]  ✅ .* \d+\.\d{3}s  same_table", result.output)
 
 
 def test_quiet_is_the_default_and_hides_identical_tables_and_sizes(
@@ -668,9 +666,9 @@ def test_quiet_says_so_instead_of_a_table_when_all_tables_are_identical(
 
     assert quiet.exit_code == 0, quiet.output
     assert "The table was found to be functionally identical." in quiet.output
-    assert "STATUS" not in quiet.output
+    assert "PK" not in quiet.output
     assert "functionally identical" not in verbose.output
-    assert "STATUS" in verbose.output
+    assert "PK" in verbose.output
 
 
 def _load_report(output_path: Path) -> dict:
@@ -709,7 +707,7 @@ def test_cli_row_shows_status_and_changes(tmp_path: Path, pk_resource, make_data
     )
 
     assert result.exit_code == 1, result.output
-    assert "[CHANGED]" in result.output
+    assert "⚠️" in result.output
     assert "+2/1/-1" in result.output
 
 
@@ -724,7 +722,7 @@ def test_cli_shows_header_and_summary_with_paths_time_and_memory(
     )
 
     assert result.exit_code == 1, result.output
-    assert "STATUS" in result.output
+    assert "PK" in result.output
     assert "TABLE" in result.output
     assert f"Left:            {left}" in result.output
     assert f"Right:           {right}" in result.output
@@ -772,7 +770,7 @@ def test_cli_shows_added_and_removed_columns(tmp_path: Path, pk_resource, make_d
 
     assert result.exit_code == 1, result.output
     # The rows are unchanged, but two columns were added and one removed.
-    assert "[CHANGED]" in result.output
+    assert "⚠️" in result.output
     # The left table had three columns, and the row counts are unchanged.
     assert re.search(r"\b3 +\+2/0/-1 +[\d,]+ +\+0/0/-0", result.output)
 
@@ -878,7 +876,7 @@ def test_cli_shows_dtype_changes_in_the_columns_cell(
     # No columns were added or removed, but one changed dtype, so the table
     # counts as changed even though none of its values differ.
     assert result.exit_code == 1, result.output
-    assert "[CHANGED]" in result.output
+    assert "⚠️" in result.output
     assert re.search(r"\+0/1/-0 +[\d,]+ +\+0/0/-0", result.output)
 
 
@@ -1146,7 +1144,7 @@ def test_from_report_accepts_the_report_file_itself(tmp_path: Path, two_table_ar
     )
 
     assert replay.exit_code == 0, replay.output
-    assert "[IDENTICAL]" in replay.output
+    assert "✅" in replay.output
 
 
 def test_from_report_does_not_compare_or_write_anything(

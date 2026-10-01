@@ -84,21 +84,21 @@ For a table found to differ, it also writes two Parquet side-output files:
 
 They are written next to the report, and the report refers to them by paths relative to the report file, so the output directory can be moved or copied, and everything in it can still be found.
 
-Under a two-line header naming each column, each table's line starts with a status tag for the comparison as a whole (including its schema): `[IDENTICAL]` (green), `[CHANGED]` (yellow) or `[ERROR]` (red, the comparison itself failed).
-It's followed by whether the table has a primary key (`PK` or `no-PK`), the number of columns in the left table and how many were added, changed (had their dtype change) and removed, the number of rows in the left table, a summary of the row-level changes in the style of `git diff` (as counts and as percentages of the left table's rows), the size of each table's Parquet file and how it changed, the time taken, and the table name:
+Under a two-line header naming each column, each table's line starts with an emoji for the status of the comparison as a whole (including its schema): ✅ identical, ⚠️ changed or ❌ error (the comparison itself failed).
+It's followed by whether the table has a primary key (🔑 if it does, 🚫 if it doesn't, under the heading `PK`), the number of columns in the left table and how many were added, changed (had their dtype change) and removed, the number of rows in the left table, a summary of the row-level changes in the style of `git diff` (as counts and as percentages of the left table's rows), the size of each table's Parquet file and how it changed, the time taken, and the table name:
 
 ```text
-LEFT  COL CHANGES              LEFT  ROW CHANGES               % OF LEFT ROWS
-STATUS       KEY    COLS  +add/~chg/-del           ROWS  +add/~chg/-del            +add/~chg/-del          LEFT SIZE  RIGHT SIZE  SIZE CHANGE     % SIZE       TIME  TABLE
-[IDENTICAL]  PK       25  +0/0/-0               408,860  +0/0/-0                   +0%/0%/-0%                31.4 MB     31.4 MB          0 B         0%     0.043s  core_eia861__yearly_sales
-[CHANGED]    PK       18  +0/0/-0                12,450  +50/221/-764              +0.40%/1.78%/-6.14%        1.6 MB      1.5 MB    -110.0 KB     -6.67%     0.512s  core_eia860__scd_utilities
-[CHANGED]    no-PK    41  +2/3/-1                61,320  +0/-0                     +0%/-0%                    5.2 MB      5.8 MB    +600.0 KB    +11.54%     1.204s  core_eia923__monthly_fuel
-[CHANGED]    PK       12  +0/0/-0         1,017,748,176  row diff skipped: too many rows                      9.4 GB      9.4 GB          0 B         0%     2.310s  core_epacems__hourly_emissions
+        LEFT  COL CHANGES              LEFT  ROW CHANGES               % OF LEFT ROWS
+    PK  COLS  +add/~chg/-del           ROWS  +add/~chg/-del            +add/~chg/-del          LEFT SIZE  RIGHT SIZE  SIZE CHANGE     % SIZE       TIME  TABLE
+✅  🔑    25  +0/0/-0               408,860  +0/0/-0                   +0%/0%/-0%                31.4 MB     31.4 MB          0 B         0%     0.043s  core_eia861__yearly_sales
+⚠️  🔑    18  +0/0/-0                12,450  +50/221/-764              +0.40%/1.78%/-6.14%        1.6 MB      1.5 MB    -110.0 KB     -6.67%     0.512s  core_eia860__scd_utilities
+⚠️  🚫    41  +2/3/-1                61,320  +0/-0                     +0%/-0%                    5.2 MB      5.8 MB    +600.0 KB    +11.54%     1.204s  core_eia923__monthly_fuel
+⚠️  🔑    12  +0/0/-0         1,017,748,176  row diff skipped: too many rows                      9.4 GB      9.4 GB          0 B         0%     2.310s  core_epacems__hourly_emissions
 ```
 
 - Left columns: the number of columns in the left table.
 - Column changes: the number of columns only in the right table (`+`, cyan), the number of columns in both tables whose dtype changed (`~`, hot pink), and the number only in the left table (`-`, magenta).
-    A table whose columns or dtypes changed is always `[CHANGED]`.
+    A table whose columns or dtypes changed is always ⚠️ changed.
 - Rows, `+50` (green): rows only in the right table.
     For a table with a primary key, these are rows whose primary key is only in the right table.
 - Rows, `221` (yellow): for a table with a primary key only, the number of rows whose primary key is in both tables but whose other values changed.

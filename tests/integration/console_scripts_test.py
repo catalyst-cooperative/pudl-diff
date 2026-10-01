@@ -50,9 +50,9 @@ def test_pudl_diff_compares_two_datasets_and_shows_the_report_again(
     replay = script_runner.run(["pudl_diff", "--from-report", str(out)])
 
     assert ret.returncode == 1  # the datasets differ
-    assert "[CHANGED]" in ret.stdout
+    assert "⚠️" in ret.stdout
     assert replay.returncode == 1
-    assert "[CHANGED]" in replay.stdout
+    assert "⚠️" in replay.stdout
 
 
 @pytest.mark.script_launch_mode("inprocess")
