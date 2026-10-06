@@ -19,6 +19,11 @@ _RIGHT_COUNT_COL = "_pudl_diff_right_count"
 _LEFT_SURPLUS_COL = "_pudl_diff_left_surplus"
 _RIGHT_SURPLUS_COL = "_pudl_diff_right_surplus"
 
+MAX_ROWS_PER_PARTITION = 100_000_000
+"""Tables with more rows than this have their key hashes reduced and joined in
+several partitions, one after the other, to bound the memory the comparison needs.
+At around 75 bytes of peak memory per row, 100 million rows is roughly 8 GB."""
+
 
 def _floats_close_enough(rtol: float, atol: float) -> bool:
     return rtol > 0 or atol > 0
@@ -179,13 +184,21 @@ def _reduce_rows(
     rtol: float,
     atol: float,
     side: str,
+    partition: tuple[int, int] = (0, 1),
 ) -> pl.LazyFrame:
     """Reduce a table to one narrow row per key hash.
 
     Each row holds the number of rows sharing that key hash and, if there are
     value columns, an order-independent hash of their values.
+
+    Only the key hashes in `partition`, a `(index, count)` pair, are kept: those
+    whose remainder when divided by `count` is `index`. Rows with equal keys always
+    land in the same partition, so partitions can be reduced and compared separately.
     """
     keyed = _with_row_key(lf, schema, key_columns, rtol, atol)
+    index, count = partition
+    if count > 1:
+        keyed = keyed.filter(pl.col(_ROW_KEY_COL) % count == index)
     aggs = [pl.len().alias(f"_pudl_diff_{side}_count")]
     if value_columns:
         # Hash the exact values, not float-quantized ones: equal hashes then
@@ -259,6 +272,9 @@ def _diff_by_key_hash(
     `_reduce_rows()`) and written to disk, so that only those narrow frames,
     rather than the tables' full rows, are held in memory by the join that finds
     the differing keys. Full rows are then read back only for those keys.
+    Tables with more than `MAX_ROWS_PER_PARTITION` rows are reduced and joined in
+    several partitions of the key hashes, one at a time, which bounds the memory
+    needed at the cost of reading and hashing the tables once per partition.
 
     Args:
         left: The "left" table to compare.
@@ -285,17 +301,6 @@ def _diff_by_key_hash(
     value_columns = list(value_columns)
     _assert_key_dtypes_match(schema, right.collect_schema(), key_columns)
 
-    left_reduced = _spill(
-        _reduce_rows(left, schema, key_columns, value_columns, rtol, atol, "left"),
-        spill_dir,
-        "left_reduced",
-    )
-    right_reduced = _spill(
-        _reduce_rows(right, schema, key_columns, value_columns, rtol, atol, "right"),
-        spill_dir,
-        "right_reduced",
-    )
-
     left_count = pl.col(_LEFT_COUNT_COL).fill_null(0).cast(pl.Int64)
     right_count = pl.col(_RIGHT_COUNT_COL).fill_null(0).cast(pl.Int64)
     differs = left_count != right_count
@@ -310,19 +315,59 @@ def _diff_by_key_hash(
     else:
         left_surplus = pl.when(right_count == 0).then(left_count).otherwise(0)
         right_surplus = pl.when(left_count == 0).then(right_count).otherwise(0)
-    affected = _spill(
-        left_reduced.join(right_reduced, on=_ROW_KEY_COL, how="full", coalesce=True)
-        .filter(differs)
-        .select(
-            _ROW_KEY_COL,
-            left_count.alias(_LEFT_COUNT_COL),
-            right_count.alias(_RIGHT_COUNT_COL),
-            left_surplus.alias(_LEFT_SURPLUS_COL),
-            right_surplus.alias(_RIGHT_SURPLUS_COL),
-        ),
-        spill_dir,
-        "affected",
+
+    partitions = max(
+        1, -(-max(count_rows(left), count_rows(right)) // MAX_ROWS_PER_PARTITION)
     )
+    affected_parts: list[pl.LazyFrame] = []
+    for index in range(partitions):
+        suffix = f"_{index}" if partitions > 1 else ""
+        left_reduced = _spill(
+            _reduce_rows(
+                left,
+                schema,
+                key_columns,
+                value_columns,
+                rtol,
+                atol,
+                "left",
+                (index, partitions),
+            ),
+            spill_dir,
+            f"left_reduced{suffix}",
+        )
+        right_reduced = _spill(
+            _reduce_rows(
+                right,
+                schema,
+                key_columns,
+                value_columns,
+                rtol,
+                atol,
+                "right",
+                (index, partitions),
+            ),
+            spill_dir,
+            f"right_reduced{suffix}",
+        )
+        affected_parts.append(
+            _spill(
+                left_reduced.join(
+                    right_reduced, on=_ROW_KEY_COL, how="full", coalesce=True
+                )
+                .filter(differs)
+                .select(
+                    _ROW_KEY_COL,
+                    left_count.alias(_LEFT_COUNT_COL),
+                    right_count.alias(_RIGHT_COUNT_COL),
+                    left_surplus.alias(_LEFT_SURPLUS_COL),
+                    right_surplus.alias(_RIGHT_SURPLUS_COL),
+                ),
+                spill_dir,
+                f"affected{suffix}",
+            )
+        )
+    affected = pl.concat(affected_parts)
     left_total, right_total, multiplicity_changed = (
         affected.select(
             pl.col(_LEFT_SURPLUS_COL).sum(),

@@ -530,3 +530,52 @@ def test_cleanup_deletes_the_files_behind_the_rows_of_a_diff():
     keyed_diff.cleanup()
 
     assert not any(path.exists() for path in paths)
+
+
+@pytest.fixture
+def tiny_partitions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make every table big enough to be compared in several partitions."""
+    monkeypatch.setattr("pudl_diff.rows.MAX_ROWS_PER_PARTITION", 3)
+
+
+def test_compare_rows_with_pk_partitioned_matches_unpartitioned(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Partitioning the key hashes doesn't change what a keyed comparison finds."""
+    ids = list(range(40))
+    left = pl.LazyFrame({"id": ids, "val": [float(i) for i in ids]})
+    right = pl.LazyFrame(
+        {
+            "id": [*ids[:30], 100, 101],
+            "val": [*(float(i) + (i % 7 == 0) for i in ids[:30]), 0.0, 0.0],
+        }
+    )
+    expected = compare_rows_with_pk(left, right, ["id"])
+    monkeypatch.setattr("pudl_diff.rows.MAX_ROWS_PER_PARTITION", 3)
+    actual = compare_rows_with_pk(left, right, ["id"])
+    assert (
+        actual.pk_diff.only_in_left_count == expected.pk_diff.only_in_left_count == 10
+    )
+    assert (
+        actual.pk_diff.only_in_right_count == expected.pk_diff.only_in_right_count == 2
+    )
+    assert actual.changed_row_count == expected.changed_row_count == 5
+    assert actual.column_changes == expected.column_changes == {"val": 5}
+    assert sorted(actual.pk_diff.only_in_left.collect()["id"]) == sorted(
+        expected.pk_diff.only_in_left.collect()["id"]
+    )
+
+
+@pytest.mark.usefixtures("tiny_partitions")
+def test_compare_rows_without_pk_partitioned_multiplicity():
+    """Copies of a row are counted correctly across partitions."""
+    left = pl.LazyFrame({"a": [1, 1, 1, 2, 3, 4, 5, 6]})
+    right = pl.LazyFrame({"a": [1, 2, 2, 3, 7, 8]})
+    result = compare_rows_without_pk(left, right)
+    assert Counter(result.only_in_left.collect()["a"]) == Counter(
+        {1: 2, 4: 1, 5: 1, 6: 1}
+    )
+    assert Counter(result.only_in_right.collect()["a"]) == Counter({2: 1, 7: 1, 8: 1})
+    assert result.only_in_left_count == 5
+    assert result.only_in_right_count == 3
+    assert result.multiplicity_changed_row_count == 2

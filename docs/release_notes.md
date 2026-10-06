@@ -36,6 +36,10 @@ would when cutting an actual release. See AGENTS.md's Documentation section for 
     what changed, as a colorized terminal summary and a JSON report described by a
     published JSON Schema. It began life inside the
     [PUDL repository](https://github.com/catalyst-cooperative/pudl).
+- Tables with more than 100 million rows are compared in several passes, each over
+    a slice of the rows' key hashes, which bounds the memory of a comparison to about
+    8 GB per 100 million rows. The largest table (`core_epacems__hourly_emissions`,
+    1 billion rows) now peaks at about 10 GB instead of 75 GB, in about twice the time.
 - By default (`--quiet`), the live table lists only the tables that aren't
     identical, and leaves out the size columns.
     `--verbose` lists every table with its sizes, as before.
