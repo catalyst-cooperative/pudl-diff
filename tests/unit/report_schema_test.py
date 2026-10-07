@@ -142,7 +142,7 @@ def test_the_committed_report_schema_is_up_to_date():
     It is published with the documentation, and used by others to validate reports, so it
     mustn't fall behind the code. The pre-commit hook updates it, and this checks that it was.
     """
-    committed = SCHEMA_PATH.read_text()
+    committed = SCHEMA_PATH.read_text(encoding="utf-8")
 
     assert committed == report_json_schema_text(), (
         f"{SCHEMA_PATH} is out of date with the report's models. Update it with "
@@ -153,7 +153,7 @@ def test_the_committed_report_schema_is_up_to_date():
 
 def test_the_committed_report_documentation_is_up_to_date():
     """The page documenting the report's fields is what the report's models generate now."""
-    assert DOCS_PATH.read_text() == report_docs_text(), (
+    assert DOCS_PATH.read_text(encoding="utf-8") == report_docs_text(), (
         f"{DOCS_PATH} is out of date with the report's models. Update it with "
         "`pixi run python -m pudl_diff.report_schema`."
     )
@@ -169,15 +169,15 @@ def test_main_updates_out_of_date_files_and_reports_it(tmp_path: Path):
     docs_path = tmp_path / "report_schema.md"
 
     assert main(schema_path, docs_path) == 1  # written, because they didn't exist
-    assert schema_path.read_text() == report_json_schema_text()
-    assert docs_path.read_text() == report_docs_text()
+    assert schema_path.read_text(encoding="utf-8") == report_json_schema_text()
+    assert docs_path.read_text(encoding="utf-8") == report_docs_text()
     assert main(schema_path, docs_path) == 0  # nothing to change
     schema_path.write_text("{}")
     assert main(schema_path, docs_path) == 1
-    assert schema_path.read_text() == report_json_schema_text()
+    assert schema_path.read_text(encoding="utf-8") == report_json_schema_text()
     docs_path.write_text("")
     assert main(schema_path, docs_path) == 1
-    assert docs_path.read_text() == report_docs_text()
+    assert docs_path.read_text(encoding="utf-8") == report_docs_text()
 
 
 def test_the_report_documentation_lists_every_model_and_links_between_them():

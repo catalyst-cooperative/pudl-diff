@@ -672,7 +672,7 @@ def test_quiet_says_so_instead_of_a_table_when_all_tables_are_identical(
 
 
 def _load_report(output_path: Path) -> dict:
-    return json.loads((output_path / REPORT_FILENAME).read_text())
+    return json.loads((output_path / REPORT_FILENAME).read_text(encoding="utf-8"))
 
 
 def _plain(line: str) -> str:
@@ -1133,6 +1133,28 @@ def test_from_report_shows_what_the_comparison_showed(
     )
     assert "Report of" in replay.output.splitlines()[0]
     assert f"Report read from {tmp_path / 'out' / REPORT_FILENAME}" in replay.output
+
+
+def test_a_report_is_written_and_read_as_utf8(tmp_path: Path, write_two_datasets):
+    """A report is UTF-8 on every platform, so one made on Linux can be shown on Windows.
+
+    Reports are archived and loaded again elsewhere, and `Path.write_text()` and
+    `read_text()` would use the platform's default encoding, which isn't UTF-8 on Windows.
+    """
+    name = "données_✅"
+    write_two_datasets(tmp_path, {name: ["a"]}, {name: ["a"]})
+    args = ["-l", str(tmp_path / "left"), "-r", str(tmp_path / "right")]
+
+    result = CliRunner().invoke(main, [name, *args, "-o", str(tmp_path / "out")])
+    assert result.exit_code == 0, result.output
+    report_text = (tmp_path / "out" / REPORT_FILENAME).read_bytes().decode("utf-8")
+    assert name in report_text
+
+    replay = CliRunner().invoke(
+        main, ["--from-report", str(tmp_path / "out"), "--verbose"]
+    )
+    assert replay.exit_code == 0, replay.output
+    assert name in replay.output
 
 
 def test_from_report_accepts_the_report_file_itself(tmp_path: Path, two_table_args):

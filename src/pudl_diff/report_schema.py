@@ -186,7 +186,7 @@ from pudl_diff.dataset_report import PudlDiffReport
 from pudl_diff.report_schema import report_json_schema
 
 schema = report_json_schema()
-report = PudlDiffReport.model_validate_json(report_path.read_text())
+report = PudlDiffReport.model_validate_json(report_path.read_text(encoding="utf-8"))
 ```
 
 Every field listed here is always present in a report, even if its value is `null`.
@@ -222,9 +222,10 @@ def report_docs_text() -> str:
 
 
 def _write_if_changed(path: Path, text: str) -> bool:
-    if path.exists() and path.read_text() == text:
+    if path.exists() and path.read_text(encoding="utf-8") == text:
         return False
-    path.write_text(text)
+    # The same bytes on every platform, whatever its default encoding and newline.
+    path.write_text(text, encoding="utf-8", newline="\n")
     click.echo(f"Updated {path}")
     return True
 

@@ -34,7 +34,9 @@ def test_source_is_written_in_markdown(path: Path):
     """
     found = [
         f"{path.name}:{number}: {what}"
-        for number, line in enumerate(path.read_text().splitlines(), start=1)
+        for number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), start=1
+        )
         for what, pattern in RST_PATTERNS.items()
         if pattern.search(line)
     ]

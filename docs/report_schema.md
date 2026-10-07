@@ -17,7 +17,7 @@ from pudl_diff.dataset_report import PudlDiffReport
 from pudl_diff.report_schema import report_json_schema
 
 schema = report_json_schema()
-report = PudlDiffReport.model_validate_json(report_path.read_text())
+report = PudlDiffReport.model_validate_json(report_path.read_text(encoding="utf-8"))
 ```
 
 Every field listed here is always present in a report, even if its value is `null`.

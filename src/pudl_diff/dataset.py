@@ -108,7 +108,7 @@ class PudlDiffDataset:
         """The parsed datapackage descriptor for this dataset."""
         if self._datapackage is None:
             path = self.root / self.descriptor_name
-            self._datapackage = json.loads(path.read_text())
+            self._datapackage = json.loads(path.read_text(encoding="utf-8"))
         return self._datapackage
 
     @property

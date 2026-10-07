@@ -101,7 +101,9 @@ def _show_saved_report(path: Path, *, verbose: bool) -> int:
     """Print a saved report as a comparison would have; return its exit code."""
     report_path = path / REPORT_FILENAME if path.is_dir() else path
     try:
-        report = PudlDiffReport.model_validate_json(report_path.read_text())
+        report = PudlDiffReport.model_validate_json(
+            report_path.read_text(encoding="utf-8")
+        )
     except (OSError, ValueError) as e:
         raise click.ClickException(
             f"Couldn't read a report from {report_path}: {e}"
@@ -323,7 +325,7 @@ def main(
 
     def write_report(report: PudlDiffReport) -> None:
         output_path.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(report.model_dump_json(indent=2))
+        report_path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
 
     single = len(table_names) == 1
     progress = TerminalProgress(

@@ -191,7 +191,7 @@ def test_only_the_defaults_module_depends_on_the_rest_of_pudl():
     for module in modules:
         if module.name == "defaults.py":
             continue
-        for node in ast.walk(ast.parse(module.read_text())):
+        for node in ast.walk(ast.parse(module.read_text(encoding="utf-8"))):
             names = (
                 [node.module or ""]
                 if isinstance(node, ast.ImportFrom)

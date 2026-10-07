@@ -40,6 +40,13 @@ else. See AGENTS.md's Documentation section for more. -->
 - The implementation plan is part of the documentation, as a historical document, instead of a file in the repository.
 - The spell checker ignores the commit and compare URLs and abbreviated hashes of the changelog, which contain fragments that look like misspelled words, but still checks the rest of it.
 
+#### Windows
+
+- The tests failed on Windows, and one of the causes was a bug in the tool: it read and wrote datapackage descriptors and reports in the platform's default encoding, which on Windows is not UTF-8.
+    PUDL's descriptors have non-ASCII characters in their descriptions, and reports are archived and shown again elsewhere, so a report written on Linux could not be read on Windows.
+    All of the text the tool reads and writes is now UTF-8, and the generated schema files are written with the same line endings on every platform.
+- The other failures were in the tests, which compared paths as strings with the wrong separators, and expected `HOME` to set the home directory, which Windows takes from `USERPROFILE`.
+
 ### 2026-10-06
 
 [All changes on this day](https://github.com/catalyst-cooperative/pudl-diff/compare/2f1059823f0f1d8906c3ec5acf5e09aead206624...ca028c4da07c4e95f1c2b4eb75045801e282b23e)

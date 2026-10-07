@@ -1,6 +1,7 @@
 """Unit tests for pudl_diff.dataset."""
 
 import contextlib
+import json
 import os
 import warnings
 from pathlib import Path
@@ -156,6 +157,19 @@ def test_scan_table_stringifies_non_string_storage_options(
     assert kwargs["storage_options"] == {"anon": "True", "region": "us-west-2"}
 
 
+def test_a_datapackage_is_read_as_utf8(tmp_path: Path, pk_resource):
+    """A descriptor is read as UTF-8, whatever the platform's default encoding is.
+
+    PUDL's descriptors have non-ASCII characters in their descriptions, and on Windows
+    `Path.read_text()` would decode them as cp1252 unless it is told otherwise.
+    """
+    resource = pk_resource("données_✅", ["x"])
+    descriptor = json.dumps({"name": "t", "resources": [resource]}, ensure_ascii=False)
+    (tmp_path / "datapackage.json").write_bytes(descriptor.encode("utf-8"))
+
+    assert PudlDiffDataset(tmp_path).table_names() == ["données_✅"]
+
+
 def test_custom_descriptor_name(tmp_path: Path, write_datapackage, pk_resource):
     """A dataset can name its descriptor something other than `datapackage.json`."""
     write_datapackage(
@@ -214,7 +228,7 @@ def test_a_relative_local_root_becomes_an_absolute_path(tmp_path: Path):
         dataset = PudlDiffDataset("some/../some/dir")
         table_path = dataset.table_path("a_table")
 
-    assert dataset.root.path == str((tmp_path / "some" / "dir").resolve())
+    assert Path(dataset.root.path) == (tmp_path / "some" / "dir").resolve()
     assert Path(table_path.path).is_absolute()
     assert table_path.path.endswith("/some/dir/a_table.parquet")
 
@@ -227,23 +241,24 @@ def test_a_local_root_has_its_symlinks_resolved(tmp_path: Path):
 
     dataset = PudlDiffDataset(tmp_path / "link")
 
-    assert dataset.root.path == str(real.resolve())
+    assert Path(dataset.root.path) == real.resolve()
 
 
 def test_a_local_root_has_its_home_directory_expanded(tmp_path: Path, mocker):
     """A local root has its home directory expanded."""
-    mocker.patch.dict(os.environ, {"HOME": str(tmp_path)})
+    # Windows looks for the home directory in USERPROFILE instead.
+    mocker.patch.dict(os.environ, {"HOME": str(tmp_path), "USERPROFILE": str(tmp_path)})
 
     dataset = PudlDiffDataset("~/nightly")
 
-    assert dataset.root.path == str((tmp_path / "nightly").resolve())
+    assert Path(dataset.root.path) == (tmp_path / "nightly").resolve()
 
 
 def test_a_file_url_root_is_resolved_too(tmp_path: Path):
     """A local root given as a `file://` URL is made absolute and resolved like any other."""
     dataset = PudlDiffDataset(f"file://{tmp_path}/a/../dataset")
 
-    assert dataset.root.path == str((tmp_path / "dataset").resolve())
+    assert Path(dataset.root.path) == (tmp_path / "dataset").resolve()
 
 
 def test_a_remote_root_is_left_as_it_is():

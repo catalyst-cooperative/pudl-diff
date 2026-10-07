@@ -81,7 +81,7 @@ def _nightly_descriptor() -> Datapackage | None:
     """
     path = nightly_root() / PUDL_CATALYST_COOP_DESCRIPTOR_NAME
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
         logger.warning(f"Couldn't read the nightly datapackage at {path}: {e!r}")
         return None
