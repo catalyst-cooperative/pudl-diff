@@ -22,7 +22,7 @@ else. See AGENTS.md's Documentation section for more. -->
 
 ### 2026-10-07
 
-[All changes on this day](https://github.com/catalyst-cooperative/pudl-diff/compare/ca028c4da07c4e95f1c2b4eb75045801e282b23e...092bb02c493636c94d1705b5ffed130a87ef5cce))
+[All changes on this day](https://github.com/catalyst-cooperative/pudl-diff/compare/ca028c4da07c4e95f1c2b4eb75045801e282b23e...092bb02c493636c94d1705b5ffed130a87ef5cce)
 
 #### Documentation and housekeeping
 
@@ -37,6 +37,7 @@ else. See AGENTS.md's Documentation section for more. -->
     A page for each module of the package, and its place in the navigation, come from the package's own source, so a new module no longer has to be added to a list by hand, and `docs/reference.md` is gone.
     The docstrings are still rendered by mkdocstrings, which Zensical doesn't replace, but the cross-references between pages are resolved by Zensical's own autorefs, which also publishes an `objects.inv` that other projects' documentation can link to.
 - The changelog now links the classes, functions, constants and modules it mentions to the API reference, and the documentation build is strict, so that a reference that doesn't resolve fails it instead of silently becoming plain text.
+- The API reference's navigation lists plain module names. The default "mod" badge in front of each was not spaced from its title by the theme, and its markup also leaked into the labels of the previous and next page links.
 - The implementation plan is part of the documentation, as a historical document, instead of a file in the repository.
 - The spell checker ignores the commit and compare URLs and abbreviated hashes of the changelog, which contain fragments that look like misspelled words, but still checks the rest of it.
 

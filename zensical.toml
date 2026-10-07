@@ -82,6 +82,10 @@ modules = ["src/pudl_diff"]
 nav_section_title = "API Reference"
 api_root_uri = "reference"
 exclude_private = true
+# Every entry is a module, so the default prefix, a "mod" badge, says nothing. The theme
+# colors the badge but doesn't space it from the title, and the badge's markup also ends
+# up in the aria-label of the previous and next page links.
+nav_item_prefix = ""
 
 [project.plugins.mkdocstrings.handlers.python]
 inventories = ["https://docs.python.org/3/objects.inv"]
