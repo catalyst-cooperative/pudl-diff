@@ -62,15 +62,18 @@ repos:
     rev: 1.0.0
     hooks:
       - id: mdformat
-        # The project's original planning log, kept as it was written, and the
-        # generated schema documentation, which mdformat would rewrite so that it no
-        # longer matches its generator.
-        exclude: ^(pudl-diff\.md|docs/report_schema\.md)$
+        # The generated schema documentation, which mdformat would rewrite so that it
+        # no longer matches its generator.
+        exclude: ^docs/report_schema\.md$
+        # Keep ordered lists numbered consecutively from their first number, rather
+        # than renumbering them all alike, since notes/pudl-diff.md refers to steps
+        # by number.
+        args: [--number]
         additional_dependencies:
           - mdformat-gfm
           # Without this, mdformat mangles zensical/MkDocs-flavored markdown syntax,
           # e.g. escaping the "<" in docs/index.md's "--8<--" snippet-include line.
-          - mdformat-mkdocs
+          - mdformat-mkdocs>=5.3
           # Without this, mdformat doesn't recognize YAML front matter (used by the
           # GitHub issue/PR templates) and reformats its "---" delimiters into
           # thematic breaks, corrupting the front matter and confusing markdownlint.
@@ -84,7 +87,7 @@ repos:
     rev: v0.23.3
     hooks:
       - id: markdownlint-cli2
-        exclude: ^(pudl-diff\.md|docs/report_schema\.md)$
+        exclude: ^docs/report_schema\.md$
 
   # Lint Dockerfiles for errors and to ensure best practices
   - repo: https://github.com/AleksaC/hadolint-py
