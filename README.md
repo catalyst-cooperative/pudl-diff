@@ -88,8 +88,8 @@ See the [documentation](https://docs.catalyst.coop/pudl-diff/usage/) for more, o
 Bug reports, questions and pull requests are welcome in the
 [issue tracker](https://github.com/catalyst-cooperative/pudl-diff/issues).
 Please follow our [Code of Conduct](https://docs.catalyst.coop/pudl-diff/code_of_conduct/).
-The [release notes](https://docs.catalyst.coop/pudl-diff/release_notes/) list what has
-changed in each version.
+The [changelog](https://docs.catalyst.coop/pudl-diff/changelog/) lists what has
+changed, and why.
 
 ## Development
 

@@ -14,7 +14,7 @@ nav = [
   { "Report Schema" = "report_schema.md" },
   { "API Reference" = "reference.md" },
   { "Code of Conduct" = "code_of_conduct.md" },
-  { "Release Notes" = "release_notes.md" },
+  { "Changelog" = "changelog.md" },
   { "License" = "license.md" },
 ]
 

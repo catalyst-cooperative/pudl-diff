@@ -157,22 +157,27 @@ whether the agent should skip them, mock them, or ask a human to run them.
     Never edit them by hand: change the models and their docstrings, which are where
     each field is described. Any change to the report's models needs a decision about
     `REPORT_SCHEMA_VERSION`, since reports get archived and loaded again later.
-- Update `docs/release_notes.md` for user-facing changes, but never write real content
-    into the `## X.Y.Z (YYYY-MM-DD)` section at the top of the file -- that's a
-    reusable template (see the HTML comment inside it), not a place to record actual
-    changes. Add your change to the first real, numbered section below it instead,
-    which represents the upcoming/unreleased version; create that section (by copying
-    the template) if it doesn't already exist. Use `pymdownx.magiclink` shorthand for
+- Update `docs/changelog.md` for user-facing changes. It is organized by release
+    (second-level headings, newest first), then by date (third-level), then by theme
+    (fourth-level), and the topmost section, headed with the next version and
+    "(unreleased)", collects the changes made since the last release. Add a short bullet saying what you
+    changed and why under today's date and a fitting theme, creating those headings
+    above the others if they don't exist yet. Before the first release, the changelog
+    is also the project's development diary, since it wasn't developed in public:
+    explain the problem, what was considered, and why the solution was chosen, but
+    not the details of the implementation. Use `pymdownx.magiclink` shorthand for
     PR/issue references (`!123` for a pull request, `#123` for an issue) rather than
-    full GitHub URLs.
-- Don't trust the file's existing top section number alone to know what the next
-    version is -- it can lag behind reality (e.g. a release cut and tagged without the
-    file being updated to match). Before adding or creating an unreleased section, run
-    `git tag --sort=-v:refname | head -1` to find the actual most-recently-released
-    version, and base the next number on that instead. This repo bumps the patch
-    version (the `Z` in `X.Y.Z`) for ordinary PRs; only bump minor/major if asked to.
-    If the version you're about to write already exists as a tag, stop and reconcile
-    the mismatch (e.g. by asking) rather than silently overwriting or renumbering.
+    full GitHub URLs, and link the commits that implemented a change by their SHAs.
+    The commits made before the repository was published are linked by the full URL
+    of the commit, and must never be rewritten, or the links break.
+- To make a release, run `git tag --sort=-v:refname | head -1` to find the
+    most-recently-released version rather than trusting the changelog's top heading,
+    which can lag behind reality. This repo bumps the patch version (the `Z` in
+    `X.Y.Z`) for ordinary PRs; only bump minor/major if asked to. Rename the topmost
+    section to the new version and its date (`## vX.Y.Z (YYYY-MM-DD)`), and start a
+    new `(unreleased)` section above it. If the version you're about to write already
+    exists as a tag, stop and reconcile the mismatch (e.g. by asking) rather than
+    silently overwriting or renumbering.
 - Write prose using semantic linefeeds (one sentence, or one independent clause, per
     line) rather than hard-wrapping at a fixed column. This keeps diffs to the
     sentence that actually changed instead of reflowing the whole paragraph.

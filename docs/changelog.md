@@ -1,0 +1,280 @@
+# PUDL Diff Changelog
+
+`pudl_diff` was written in a few weeks of local development, first inside the PUDL repository and then as a package of its own, before it was published on GitHub.
+So there are no issues or pull requests to trace its history through, and this changelog stands in for them.
+Until the first release, it is a development diary: for each day, what was built, the problems it solved, and why it was done the way it was.
+If you are new to the repository, reading it from the bottom up (oldest day first) explains how the code got to be the way it is.
+The commits are linked, and each day links to all of its changes together.
+Where the reasoning was longer than a changelog can hold, see the [implementation notes](https://github.com/catalyst-cooperative/pudl-diff/blob/main/notes/pudl-diff.md), which were the project's working plan.
+
+The newest entries are at the top.
+Releases will each get a section of their own, as a second-level heading, once there are any.
+
+<!-- Agents: add your change to the heading for today's date under the topmost section
+(creating the date's heading, above the others in the section, and a thematic heading
+within it, if they don't yet exist), as a short bullet saying what was changed and why.
+Reference pull requests and issues like this: !123, #123. Link a commit by its SHA.
+When a version is released, rename the topmost section to that version and its date, and
+start a new "(unreleased)" section above it. Don't write the changes of a release anywhere
+else. See AGENTS.md's Documentation section for more. -->
+
+## v0.1.0 (unreleased)
+
+### 2026-10-07
+
+[All changes on this day](https://github.com/catalyst-cooperative/pudl-diff/compare/ca028c4da07c4e95f1c2b4eb75045801e282b23e...92e42c55c1880e2b35a558429cf4d413a0473a5f)
+
+#### Documentation and housekeeping
+
+- The README now has the status badges, installation instructions for pixi, uv, pip and conda, and links to the related PUDL and Catalyst projects, ready for the repository to be published. [`2d4c25c`](https://github.com/catalyst-cooperative/pudl-diff/commit/2d4c25c1cee26bf37a80826813711fc58281487c)
+- The implementation notes moved into `notes/`, and are checked and formatted like the rest of the Markdown. The formatter now numbers lists consecutively, because the notes refer to their steps by number. [`92e42c5`](https://github.com/catalyst-cooperative/pudl-diff/commit/92e42c55c1880e2b35a558429cf4d413a0473a5f)
+- The release notes became this changelog.
+- The pixi lockfile was refreshed. [`88ec2a3`](https://github.com/catalyst-cooperative/pudl-diff/commit/88ec2a33d1c1cf599f07b1926e8d5815d4171fd1)
+
+### 2026-10-06
+
+[All changes on this day](https://github.com/catalyst-cooperative/pudl-diff/compare/2f1059823f0f1d8906c3ec5acf5e09aead206624...ca028c4da07c4e95f1c2b4eb75045801e282b23e)
+
+#### Comparing the largest tables
+
+- The biggest table in PUDL, `core_epacems__hourly_emissions`, has a billion rows, and comparing it took about 75 GB of memory at its peak.
+    That was more than most developers' machines have.
+    The cause was the step that reduces each table to one narrow row per key hash, which holds a group for every row on both sides at once.
+- Tables of more than 100 million rows are now reduced and joined in several passes, each keeping only the key hashes in one slice of the hash space.
+    Rows with equal keys always land in the same slice, so the slices can be compared independently and their results combined.
+    Peak memory is then about 8 GB per 100 million rows, however large the table is.
+- Partitioning on the hash of the key needs nothing that is specific to a table, and works with or without a primary key.
+    The price is time, since every pass reads and hashes the whole table again, because a filter on a hash can't be pushed down into the Parquet reader.
+    The billion-row table now takes 9.7 GB and about two minutes, instead of 75 GB and a minute.
+- Tables of 100 million rows or fewer are compared in a single pass, as before.
+    Tables this large are still left out of a default comparison, since they exceed the default `--max-compare-rows`, which is also 100 million.
+    [`ca028c4`](https://github.com/catalyst-cooperative/pudl-diff/commit/ca028c4da07c4e95f1c2b4eb75045801e282b23e)
+
+#### Dependencies
+
+- Updated to Polars 2.0. [`0a45c9c`](https://github.com/catalyst-cooperative/pudl-diff/commit/0a45c9c2e399a9a5729ec685e7cce8397420f0aa)
+
+### 2026-09-30
+
+[All changes on this day](https://github.com/catalyst-cooperative/pudl-diff/compare/83bf513b2a7492b918a320d90206fd14763b1eba...2f1059823f0f1d8906c3ec5acf5e09aead206624)
+
+#### A quieter terminal
+
+- Comparing every table in two PUDL builds prints hundreds of lines, nearly all of them for tables that did not change, and those buried the few that did.
+    The live table now lists only the tables that aren't identical, and leaves out the size columns, unless `--verbose` is given.
+    The progress counters, final summary and JSON report are unchanged, and `--from-report` follows the same flag.
+    If every table is identical, a message says so instead of an empty table.
+    [`e0ee36f`](https://github.com/catalyst-cooperative/pudl-diff/commit/e0ee36f58a10664a5292de3ebc85f9992a52cc4d)
+- The status and primary key columns became emoji (✅, ⚠️, ❌ and 🔑, 🚫), which makes the table narrower so more of it fits on a screen. [`2f10598`](https://github.com/catalyst-cooperative/pudl-diff/commit/2f1059823f0f1d8906c3ec5acf5e09aead206624)
+
+### 2026-09-26
+
+[All changes on this day](https://github.com/catalyst-cooperative/pudl-diff/compare/50cc6c7b4eca4ccac5d770591117ca161cc8da04...83bf513b2a7492b918a320d90206fd14763b1eba)
+
+#### Planning a notebook
+
+- Wrote the plan for a Marimo notebook that visualizes a report: what it is for, how it should read, which technologies to consider, and what to show at the level of the dataset, the table, the column and the row.
+    The analysis is meant to live in library modules that are tested, and the notebook only presents it.
+    [`83bf513`](https://github.com/catalyst-cooperative/pudl-diff/commit/83bf513b2a7492b918a320d90206fd14763b1eba)
+
+### 2026-09-21
+
+[All changes on this day](https://github.com/catalyst-cooperative/pudl-diff/compare/946ed0c02db5985042ca6d009d9f79fa3db6fde1...50cc6c7b4eca4ccac5d770591117ca161cc8da04)
+
+#### Stricter checks
+
+- More of ruff's rules were turned on: unused arguments, implicit string concatenation, Pylint and tryceratops, and documenting every parameter.
+    Rules that don't suit the code, like limits on the number of arguments, were left off, with the reasons written down.
+    [`3ba80ce`](https://github.com/catalyst-cooperative/pudl-diff/commit/3ba80ce0ed8643bd0c44dfd3244b306e3c122198)
+- Explicit `Any` is now an error in the type checker, since it is as good as no type at all but is counted as typed.
+    The 16 uses were replaced, most notably by types for the parts of a datapackage descriptor that the tool reads, in a new `datapackage` module. [`e4c0cca`](https://github.com/catalyst-cooperative/pudl-diff/commit/e4c0cca6026132995582d8fb26f52e28b8cdf26f)
+- The tests' docstrings are checked too, so every test says what it checks, and the more important or opaque ones say why. [`7119780`](https://github.com/catalyst-cooperative/pudl-diff/commit/7119780ae4490eaa099e12fe05eff13c93b75077)
+
+#### GeoArrow compatibility
+
+- Importing `pudl_diff` in an environment where PUDL had already registered the GeoArrow WKB extension type (or the other way around) raised an error, because Polars refuses to register a type twice and can't say whether it is registered.
+    A duplicate registration is now fine, and any other failure is still raised. [`50cc6c7`](https://github.com/catalyst-cooperative/pudl-diff/commit/50cc6c7b4eca4ccac5d770591117ca161cc8da04)
+
+### 2026-09-20
+
+[All changes on this day](https://github.com/catalyst-cooperative/pudl-diff/compare/d5bd970a10f336c68305221392fee30b2dc852e2...946ed0c02db5985042ca6d009d9f79fa3db6fde1)
+
+#### Planning reports for nightly and stable builds
+
+- Wrote down how PUDL's builds should use the tool: a nightly build compares itself against both the previous nightly build and the last stable release, a branch build against the last nightly, and a stable release against the previous release.
+    Reports are named for the two builds they compare, kept with the other outputs of the build, and published beside the nightly and stable data.
+    [`52feb84`](https://github.com/catalyst-cooperative/pudl-diff/commit/52feb847f5572af850d533f076c5a18374c48ed0) [`717b07a`](https://github.com/catalyst-cooperative/pudl-diff/commit/717b07a89a6d4a37894ac69819123e8133755652)
+- A dataset can be read from one place and recorded in the report as another (`PudlDiffDataset(display_root=...)`), so that a build's local outputs are described by the permanent location they will be deployed to. [`f2c14cc`](https://github.com/catalyst-cooperative/pudl-diff/commit/f2c14cc3b28e9f86d8302967d9d7b38763d18eac)
+- `--from-report` shows a saved report again, as the same lines and summary a new comparison prints, without comparing anything. [`a8cde80`](https://github.com/catalyst-cooperative/pudl-diff/commit/a8cde80f2d0587dd4fda8b6c56d34b53895694b8)
+
+#### Becoming independent of PUDL
+
+- The tool was to move out of the PUDL repository into a package of its own, so that it is useful outside of PUDL, doesn't add thousands of lines to PUDL's review, and can be installed by the scheduled jobs that archive every report.
+    The first step was to make it stand alone while still in PUDL.
+- Comparing row counts by partition, using the expressions in PUDL's dbt tests, was dropped.
+    It tied the tool to PUDL's repository layout, was brittle, and the per-partition breakdown was noisy.
+    The left-only and right-only Parquet files already show what is behind a change in the row count.
+    [`69b32dc`](https://github.com/catalyst-cooperative/pudl-diff/commit/69b32dc830b9b2ed57696033fd57b0312c68d05b)
+- Logging uses the standard library, under loggers named `pudl_diff.<module>`. [`b197db5`](https://github.com/catalyst-cooperative/pudl-diff/commit/b197db5e2d1ae12d264c43858f2b8cdba11c6dbc)
+- A single module, `defaults`, is the only one that knows anything about PUDL, and it does so lazily and optionally.
+    It supplies the nightly build's location and the local outputs directory, and where a table's primary key comes from when its own datapackage doesn't say: PUDL's metadata if it's installed, else the last nightly build's datapackage, else none, with a warning.
+    A test keeps every other module free of PUDL imports.
+    [`28607a7`](https://github.com/catalyst-cooperative/pudl-diff/commit/28607a71195046dfaefc658758b7b5a8a4f9befd)
+- The test fixtures moved out of PUDL's conftest, and the local `data/` and `reports/` directories are ignored. [`f4193f3`](https://github.com/catalyst-cooperative/pudl-diff/commit/f4193f3e7a56a63cfd0ca343697e3bfd02af1916) [`5d72cae`](https://github.com/catalyst-cooperative/pudl-diff/commit/5d72cae25958764308e7fa41bf7b410821a6c4c4)
+- The history was extracted with `git filter-repo`, so it comes along.
+    The imports were then renamed for the new package, `pudl_diff`, and its command line, `pudl_diff.cli`, and the tests moved to `tests/unit`.
+    [`b5ff178`](https://github.com/catalyst-cooperative/pudl-diff/commit/b5ff17808c63e725906463d99554de195d6d20a0) [`d39e600`](https://github.com/catalyst-cooperative/pudl-diff/commit/d39e60047a6ef7e5453fe08010a4cffe973daf48)
+
+#### A project of its own
+
+- Packaging, hooks, CI, the devcontainer and the instructions for coding agents were adapted from Catalyst's Python template: hatchling with hatch-vcs, pixi environments and tasks, GitHub workflows for tests, docs, releases and lockfile updates.
+    [`b406d06`](https://github.com/catalyst-cooperative/pudl-diff/commit/b406d065a68984fbd1d04bba24aebd5ff337a019) [`6b34c03`](https://github.com/catalyst-cooperative/pudl-diff/commit/6b34c03d1e8bb86fc957ab6c63e7db35aa85ef6a)
+- The documentation was converted to Markdown for Zensical, and the reference for the report's fields became a page generated beside the JSON Schema, instead of a Sphinx page built from a template.
+    Zensical drops its default Markdown extensions when any are configured, so the configuration lists them all.
+    [`77c2595`](https://github.com/catalyst-cooperative/pudl-diff/commit/77c25956d452048f52679a77ff8d32bc6cb3f15c) [`e37108f`](https://github.com/catalyst-cooperative/pudl-diff/commit/e37108ffb823f0f470fe757eda9f5ffbd58524af)
+- Docstrings were converted from reStructuredText to Markdown, since both the API reference and the schema's descriptions are built from them, and neither is Sphinx.
+    A test keeps the Sphinx syntax out.
+    The schema also says `null` rather than `none`.
+    [`4e14e2c`](https://github.com/catalyst-cooperative/pudl-diff/commit/4e14e2cec0f09e7e4a36458edc668a16c8c8cdfc)
+- The `LICENSE` and the package metadata declare the license and that the package is typed, and the project has homepage and funding URLs. [`f9c299e`](https://github.com/catalyst-cooperative/pudl-diff/commit/f9c299e173cd3607a25ee8f56a551e81eb672e50) [`223c869`](https://github.com/catalyst-cooperative/pudl-diff/commit/223c869fcc162836cc96423f3c4f6c708802d4b7)
+- Allowed committing to `main` until the repository is on GitHub. [`946ed0c`](https://github.com/catalyst-cooperative/pudl-diff/commit/946ed0c02db5985042ca6d009d9f79fa3db6fde1)
+
+#### Quality checks
+
+- Type checking uses pyrefly at its strict preset instead of ty, following PUDL and the FERC XBRL extractor, and every part of `src/` must be annotated. [`f4e9d7b`](https://github.com/catalyst-cooperative/pudl-diff/commit/f4e9d7bd831e797c116e4d8e9ce4e46953113683)
+- Test coverage must be 100%, counting branches, and is measured over the tests and scripts as well as the package, which finds tests that never run and helpers that nothing uses. [`f4e9d7b`](https://github.com/catalyst-cooperative/pudl-diff/commit/f4e9d7bd831e797c116e4d8e9ce4e46953113683) [`cd4ce9b`](https://github.com/catalyst-cooperative/pudl-diff/commit/cd4ce9b3774a0a17d7a656db2da49d3da3dbc28c)
+- Warnings are errors in the tests, and pytest's strict mode is on. Test output is a character per test, and every module's logger is mocked so that the expected failures don't print errors. [`266b549`](https://github.com/catalyst-cooperative/pudl-diff/commit/266b5490731a1841930902f8294f938c66cc56de) [`4fe6ddd`](https://github.com/catalyst-cooperative/pudl-diff/commit/4fe6ddd24912b91075570b3cc0270ea4c7f3bb96)
+- The tests run on Linux, macOS and Windows, and the linters run once in CI. [`f9c299e`](https://github.com/catalyst-cooperative/pudl-diff/commit/f9c299e173cd3607a25ee8f56a551e81eb672e50)
+- Ruff adds to its default rules rather than replacing them, with PUDL's selection. [`23979f0`](https://github.com/catalyst-cooperative/pudl-diff/commit/23979f0116dba7ff28ecdc51a0d04f016e3e5da4) [`734ea61`](https://github.com/catalyst-cooperative/pudl-diff/commit/734ea6198a5633ae0c099b9ac4e94c7a7552f858)
+- A development helper that summarizes pyrefly's coverage report lives in `scripts/`, outside the published package. [`70d505f`](https://github.com/catalyst-cooperative/pudl-diff/commit/70d505f9de328c8716184845b4eaa865affea8db) [`560b338`](https://github.com/catalyst-cooperative/pudl-diff/commit/560b338e8193b967ed1ea8401b52ccd65cca3466)
+- Console script tests run the installed `pudl_diff` on two small datasets, and more of the branches of the CLI, runner and summary are tested. [`38bf05e`](https://github.com/catalyst-cooperative/pudl-diff/commit/38bf05e70bf295b7e1e2395ba2ee48cfa5889f96) [`7c91f1c`](https://github.com/catalyst-cooperative/pudl-diff/commit/7c91f1ce8081ca3983d4606f1a833d2403985b90)
+
+#### Reports and behavior
+
+- Reports record which version of `pudl_diff` made them, and `pudl_diff --version` shows it.
+    Reports will be archived and loaded long after they are made, so the version is required: a report that doesn't say is rejected, rather than credited to whatever happens to be installed.
+    The schema version, which is that of the report's format, is unchanged, since no report has been published yet.
+    [`c45bbf3`](https://github.com/catalyst-cooperative/pudl-diff/commit/c45bbf3999c9086152d215b314345d163c3b0cf8)
+- PUDL stores geometries as GeoArrow WKB, an extension type Polars doesn't know, and every scan of a table with one warned.
+    It is now registered as the binary type it is stored as, so geometries are compared as the bytes they are. Other unknown types still warn.
+    [`abb8f04`](https://github.com/catalyst-cooperative/pudl-diff/commit/abb8f04007da9dd5892b73766d90cdca425859d6)
+- The temporary files that hold the rows that differ are deleted as soon as the report's Parquet files have been written, rather than when the result is garbage collected, which also raised a resource warning. [`7cec5ad`](https://github.com/catalyst-cooperative/pudl-diff/commit/7cec5ad270c419de29958366409cd2cab47e8826)
+
+### 2026-09-19
+
+[All changes on this day](https://github.com/catalyst-cooperative/pudl-diff/compare/77264816b511411c622640f0f6eddbe3cdf5007a...d5bd970a10f336c68305221392fee30b2dc852e2)
+
+#### One report for the whole comparison
+
+- The tool wrote a JSON report for each table.
+    It now writes one `pudl_diff_report.json` for the whole run, built around a `PudlDiffReport` that holds what pertains to the comparison as a whole: when it was made, the two datasets and their provenance, the options used, the tables in only one of them, and a summary.
+    The tables are a dictionary keyed by name, so a consumer can look one up directly, and the summary does the arithmetic across tables so consumers (and the terminal summary) don't have to.
+    A run that fails before comparing anything, such as one where the datasets have no tables in common, still writes a report that says why.
+    [`ce22e04`](https://github.com/catalyst-cooperative/pudl-diff/commit/ce22e0466343b6b29c8ddad0425a10ead3ccfb03) [`511d561`](https://github.com/catalyst-cooperative/pudl-diff/commit/511d5618e6e9716cf7c61f6075ff98cfbc6d5ce4) [`b1debf3`](https://github.com/catalyst-cooperative/pudl-diff/commit/b1debf30b2254b73ccf5302551424cb6f9dd6d11) [`87c5ba8`](https://github.com/catalyst-cooperative/pudl-diff/commit/87c5ba8492efc184d10242954748a03034d2b3b1)
+- Pydantic models were chosen over dataclasses so that a report can be validated when it is loaded again for analysis or visualization.
+- Each table's Parquet file size is recorded on both sides, with the difference and its percentage, because compression settings can change a file's size when its contents are the same. [`511d561`](https://github.com/catalyst-cooperative/pudl-diff/commit/511d5618e6e9716cf7c61f6075ff98cfbc6d5ce4)
+
+#### A report that can be trusted and understood
+
+- `is_identical` and `success` used to be stored fields filled in by the code that built the report, so a report could contradict itself.
+    They are now computed from the fields they summarize, and loading a report recomputes them rather than trusting the file.
+    [`c47e016`](https://github.com/catalyst-cooperative/pudl-diff/commit/c47e0165dafed693c40025e75d0e8136a463c176)
+- Every field of the report is described, and the descriptions come from the docstrings, so they are written once.
+    The sections for rows with a primary key and without one are each either a summary or a record of why they were skipped, and a `status` field says which, so the schema can tell them apart. [`fafd686`](https://github.com/catalyst-cooperative/pudl-diff/commit/fafd6860bd475d9db7427de72aa74f585998196a) [`f3bf4a8`](https://github.com/catalyst-cooperative/pudl-diff/commit/f3bf4a8f75cb73e902e4aa173febdad4ad8e1e5a)
+- The report's JSON Schema is committed and published, and a generated reference page describes every field.
+    A pre-commit hook regenerates them when the models change, and a test fails if they are out of date.
+    [`683fa80`](https://github.com/catalyst-cooperative/pudl-diff/commit/683fa80b734e037d520bd21dd7cfef80a3eeccfe)
+- Paths in the report no longer depend on where the tool was run: a local dataset is identified by its absolute path, and the Parquet files are named relative to the report, so the directory can be moved. [`d5bd970`](https://github.com/catalyst-cooperative/pudl-diff/commit/d5bd970a10f336c68305221392fee30b2dc852e2)
+
+#### Splitting up a 2,400-line module
+
+- The comparison code had grown into one module of about 2,400 lines, with a lot of logic in the CLI as well.
+    A notebook and perhaps a web app were to use it too, so it became a subpackage, with the CLI as a thin wrapper that parses options and dispatches.
+    The plan, including the dependency order of the modules, was checked for cycles before starting. [`f84cd67`](https://github.com/catalyst-cooperative/pudl-diff/commit/f84cd671cda3de8b3969dcecb9334001ae44241f)
+- To make the changes reviewable, code was moved verbatim first and edited in separate commits: first the pieces of the library, one module at a time (formatting, dataset, schema, row counts, rows, performance, table, outputs and the dataset report), then the presentation and orchestration code that lived in the CLI.
+    [`19ee9e1`](https://github.com/catalyst-cooperative/pudl-diff/commit/19ee9e113caf63fc508b6ef3ec300eb1048c10cc) [`337c631`](https://github.com/catalyst-cooperative/pudl-diff/commit/337c631f61c7763280085c89ef05e4c4b7a4da08) [`0940044`](https://github.com/catalyst-cooperative/pudl-diff/commit/094004465fa7e3fe437767d06db53e495b5c9042) [`fb39d34`](https://github.com/catalyst-cooperative/pudl-diff/commit/fb39d3446a2f4b8697a87a29eed8d390d6e0a4de) [`2f76131`](https://github.com/catalyst-cooperative/pudl-diff/commit/2f76131e6167bb11b14fb3397f3873e5b7da25c6) [`70fdf8e`](https://github.com/catalyst-cooperative/pudl-diff/commit/70fdf8ef45679ca5a2fd8bc5e16ca5b1df4e0101) [`3421806`](https://github.com/catalyst-cooperative/pudl-diff/commit/3421806afe39767433cff2cda253706b23109dd5) [`322c2bc`](https://github.com/catalyst-cooperative/pudl-diff/commit/322c2bc96f16cfaba7d6d9e3a9266853b9068460) [`2fee3e7`](https://github.com/catalyst-cooperative/pudl-diff/commit/2fee3e758bdcb20bec52f65927e832e30b0d2068) [`09072a7`](https://github.com/catalyst-cooperative/pudl-diff/commit/09072a7401a991b861e086350f3f237fb4f7f0b9) [`19de378`](https://github.com/catalyst-cooperative/pudl-diff/commit/19de378ac188b46705702350e4259cbb1c29b485) [`47fdc4d`](https://github.com/catalyst-cooperative/pudl-diff/commit/47fdc4d06efc627df5c487d745deb7a1b3d95a21) [`710fbb6`](https://github.com/catalyst-cooperative/pudl-diff/commit/710fbb6bda3c857289cd02b42ba0983df9557a0d) [`9a25eac`](https://github.com/catalyst-cooperative/pudl-diff/commit/9a25eac88d056b9e4f507bcd7062c31fca58db2f) [`e97734e`](https://github.com/catalyst-cooperative/pudl-diff/commit/e97734e023f833c36d5c7372600bbd1006ebf71b) [`e909f21`](https://github.com/catalyst-cooperative/pudl-diff/commit/e909f21ffe39831b988bac7cd4e688af6ad3e125)
+- The edits then followed: names shared between modules lost their underscores, and `run_dataset_diff` replaced the loop that printed a line per table.
+    It returns the report and announces progress through callbacks, so that anything that isn't a terminal (a notebook, a web app) can run a comparison and get what the CLI writes.
+    [`735f806`](https://github.com/catalyst-cooperative/pudl-diff/commit/735f806ffd1a01331ae0a8b282fe86507cb83199) [`5237804`](https://github.com/catalyst-cooperative/pudl-diff/commit/5237804345f70cd58d78894c121fc0e34bd1b1e7)
+- The layers of the package are documented, and the unit tests were split to mirror the modules, sharing the dataset fixtures with the CLI tests. [`9550e45`](https://github.com/catalyst-cooperative/pudl-diff/commit/9550e452b1b710c52939c7b2552884d92b1edf9d) [`ea12a56`](https://github.com/catalyst-cooperative/pudl-diff/commit/ea12a560e13898aee9a0252976ef6270da8f5444) [`896053b`](https://github.com/catalyst-cooperative/pudl-diff/commit/896053bb2bc9f81c25f1192e9730b06ceb78178f) [`0ce5e2c`](https://github.com/catalyst-cooperative/pudl-diff/commit/0ce5e2c4c849f6df28a3f372c911b256d410d58f) [`f9d5b7b`](https://github.com/catalyst-cooperative/pudl-diff/commit/f9d5b7b76e703762f78291dbd8a433181bf44f05)
+- Comparisons are meant to ignore the order of a table's rows and columns, but only a couple of cases had checked that.
+    Tests now shuffle both, with and without a primary key, including a composite one, and check that real changes are still found. [`f7fa5c2`](https://github.com/catalyst-cooperative/pudl-diff/commit/f7fa5c26a0c92c07d68527bad0c0f86c41fa2f48)
+- The implementation notes were kept up to date along the way. [`61210b4`](https://github.com/catalyst-cooperative/pudl-diff/commit/61210b49d2992bacf6c18db73d51fc794110d997) [`fb48926`](https://github.com/catalyst-cooperative/pudl-diff/commit/fb489262860bd6246e35884de7c2566c0047b411) [`4ff2ce6`](https://github.com/catalyst-cooperative/pudl-diff/commit/4ff2ce6460a270c64ddef31521b8e87566d79b92) [`a883b5c`](https://github.com/catalyst-cooperative/pudl-diff/commit/a883b5c7f3223a8c0a6425a5870404c69e5e77fe) [`1d0e958`](https://github.com/catalyst-cooperative/pudl-diff/commit/1d0e95888445744566ef1ae22a06c69c87340994) [`787a0e6`](https://github.com/catalyst-cooperative/pudl-diff/commit/787a0e638e1f70b24ec1dfbb2fee9aec739b8132)
+
+#### Terminal output
+
+- Size changes are green when a table grew and red when it shrank, like the row and column counts, in place of blue and orange.
+    The column headings take two lines so the columns can be narrower, and the summary's counts of tables stand out.
+    [`4ad4d8e`](https://github.com/catalyst-cooperative/pudl-diff/commit/4ad4d8e900f11eab69c799542f56f20c39c02dd4)
+
+### 2026-09-18
+
+[All changes on this day](https://github.com/catalyst-cooperative/pudl-diff/compare/4c1416ac57a1dfbee7e5294fd6ab0da419a09b46...77264816b511411c622640f0f6eddbe3cdf5007a)
+
+#### Defaults and documentation
+
+- The nightly build is now the default `--left`, the reference, and the local outputs are `--right`, so a diff reads as what has changed locally since the last nightly build, which is how the tool is mostly used. [`d503368`](https://github.com/catalyst-cooperative/pudl-diff/commit/d503368f939c7cc84a818387036da40002c83519)
+- Documented the tool, and added usage examples to `--help`. [`1acc062`](https://github.com/catalyst-cooperative/pudl-diff/commit/1acc06251e7793db2b01fcb2edbb3551adc34f6f)
+- Added short flags for the main options. [`f87e57a`](https://github.com/catalyst-cooperative/pudl-diff/commit/f87e57a4f2404e7d34025f91aab748854a9d8c37)
+
+#### Bounding memory
+
+- Row-level comparison materialized the joined tables, which doesn't scale.
+    The first change counted rows and changes with Polars' streaming engine, kept differing rows in temporary Parquet files instead of memory, and ran the join once instead of three times.
+    The option of returning pandas dataframes went away, since the results are lazy; callers can collect and convert.
+    [`2389de2`](https://github.com/catalyst-cooperative/pudl-diff/commit/2389de2223b432d961b0c40b5b9e373bd560ecaf)
+- Rows are now matched by a 64-bit hash.
+    Each table is reduced to one narrow row per hash of its primary key (or, with none, of the whole row with its floats quantized), and the two reductions are joined in a single streaming pass.
+    Full rows are read back only for the keys that differ.
+    For tables with a primary key, a hash of the exact non-key values finds the candidates for a change, which are then compared with the tolerance-aware logic, so a real change can't hide behind a quantization boundary.
+    [`9071765`](https://github.com/catalyst-cooperative/pudl-diff/commit/90717653e55c0c25a05b62a4bf5d65d1ce2b6a0b)
+- Tables without a primary key are compared as multisets, so a row that appears a different number of times is a difference, and duplicate primary keys are counted.
+- A hash can collide, but the chance of masking a real change is about one in 10^11 per changed row at 300 million rows.
+    On synthetic 30-million-row tables, peak memory fell from 12.4 GB to 4.1 GB with a primary key, and from 7.5 GB to 4.0 GB without.
+
+#### Vocabulary
+
+- The left table is the reference and the right is expected to differ from it, so the report says "change" instead of "mismatch", and the row count difference is right minus left.
+    A row diff always has both its keyed and unkeyed sections, and the one that doesn't apply says why instead of being null. [`b77cd1e`](https://github.com/catalyst-cooperative/pudl-diff/commit/b77cd1e4253384864bac4899173dd19baea79c7f)
+
+#### Comparing many tables at once
+
+- Comparing a whole dataset meant running the tool once per table, and each run paid to import all of PUDL.
+    It now takes any number of tables, or none for every table in both datasets, compares each in one process, and carries on if one fails.
+    The exit code is the highest of any table's.
+    [`1486f7e`](https://github.com/catalyst-cooperative/pudl-diff/commit/1486f7e1b850886aa2437fc55a5f9a0431b7cf48)
+- The results are an aligned, colorized table, with a line per table as it finishes: its status, whether it has a primary key, columns and rows added, changed and removed in git-diff colors, the left size, and the time.
+    The end of the run totals them.
+    Log messages below the error level are hidden by default so they don't interrupt it. [`69ba97f`](https://github.com/catalyst-cooperative/pudl-diff/commit/69ba97ff673ffe22a74b4b252a3c7e4d723bf271)
+- Schema changes get the same treatment as row changes, with a count of columns, and the summary names the tables whose schema changed, since that can be disruptive to users. [`b5d281c`](https://github.com/catalyst-cooperative/pudl-diff/commit/b5d281cc77b2464a3c1385553323112a0d3c1cf7) [`7726481`](https://github.com/catalyst-cooperative/pudl-diff/commit/77264816b511411c622640f0f6eddbe3cdf5007a)
+
+### 2026-09-17
+
+[All changes on this day](https://github.com/catalyst-cooperative/pudl-diff/compare/a272d270a5268c365d11a48cd1574a5300923b90...4c1416ac57a1dfbee7e5294fd6ab0da419a09b46)
+
+#### The command line and its report
+
+- Planned the CLI and its report as a series of reviewable tasks. [`d66d533`](https://github.com/catalyst-cooperative/pudl-diff/commit/d66d533bad4d9a2b6c14a45270e8b59adec76233)
+- Each comparison records its time, peak memory and peak CPU, so reports can show what a comparison costs.
+    Memory is sampled from a background thread, not read from `getrusage`, whose figure covers the process's whole life and has different units on macOS and Linux.
+    [`b1e93d5`](https://github.com/catalyst-cooperative/pudl-diff/commit/b1e93d5565c4ce36e087336898ca0d37c2358edf)
+- Added the `pudl_diff` command, which compares a table in two datasets, writes a JSON report and the Parquet files of the differing rows, and exits `0` for identical, `1` for different, and `2` if the comparison itself failed. [`7e163fc`](https://github.com/catalyst-cooperative/pudl-diff/commit/7e163fc0a3e04b7bd511da0743674b5607a2ed03)
+- A table's primary key can come from PUDL's own metadata when the dataset's datapackage is missing or stale, as happens in local development. [`4c1416a`](https://github.com/catalyst-cooperative/pudl-diff/commit/4c1416ac57a1dfbee7e5294fd6ab0da419a09b46)
+
+### 2026-09-16
+
+[All changes on this day](https://github.com/catalyst-cooperative/pudl-diff/compare/76b00e113fa996db1be59348926aa97c6ad7885a...a272d270a5268c365d11a48cd1574a5300923b90) (after the first commit)
+
+#### A plan and the first comparisons
+
+- Wrote down the plan: a shared, tested, documented tool that compares two PUDL outputs, on the principle that two tables are the same when they have the same columns and types, the same number of rows, and the same rows in any order, with floats compared as `numpy.isclose` does.
+    Polars was chosen because it can query remote Parquet lazily, with DuckDB as the fallback, and so was Click for the command line.
+    The tool is for confirming that refactors and dependency upgrades didn't change the data, and for seeing what changed between builds.
+    [`76b00e1`](https://github.com/catalyst-cooperative/pudl-diff/commit/76b00e113fa996db1be59348926aa97c6ad7885a)
+- `PudlDiffDataset` wraps a local or remote root and its datapackage, finds each table's primary key and Parquet file, and scans it lazily. [`f41aec5`](https://github.com/catalyst-cooperative/pudl-diff/commit/f41aec548a8fad6c44a946729ee37001579f2eec)
+- Smoke tests against real PUDL outputs turned up two bugs with infinite values: two equal infinities compared as different, and opposite infinities compared as close or as the same row.
+    Both now match `numpy.isclose`.
+    [`a272d27`](https://github.com/catalyst-cooperative/pudl-diff/commit/a272d270a5268c365d11a48cd1574a5300923b90)
+- The smoke tests also showed that comparing a table of hundreds of millions of rows to itself took 93 GB, and one of a billion rows was killed for running out of memory.
+    As a stopgap, row-level comparison is skipped over 100 million rows, leaving the schema and row counts, and a table whose rows were never compared is no longer reported as identical.
+    The timings and memory of the runs were recorded to guide the real fixes, which came with the hashing of 2026-09-18 and the partitioning of 2026-10-06.
