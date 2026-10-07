@@ -2,11 +2,17 @@
 
 <!-- readme-intro -->
 
+[![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![pytest](https://github.com/catalyst-cooperative/pudl-diff/actions/workflows/pytest.yml/badge.svg)](https://github.com/catalyst-cooperative/pudl-diff/actions/workflows/pytest.yml)
+[![pyrefly](https://img.shields.io/github/actions/workflow/status/catalyst-cooperative/pudl-diff/pytest.yml?branch=main&label=pyrefly)](https://github.com/catalyst-cooperative/pudl-diff/actions/workflows/pytest.yml)
 [![Codecov Test Coverage](https://img.shields.io/codecov/c/github/catalyst-cooperative/pudl-diff?style=flat&logo=codecov)](https://codecov.io/gh/catalyst-cooperative/pudl-diff)
 [![Documentation](https://img.shields.io/github/deployments/catalyst-cooperative/pudl-diff/github-pages?style=flat&logo=githubpages&label=docs)](https://docs.catalyst.coop/pudl-diff)
 [![PyPI Latest Version](https://img.shields.io/pypi/v/catalystcoop.pudl_diff?style=flat&logo=python)](https://pypi.org/project/catalystcoop.pudl_diff/)
+[![conda-forge Version](https://img.shields.io/conda/vn/conda-forge/catalystcoop.pudl_diff?style=flat&logo=condaforge)](https://anaconda.org/conda-forge/catalystcoop.pudl_diff)
 [![Supported Python Versions](https://img.shields.io/pypi/pyversions/catalystcoop.pudl_diff?style=flat&logo=python)](https://pypi.org/project/catalystcoop.pudl_diff/)
+[![License: MIT](https://img.shields.io/github/license/catalyst-cooperative/pudl-diff)](https://github.com/catalyst-cooperative/pudl-diff/blob/main/LICENSE.txt)
+[![Formatted by ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![pre-commit CI](https://results.pre-commit.ci/badge/github/catalyst-cooperative/pudl-diff/main.svg)](https://results.pre-commit.ci/latest/github/catalyst-cooperative/pudl-diff/main)
 
 `pudl_diff` compares two sets of
 [PUDL](https://github.com/catalyst-cooperative/pudl) Parquet outputs, table by table,
@@ -30,7 +36,15 @@ anything, with `pudl_diff --from-report`.
 
 ```bash
 uv pip install catalystcoop.pudl_diff
+# or
+pip install catalystcoop.pudl_diff
+# or
+conda install -c conda-forge catalystcoop.pudl_diff
+# or
+pixi add catalystcoop.pudl_diff
 ```
+
+Python 3.14 or newer is required.
 
 `pudl_diff` doesn't depend on PUDL itself. If PUDL is installed in the same
 environment it is used for its metadata and defaults, and otherwise `pudl_diff` falls
@@ -53,6 +67,29 @@ pudl_diff --left s3://pudl.catalyst.coop/stable --right ~/my_outputs --output-pa
 
 See the [documentation](https://docs.catalyst.coop/pudl-diff/usage/) for more, or run
 `pudl_diff --help`.
+
+## Related Projects
+
+- [PUDL](https://github.com/catalyst-cooperative/pudl), the Public Utility Data
+    Liberation Project, whose outputs `pudl_diff` compares, and whose nightly builds
+    and stable releases are its default inputs.
+- [PUDL Data Viewer](https://data.catalyst.coop) for browsing and querying PUDL's
+    published data.
+- [PUDL Examples](https://docs.catalyst.coop/pudl-examples), notebooks that work with
+    PUDL data.
+- [Catalyst Agent Skills](https://docs.catalyst.coop/agent-skills), for helping
+    LLM-based agents work with PUDL data and code.
+- [FERC XBRL Extractor](https://docs.catalyst.coop/ferc-xbrl-extractor), which
+    produces some of the data that goes into PUDL.
+- [All of Catalyst's documentation](https://docs.catalyst.coop).
+
+## Contributing
+
+Bug reports, questions and pull requests are welcome in the
+[issue tracker](https://github.com/catalyst-cooperative/pudl-diff/issues).
+Please follow our [Code of Conduct](https://docs.catalyst.coop/pudl-diff/code_of_conduct/).
+The [release notes](https://docs.catalyst.coop/pudl-diff/release_notes/) list what has
+changed in each version.
 
 ## Development
 
