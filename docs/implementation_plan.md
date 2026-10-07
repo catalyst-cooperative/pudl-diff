@@ -1,5 +1,11 @@
 # PUDL Diff: A tool for comparing PUDL outputs
 
+!!! note "A historical document"
+
+    This is the plan that `pudl_diff` was built from, and the log of the decisions made along the way, as it was kept while the tool was developed.
+    It was written when the tool was still part of the PUDL repository, so the paths and names in it (`src/pudl/validate/diff.py`, `pudl.scripts.pudl_diff`, `docs/dev/pudl_diff.rst`) are those of that time, and some of the plans in it, like the comparison of row counts by partition, were later dropped.
+    The [changelog](changelog.md) is a shorter account of the same history, with links to the commits, and the [usage](usage.md) page and [API reference][pudl_diff] describe the tool as it is now.
+
 ## Motivation
 
 It's often useful to be able to compare local PUDL outputs against a reference output to
@@ -1022,43 +1028,3 @@ build our PUDL Diff visualizations using Marimo Notebooks
 - We can also provide a way to join the two tables together on the primary key (if it exists) so that the user can see the left and right values for each row side by side, potentially with just a subset of columns selected. The left and right versions of a given column should be displayed adjacent to each other for easy comparison.
 - The user will also want to be able to do their own selection, manipulation, and plotting of the left-only, right-only, and potentially merged tables, probably using Polars or Pandas interactively.
 - We might also want to experiment with styling the tabular data display to highlight the differences between the left and right values in a given column, for example by coloring the background of the cells that have changed, or coloring the background with a colormap that's based on the numerical value stored in the cell, or by using a combination of both. We should experiment with different styling options and see which ones work best.
-
-______________________________________________________________________
-
-## Project Time Tracking
-
-### Core Functionality
-
-2026-09-16: 3:38
-
-### Report Structure and CLI
-
-Started: 2026-09-17 19:46
-Stopped: 2026-09-17 23:34
-Elapsed 3:48
-
-### Performance, CLI & Reporting Refinements
-
-Resumed: 2026-09-18 10:05
-Stopped: 2026-09-18 10:59
-Elapsed: 0:54
-
-Resumed: 2026-09-18 14:14
-Stopped: 2026-09-18 15:17
-Elapsed: 1:03
-
-Resumed: 2026-09-18 16:22
-Stopped: 2026-09-18 18:13
-Elapsed: 1:51
-
-### Multi-table Reporting and CLI Refinements
-
-Resumed: 2026-09-18 19:05
-Stopped: 2026-09-18 23:01
-Elapsed: 3:56
-
-### The PUDL Diff Marimo Notebook
-
-Started: 2026-09-26 19:05
-Stopped: 2026-09-26 21:01
-Elapsed: 1:56

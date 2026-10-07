@@ -12,9 +12,10 @@ nav = [
   { "Home" = "index.md" },
   { "Usage" = "usage.md" },
   { "Report Schema" = "report_schema.md" },
-  { "API Reference" = "reference.md" },
+  "API Reference",
   { "Code of Conduct" = "code_of_conduct.md" },
   { "Changelog" = "changelog.md" },
+  { "Implementation Plan" = "implementation_plan.md" },
   { "License" = "license.md" },
 ]
 
@@ -71,9 +72,17 @@ icon = "fontawesome/solid/donate"
 link = "https://opencollective.com/pudl"
 name = "Support us on Open Collective"
 
-# Renders API reference docs from docstrings on docs/reference.md via mkdocstrings,
-# which is currently a preliminary integration -- see
-# https://zensical.org/docs/setup/extensions/mkdocstrings/
+# The API reference is generated from the package's docstrings: `api-autonav` (native to
+# Zensical) writes a page for each module of the package, and puts them in the nav where
+# the "API Reference" entry is, and mkdocstrings renders them. The cross-references
+# between pages, written as [`name`][full.path.to.name], are resolved by Zensical's
+# native autorefs, which mkdocstrings feeds with every documented object.
+[project.plugins.api-autonav]
+modules = ["src/pudl_diff"]
+nav_section_title = "API Reference"
+api_root_uri = "reference"
+exclude_private = true
+
 [project.plugins.mkdocstrings.handlers.python]
 inventories = ["https://docs.python.org/3/objects.inv"]
 paths = ["src"]

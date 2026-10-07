@@ -1,0 +1,13 @@
+# Read by mdformat, both when run through pixi and as a pre-commit hook.
+
+# Number ordered lists consecutively from their first number, rather than renumbering
+# them all alike, since docs/implementation_plan.md refers to its steps by number.
+number = true
+
+[plugin.mkdocs]
+# Without this, mdformat escapes the brackets of an autoref such as
+# [`PudlDiffReport`][pudl_diff.dataset_report.PudlDiffReport] because it finds no
+# definition of the label, which turns the link into plain text. The labels are
+# resolved by Zensical (see "API Reference" in zensical.toml), and the strict docs build
+# fails on any that don't resolve.
+ignore_missing_references = true

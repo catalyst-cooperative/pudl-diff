@@ -10,7 +10,8 @@ Typical uses include:
 - Giving a coding agent a concrete, checkable definition of "no unintended data changes" to work against while it does a refactor or dependency migration.
 
 The underlying comparison logic lives in the `pudl_diff` package, which the CLI described here wraps.
-See the [API reference](reference.md) for the programmatic API (start with `pudl_diff.runner.run_dataset_diff`) if you want to run comparisons from a script or notebook rather than the CLI.
+
+To run comparisons from a script or notebook rather than the CLI, see the programmatic API in the [API reference][pudl_diff], starting with [`run_dataset_diff()`][pudl_diff.runner.run_dataset_diff]. <!-- markdownlint-disable-line MD052 -->
 
 ## Command line
 

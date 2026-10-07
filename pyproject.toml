@@ -63,7 +63,7 @@ docs = [
   "zensical>=0.0.63", # Markdown-based static site generator for docs
 ]
 lint = [
-  "mdformat-mkdocs>=5", # Stops mdformat from mangling zensical/MkDocs markdown syntax
+  "mdformat-mkdocs>=5.3", # Stops mdformat from mangling zensical/MkDocs markdown syntax
   "ruff>=0.16", # A very fast python linter & autofixer
 ]
 tests = [
@@ -324,9 +324,20 @@ format = { depends-on = [
   "format-yaml",
 ], description = "Run all formatters, modifying files in place." }
 
-docs-build = { cmd = "zensical build", description = "Build the documentation with Zensical into site/." }
+docs-build = { cmd = "zensical build --strict", description = "Build the documentation with Zensical into site/." }
 docs-serve = { cmd = "zensical serve", description = "Serve the documentation locally, rebuilding on changes." }
 
 prek-update = { cmd = "prek update", description = "Bump the `rev` pins in .pre-commit-config.yaml to their latest tagged versions. Used by .github/workflows/update-lockfiles.yml; see also `pixi update` for refreshing pixi.lock itself." }
 
 build = { cmd = "python -m build && twine check --strict dist/*", description = "Build the sdist and wheel, and verify them with twine." }
+
+[tool.typos.default]
+# Git hashes are random strings of hexadecimal digits, which contain "words" like "ba".
+# The changelog links commits and ranges of them by their URLs, and shows each commit as
+# its 7 character abbreviation in a code span. Only these forms are ignored, so the
+# rest of the changelog is still spell checked.
+extend-ignore-re = [
+  "/commit/[0-9a-f]{40}",
+  "/compare/[0-9a-f]{40}\\.\\.\\.[0-9a-f]{40}",
+  "`[0-9a-f]{7}`",
+]

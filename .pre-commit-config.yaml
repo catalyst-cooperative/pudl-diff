@@ -65,10 +65,6 @@ repos:
         # The generated schema documentation, which mdformat would rewrite so that it
         # no longer matches its generator.
         exclude: ^docs/report_schema\.md$
-        # Keep ordered lists numbered consecutively from their first number, rather
-        # than renumbering them all alike, since notes/pudl-diff.md refers to steps
-        # by number.
-        args: [--number]
         additional_dependencies:
           - mdformat-gfm
           # Without this, mdformat mangles zensical/MkDocs-flavored markdown syntax,

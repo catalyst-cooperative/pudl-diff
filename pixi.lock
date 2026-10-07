@@ -3382,7 +3382,7 @@ packages:
   - twine>=7 ; extra == 'dev'
   - mkdocstrings-python>=2 ; extra == 'docs'
   - zensical>=0.0.63 ; extra == 'docs'
-  - mdformat-mkdocs>=5 ; extra == 'lint'
+  - mdformat-mkdocs>=5.3 ; extra == 'lint'
   - ruff>=0.16 ; extra == 'lint'
   - coverage>=7.16 ; extra == 'tests'
   - jsonschema>=4.26 ; extra == 'tests'

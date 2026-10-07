@@ -148,9 +148,18 @@ whether the agent should skip them, mock them, or ask a human to run them.
     extension set rather than adding to it, so `zensical.toml` lists that whole set
     (see `DEFAULT_MARKDOWN_EXTENSIONS` in `zensical/config.py`) plus `snippets`, which
     isn't a default. An extension left out of the list silently stops working.
-- API reference docs are generated from docstrings via `mkdocstrings` -- add a new
-    `::: module.path` line to `docs/reference.md` for any new module that should appear
-    in the API reference; it is not automatic.
+- The API reference is generated from the docstrings of everything under
+    `src/pudl_diff`, with a page per module and its place in the navigation, by
+    Zensical's native `api-autonav` (configured in `zensical.toml`), which uses
+    `mkdocstrings-python` to render them. A new module appears automatically, and
+    private ones (named with a leading underscore) don't. Link to a documented module,
+    class, function or constant from the documentation with an autoref: write
+    `` [`PudlDiffReport`][pudl_diff.dataset_report.PudlDiffReport] ``, with the full
+    path of the object where it is *defined* rather than a module that imports it. It
+    doesn't work in `README.md`, which is also read on GitHub and PyPI, so link the
+    published page there. `pixi run docs-build` is strict, so it fails on a reference
+    that doesn't resolve. The site's `objects.inv` lets other projects' documentation
+    link to ours.
 - `docs/report_schema.md` and `docs/_static/pudl_diff_report.schema.json` are
     generated from the report's Pydantic models by `python -m pudl_diff.report_schema`
     (also run by the `pudl-diff-schema` pre-commit hook, and checked by a unit test).
