@@ -10,6 +10,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 from click.testing import CliRunner
+from upath import UPath
 
 import pudl_diff
 from pudl_diff.cli import (
@@ -1167,6 +1168,37 @@ def test_from_report_accepts_the_report_file_itself(tmp_path: Path, two_table_ar
 
     assert replay.exit_code == 0, replay.output
     assert "✅" in replay.output
+
+
+def test_from_report_reads_a_remote_report(tmp_path: Path, two_table_args):
+    """`--from-report` takes a remote URL, of the report or of the directory with it."""
+    original = CliRunner().invoke(main, ["changed_table", *two_table_args])
+    assert original.exit_code == 1, original.output
+    remote = UPath("memory:///remote_report")
+    remote.mkdir(parents=True, exist_ok=True)
+    (remote / REPORT_FILENAME).write_text(
+        (tmp_path / "out" / REPORT_FILENAME).read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    for location in (
+        "memory:///remote_report/",
+        f"memory:///remote_report/{REPORT_FILENAME}",
+    ):
+        replay = CliRunner().invoke(main, ["--from-report", location])
+        assert replay.exit_code == 1, replay.output
+        assert (
+            f"Report read from memory://remote_report/{REPORT_FILENAME}"
+            in replay.output
+        )
+
+
+def test_from_report_says_when_there_is_no_report(tmp_path: Path):
+    """A path with no report under it gives an error saying so, with exit code 1."""
+    replay = CliRunner().invoke(main, ["--from-report", str(tmp_path / "nothing")])
+
+    assert replay.exit_code == 1
+    assert "Couldn't read a report" in replay.output
 
 
 def test_from_report_does_not_compare_or_write_anything(

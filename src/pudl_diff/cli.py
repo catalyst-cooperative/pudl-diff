@@ -6,6 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import click
+from upath import UPath
 
 from pudl_diff import __version__, table_report
 from pudl_diff.dataset import PudlDiffDataset
@@ -45,7 +46,7 @@ Examples:
 def _echo_outcome(
     report: PudlDiffReport,
     progress: TerminalProgress,
-    report_path: Path,
+    report_path: Path | UPath,
     *,
     single: bool,
     saved: bool,
@@ -97,10 +98,16 @@ def _reject_comparison_options(ctx: click.Context) -> None:
         )
 
 
-def _show_saved_report(path: Path, *, verbose: bool) -> int:
-    """Print a saved report as a comparison would have; return its exit code."""
-    report_path = path / REPORT_FILENAME if path.is_dir() else path
+def _show_saved_report(location: str, *, verbose: bool) -> int:
+    """Print a saved report as a comparison would have; return its exit code.
+
+    `location` is a local or remote (e.g. `gs://...`) path to a report file, or to a
+    directory containing one.
+    """
+    report_path = UPath(location)
     try:
+        if report_path.is_dir():
+            report_path /= REPORT_FILENAME
         report = PudlDiffReport.model_validate_json(
             report_path.read_text(encoding="utf-8")
         )
@@ -229,9 +236,10 @@ def _set_log_level(level: str) -> Callable[[], None]:
 )
 @click.option(
     "--from-report",
-    type=click.Path(exists=True, path_type=Path),
+    type=str,
     default=None,
-    help="Show a saved JSON report (or the pudl_diff_report.json in a directory) "
+    help="Show a saved JSON report (or the pudl_diff_report.json in a directory), "
+    "at a local path or a remote URL such as gs://... or s3://..., "
     "as the tables and summary a new comparison would print, without comparing "
     "anything. Can't be combined with the options that control a comparison.",
 )
@@ -272,7 +280,7 @@ def main(
     max_output_rows: int | None,
     rtol: float,
     atol: float,
-    from_report: Path | None,
+    from_report: str | None,
     color: bool | None,
     verbose: bool,
     loglevel: str,

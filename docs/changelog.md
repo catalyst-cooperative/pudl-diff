@@ -10,6 +10,12 @@ else. See AGENTS.md's Documentation section for more. -->
 
 ## v0.1.1 (unreleased)
 
+### 2026-10-07
+
+#### Command line
+
+- `--from-report` now accepts remote locations, such as `gs://` or `s3://` URLs, as well as local paths, using `UPath` as the datasets already do. This allows looking at the report of a build without downloading it first.
+
 ## v0.1.0 (2026-10-07)
 
 `pudl_diff` was written in a few weeks of local development as a side-project before it was published on GitHub.

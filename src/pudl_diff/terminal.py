@@ -4,6 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import click
+from upath import UPath
 
 from pudl_diff import table_report
 from pudl_diff.dataset_report import (
@@ -340,7 +341,7 @@ def _echo_table_list(label: str, table_names: list[str]) -> None:
 def echo_summary(
     report: PudlDiffReport,
     outcomes: list[TableOutcome],
-    report_path: Path,
+    report_path: Path | UPath,
     *,
     saved: bool = True,
 ) -> None:
