@@ -17,8 +17,9 @@ else. See AGENTS.md's Documentation section for more. -->
 - The Python API now compares tables of any size by default, since the work on memory use means that no table needs a cutoff to be compared safely.
     The command line still defaults `--max-compare-rows` to 100 million, so that a default comparison doesn't spend minutes on the very largest tables; pass a larger number, or 0 for no limit, to include them.
     `DiffOptions.max_compare_rows` can now be `None` (its default) for no limit, so the report schema version is now 1.1.0.
-
+    [`162ac26`](https://github.com/catalyst-cooperative/pudl-diff/commit/162ac263c2c066027a1d55e0684a06a93a6ba3a7)
 - `--from-report` now accepts remote locations, such as `gs://` or `s3://` URLs, as well as local paths, using `UPath` as the datasets already do. This allows looking at the report of a build without downloading it first.
+    [`a656faa`](https://github.com/catalyst-cooperative/pudl-diff/commit/a656faa1a6a6b2bfbd8fcdc3bd46ab4a03716242)
 
 ## v0.1.0 (2026-10-07)
 
