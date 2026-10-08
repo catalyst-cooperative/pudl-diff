@@ -14,7 +14,7 @@ from pudl_diff.dataset_report import REPORT_FILENAME, PudlDiffReport
 from pudl_diff.defaults import default_right_root, nightly_root
 from pudl_diff.logs import LOGGER_NAME
 from pudl_diff.runner import run_dataset_diff
-from pudl_diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON
+from pudl_diff.table import MAX_COMPARE_ROWS
 from pudl_diff.terminal import TerminalProgress, echo_summary
 
 _EPILOG = """
@@ -207,11 +207,13 @@ def _set_log_level(level: str) -> Callable[[], None]:
 )
 @click.option(
     "--max-compare-rows",
-    type=int,
-    default=MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
+    type=click.IntRange(min=0),
+    default=MAX_COMPARE_ROWS,
     show_default=True,
     help="Skip row-level comparison, keeping the cheaper schema and "
-    "row-count comparisons, whenever either table has more rows than this.",
+    "row-count comparisons, whenever either table has more rows than this. "
+    "The largest tables take minutes to compare, hence the default; raise it, "
+    "or give 0 for no limit, to compare them too.",
 )
 @click.option(
     "--max-output-rows",
@@ -327,7 +329,7 @@ def main(
     options = table_report.DiffOptions(
         rtol=rtol,
         atol=atol,
-        max_compare_rows=max_compare_rows,
+        max_compare_rows=max_compare_rows or None,
         max_output_rows=max_output_rows,
     )
 

@@ -173,10 +173,10 @@ The rest of the entry has three main sections, corresponding to the three kinds 
 
 Row-level comparison is the most expensive part of the comparison, and `pudl_diff` skips it (falling back to just the schema and row-count results) in a few situations, recorded as the `skipped_reason` of whichever of `row_diff.pk_diff` or `row_diff.non_pk_diff` would otherwise have run:
 
-- `too_many_rows` -- either table has more rows than `--max-compare-rows` (default 100,000,000), a memory-safety cutoff.
+- `too_many_rows` -- either table has more rows than `--max-compare-rows` (default 100,000,000 on the command line, so that a default comparison stays quick; give 0 for no limit, which is what the Python API does unless a limit is given).
     Row-level comparison uses the Polars streaming engine and writes its results to temporary Parquet files.
     Rows are matched using 64-bit hashes of their primary key (or, for tables without one, of the whole row), so the in-memory side of each join needs only a few bytes per row, but that still grows with table size, and a table whose float values all differ slightly needs much more.
-    Comparing tables above this size risks exhausting memory on typical hardware.
+    Larger tables are compared in several passes, so memory doesn't limit their size, but the largest take minutes.
 - `incompatible_dtypes` -- the join underlying the row-level comparison failed, most likely because a shared column has incompatible dtypes between the two tables.
 - `mismatched_columns` -- the two tables don't have the same columns, and either there's no primary key to key the comparison on, or the primary key columns themselves aren't present in both tables.
 

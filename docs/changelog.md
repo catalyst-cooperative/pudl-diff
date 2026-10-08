@@ -14,6 +14,10 @@ else. See AGENTS.md's Documentation section for more. -->
 
 #### Command line
 
+- The Python API now compares tables of any size by default, since the work on memory use means that no table needs a cutoff to be compared safely.
+    The command line still defaults `--max-compare-rows` to 100 million, so that a default comparison doesn't spend minutes on the very largest tables; pass a larger number, or 0 for no limit, to include them.
+    `DiffOptions.max_compare_rows` can now be `None` (its default) for no limit, so the report schema version is now 1.1.0.
+
 - `--from-report` now accepts remote locations, such as `gs://` or `s3://` URLs, as well as local paths, using `UPath` as the datasets already do. This allows looking at the report of a build without downloading it first.
 
 ## v0.1.0 (2026-10-07)
@@ -295,5 +299,5 @@ See also the [implementation plan](implementation_plan.md), which was the projec
     Both now match `numpy.isclose`.
     [`a272d27`](https://github.com/catalyst-cooperative/pudl-diff/commit/a272d270a5268c365d11a48cd1574a5300923b90)
 - The smoke tests also showed that comparing a table of hundreds of millions of rows to itself took 93 GB, and one of a billion rows was killed for running out of memory.
-    As a stopgap, row-level comparison is skipped over 100 million rows ([`MAX_ROWS_FOR_ROW_LEVEL_COMPARISON`][pudl_diff.table.MAX_ROWS_FOR_ROW_LEVEL_COMPARISON]), leaving the schema and row counts, and a table whose rows were never compared is no longer reported as identical.
+    As a stopgap, row-level comparison is skipped over 100 million rows ([`MAX_COMPARE_ROWS`][pudl_diff.table.MAX_COMPARE_ROWS]), leaving the schema and row counts, and a table whose rows were never compared is no longer reported as identical.
     The timings and memory of the runs were recorded to guide the real fixes, which came with the hashing of 2026-09-18 and the partitioning of 2026-10-06.

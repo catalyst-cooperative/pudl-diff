@@ -34,15 +34,16 @@ via `logger.warning` at the point of the skip; this only carries the category, s
 report consumers can branch on it without parsing text."""
 
 
-MAX_ROWS_FOR_ROW_LEVEL_COMPARISON = 100_000_000
-"""Row-level comparisons use Polars' streaming engine, spill their results to disk, and
-join narrow 64-bit row hashes rather than whole rows, but the joins still hold a few
-bytes per row in memory (and every row, if all of a table's float values differ
-slightly), so above this many rows on either side they risk exhausting memory on
-typical hardware.
-`compare_table()` skips row-level comparison entirely once either table exceeds this,
-rather than risk an out-of-memory crash; the cheaper schema and row-count comparisons
-still run."""
+MAX_COMPARE_ROWS = 100_000_000
+"""The default of the command line's `--max-compare-rows`, which keeps a default
+comparison from spending minutes on the very largest tables.
+Row-level comparisons use Polars' streaming engine, spill their results to disk, and
+join narrow 64-bit row hashes rather than whole rows, and tables of more than
+`MAX_ROWS_PER_PARTITION` rows are compared in several passes, so memory doesn't limit
+the size of table that can be compared; time does.
+The API has no limit unless one is passed to `compare_table()`, which then skips
+row-level comparison entirely for a larger table, while the cheaper schema and
+row-count comparisons still run."""
 
 
 @dataclass(frozen=True)
@@ -108,7 +109,7 @@ def compare_table(
     right_table_name: str | None = None,
     rtol: float = 1e-5,
     atol: float = 1e-8,
-    max_rows_for_row_level_comparison: int = MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
+    max_compare_rows: int | None = None,
 ) -> TableDiffResult:
     """Compare a single table between two PUDL datasets.
 
@@ -126,7 +127,7 @@ def compare_table(
             right_table_name=right_table_name,
             rtol=rtol,
             atol=atol,
-            max_rows_for_row_level_comparison=max_rows_for_row_level_comparison,
+            max_compare_rows=max_compare_rows,
         )
     return dataclasses.replace(
         result,
@@ -144,7 +145,7 @@ def _compare_table(
     right_table_name: str | None = None,
     rtol: float = 1e-5,
     atol: float = 1e-8,
-    max_rows_for_row_level_comparison: int = MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
+    max_compare_rows: int | None = None,
 ) -> TableDiffResult:
     """Compare a single table between two PUDL datasets.
 
@@ -167,9 +168,10 @@ def _compare_table(
             equal, matching `numpy.isclose()`'s default.
         atol: Absolute tolerance used to treat two floating point values as
             equal, matching `numpy.isclose()`'s default.
-        max_rows_for_row_level_comparison: Row-level comparison is skipped
+        max_compare_rows: Row-level comparison is skipped
             entirely, logging a warning, whenever either table exceeds this
-            many rows (see `MAX_ROWS_FOR_ROW_LEVEL_COMPARISON`).
+            many rows. Defaults to `None`, for no limit (the command line
+            uses `MAX_COMPARE_ROWS`).
     """
     right_table_name = right_table_name or table_name
     label = (
@@ -191,11 +193,14 @@ def _compare_table(
     skip_reason: RowComparisonSkipReason | None = None
     left_row_count = row_count_diff.left_row_count
     right_row_count = row_count_diff.right_row_count
-    if max(left_row_count, right_row_count) > max_rows_for_row_level_comparison:
+    if (
+        max_compare_rows is not None
+        and max(left_row_count, right_row_count) > max_compare_rows
+    ):
         logger.warning(
-            f"{label} has more than {max_rows_for_row_level_comparison:,} rows "
+            f"{label} has more than {max_compare_rows:,} rows "
             f"({left_row_count:,} left, {right_row_count:,} right); skipping "
-            "row-level comparison to avoid exhausting memory."
+            "row-level comparison."
         )
         return TableDiffResult(
             table_name=table_name,
@@ -294,7 +299,7 @@ def run_table_diff(
     right_table_name: str | None = None,
     rtol: float = 1e-5,
     atol: float = 1e-8,
-    max_rows_for_row_level_comparison: int = MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
+    max_compare_rows: int | None = None,
 ) -> TableDiffRun:
     """Run `compare_table()`, tolerating any failure it raises.
 
@@ -312,7 +317,7 @@ def run_table_diff(
             right_table_name=right_table_name,
             rtol=rtol,
             atol=atol,
-            max_rows_for_row_level_comparison=max_rows_for_row_level_comparison,
+            max_compare_rows=max_compare_rows,
         )
     except Exception:
         logger.exception(f"Comparison of {table_name!r} failed.")

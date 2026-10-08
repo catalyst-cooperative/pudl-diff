@@ -360,7 +360,7 @@ def test_no_table_name_compares_every_table_in_both_datasets(
     # Everything goes in a single report, however many tables are compared.
     assert [p.name for p in output_path.glob("*.json")] == [REPORT_FILENAME]
     report = _load_report(output_path)
-    assert report["schema_version"] == "1.0.0"
+    assert report["schema_version"] == "1.1.0"
     assert report["pudl_diff_version"] == pudl_diff.__version__
     assert report["is_identical"] is False
     assert report["success"] is True
@@ -1292,3 +1292,23 @@ def test_set_log_level_keeps_the_handlers_the_application_configured():
         assert logger.handlers == [handler]
     finally:
         logger.removeHandler(handler)
+
+
+def test_max_compare_rows_defaults_to_100_million_on_the_command_line(
+    tmp_path: Path, two_table_args
+):
+    """The command line limits row-level comparison by default, though the API doesn't."""
+    result = CliRunner().invoke(main, ["changed_table", *two_table_args])
+    assert result.exit_code == 1, result.output
+
+    assert _load_report(tmp_path / "out")["options"]["max_compare_rows"] == 100_000_000
+
+
+def test_max_compare_rows_of_zero_means_no_limit(tmp_path: Path, two_table_args):
+    """`--max-compare-rows 0` compares tables of any size, recorded as no limit."""
+    result = CliRunner().invoke(
+        main, ["changed_table", *two_table_args, "--max-compare-rows", "0"]
+    )
+    assert result.exit_code == 1, result.output
+
+    assert _load_report(tmp_path / "out")["options"]["max_compare_rows"] is None

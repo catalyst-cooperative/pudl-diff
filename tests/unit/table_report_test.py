@@ -14,7 +14,7 @@ from pudl_diff.outputs import write_row_diff_parquet
 from pudl_diff.row_counts import (
     compare_row_counts,
 )
-from pudl_diff.table import MAX_ROWS_FOR_ROW_LEVEL_COMPARISON, run_table_diff
+from pudl_diff.table import MAX_COMPARE_ROWS, run_table_diff
 
 
 def test_row_count_summary_fields():
@@ -231,7 +231,7 @@ def test_build_table_diff_report_skipped_large_table(
         left,
         right,
         "table_with_pk",
-        max_rows_for_row_level_comparison=1,
+        max_compare_rows=1,
     )
     report = table_report.build_table_diff_report(run, left, right, "table_with_pk")
 
@@ -359,7 +359,7 @@ def test_table_report_derived_fields_agree_with_the_comparison(
         left,
         right_ds,
         "t",
-        max_rows_for_row_level_comparison=max_rows or MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
+        max_compare_rows=max_rows or MAX_COMPARE_ROWS,
     )
     report = table_report.build_table_diff_report(run, left, right_ds, "t")
 

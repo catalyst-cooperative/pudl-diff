@@ -32,7 +32,6 @@ from pudl_diff.rows import (
 )
 from pudl_diff.schema import SchemaDiff
 from pudl_diff.table import (
-    MAX_ROWS_FOR_ROW_LEVEL_COMPARISON,
     RowComparisonSkipReason,
     TableDiffRun,
     run_table_diff,
@@ -637,8 +636,9 @@ class DiffOptions(ReportModel):
     """Relative tolerance for float equality, as in `numpy.isclose()`."""
     atol: float = 1e-8
     """Absolute tolerance for float equality, as in `numpy.isclose()`."""
-    max_compare_rows: int = MAX_ROWS_FOR_ROW_LEVEL_COMPARISON
-    """Row-level comparison is skipped for any table with more rows than this."""
+    max_compare_rows: int | None = None
+    """Row-level comparison is skipped for any table with more rows than this, or
+    `None` to compare tables however many rows they have."""
     max_output_rows: int | None = None
     """Cap on the rows written to each Parquet side-output file, or `None` to
     write every differing row."""
@@ -676,7 +676,7 @@ def report_table_diff(
         right_table_name=right_table_name,
         rtol=options.rtol,
         atol=options.atol,
-        max_rows_for_row_level_comparison=options.max_compare_rows,
+        max_compare_rows=options.max_compare_rows,
     )
     try:
         parquet_outputs = None

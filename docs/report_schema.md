@@ -179,9 +179,9 @@ Absolute tolerance for float equality, as in `numpy.isclose()`.
 
 ### `max_compare_rows`
 
-*Type:* integer.
+*Type:* integer or null.
 
-Row-level comparison is skipped for any table with more rows than this.
+Row-level comparison is skipped for any table with more rows than this, or `null` to compare tables however many rows they have.
 
 ### `max_output_rows`
 

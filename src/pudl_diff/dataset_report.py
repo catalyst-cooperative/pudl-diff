@@ -18,7 +18,7 @@ from pudl_diff.table_report import (
     TableDiffReport,
 )
 
-REPORT_SCHEMA_VERSION = "1.0.0"
+REPORT_SCHEMA_VERSION = "1.1.0"
 """Version of the JSON report format written by `build_pudl_diff_report()`."""
 
 

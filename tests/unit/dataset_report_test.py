@@ -119,7 +119,7 @@ def test_pudl_diff_report_summary_and_status(tmp_path: Path, pk_resource, make_d
         elapsed_seconds=1.5,
     )
 
-    assert report.schema_version == "1.0.0"
+    assert report.schema_version == "1.1.0"
     assert report.pudl_diff_version == pudl_diff.__version__
     assert list(report.tables) == ["broken", "changed", "same"]
     assert report.tables_only_in_left == ["a", "z"]

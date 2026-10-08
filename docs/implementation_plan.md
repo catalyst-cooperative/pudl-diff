@@ -318,7 +318,7 @@ up to the tens-of-millions-of-rows range, but comparing `out_vcerare__hourly_ava
 
 As a stopgap, `compare_table` now bails out of row-level comparison (logging a
 warning, still running the cheap schema and row-count comparisons) whenever either
-side of a table exceeds `MAX_ROWS_FOR_ROW_LEVEL_COMPARISON` (100,000,000 rows). We
+side of a table exceeds `MAX_COMPARE_ROWS` (100,000,000 rows). We
 need to follow up with an actual strategy for comparing these large tables' row
 contents without exhausting memory — candidates include a streaming/lazy `sink_*`-based
 implementation, chunking the comparison (e.g. by the same partition column used for
@@ -386,7 +386,7 @@ The fields that pertain to the comparison as a whole are on the `PudlDiffReport`
 
 #### Information contained in the PUDL Diff report structure
 
-The report is written to `pudl_diff_report.json` in the output directory, and is versioned by a `schema_version` field (currently `1.0.0`).
+The report is written to `pudl_diff_report.json` in the output directory, and is versioned by a `schema_version` field (currently `1.1.0`).
 Before this branch merges we still need to fully document the report schema.
 The JSON does not contain any of either table's actual data.
 Alongside the JSON report we also save a pair of Parquet files for each table that differs.
@@ -529,8 +529,8 @@ works; not scheduled as a task yet.
     populated by `compare_table` with why `row_diff` is `None`: too many rows,
     dtype-incompatible join failure, or mismatched columns (with or without a
     usable primary key).
-- Turn `MAX_ROWS_FOR_ROW_LEVEL_COMPARISON` into a `compare_table` parameter
-    (`max_rows_for_row_level_comparison: int = MAX_ROWS_FOR_ROW_LEVEL_COMPARISON`)
+- Turn `MAX_COMPARE_ROWS` into a `compare_table` parameter
+    (`max_compare_rows: int = MAX_COMPARE_ROWS`)
     so the CLI can override it, keeping the module constant as the default.
 - Unit tests: one case per skip reason, row-count totals on partitioned and
     unpartitioned comparisons, and an explicit override of the row-level cap.
@@ -658,7 +658,7 @@ Implemented in four commits, so that the move of code could be reviewed separate
 
 1. Move `_RowSummary` and `_summarize_row_diff` verbatim from the CLI into `pudl.validate.diff`. (`_diff_table` was not moved verbatim, because it returns the CLI-only `_TableOutcome`; it was replaced in commit 3 instead.)
 2. Add the dataset-level report to `pudl.validate.diff`, with its tests:
-    - `PudlDiffReport`, `PudlDiffSummary` (built by `PudlDiffSummary.from_tables`), `DatasetInfo`, `DiffOptions`, and `build_pudl_diff_report()`; `REPORT_SCHEMA_VERSION` is `1.0.0`
+    - `PudlDiffReport`, `PudlDiffSummary` (built by `PudlDiffSummary.from_tables`), `DatasetInfo`, `DiffOptions`, and `build_pudl_diff_report()`; `REPORT_SCHEMA_VERSION` is `1.1.0`
     - `TableDiffReport` loses its dataset-level fields (`created`, `left_dataset`, `right_dataset`)
     - `SizeComparison`, the base class of `TableDiffReport` and `PudlDiffSummary`, with the byte counts and their derived fields; `PudlDiffDataset.table_bytes()`; and `format_bytes()`. `peak_rss_mb` is replaced by `peak_rss`, and `ParquetOutputSummary` gains a `size`.
     - `report_table_diff()`, which runs, writes the Parquet outputs and reports on one table, replacing the CLI's `_diff_table`; and `RowChanges.from_summary()`, which was `_summarize_row_diff`
@@ -698,7 +698,7 @@ Modules in `src/pudl/validate/diff/`:
 | `row_counts.py`     | `RowCountDiff`, `NO_PARTITION`, `compare_row_counts`, `count_rows`, dbt partition-expr helpers                                                                                                                                           |
 | `rows.py`           | `RowSetDiff`, `KeyedRowDiff`, hashing/spill, `compare_rows_with_pk`, `compare_rows_without_pk`                                                                                                                                           |
 | `performance.py`    | `PerformanceSampler`                                                                                                                                                                                                                     |
-| `table.py`          | `TableDiffResult`, `compare_table`, `TableDiffRun`, `run_table_diff`, `row_diff_left_right_frames`, `MAX_ROWS_FOR_ROW_LEVEL_COMPARISON`, `RowComparisonSkipReason`                                                                       |
+| `table.py`          | `TableDiffResult`, `compare_table`, `TableDiffRun`, `run_table_diff`, `row_diff_left_right_frames`, `MAX_COMPARE_ROWS`, `RowComparisonSkipReason`                                                                                        |
 | `outputs.py`        | `ParquetOutput`, `RowDiffParquetOutputs`, `write_row_diff_parquet`                                                                                                                                                                       |
 | `table_report.py`   | `*Summary` classes, `RowChanges`, `SizeComparison`, `TableDiffReport`, `DiffOptions`, `report_table_diff`, `RowDiffSectionSkipReason`                                                                                                    |
 | `dataset_report.py` | `DatasetInfo`, `PudlDiffSummary`, `PudlDiffReport`, `build_pudl_diff_report`, `REPORT_SCHEMA_VERSION`, `TableOutcome`, `table_outcome`                                                                                                   |
@@ -727,7 +727,7 @@ callbacks, and `terminal.TerminalProgress` supplies them for the CLI.
 - Module-level constants and type aliases live with the code that uses them:
     `NO_PARTITION`, `_PARTITION_COL_NAME`, `_EXTRACT_YEAR_RE` and `_BARE_COLUMN_RE` in
     `row_counts.py`; `_ROW_KEY_COL` and the other row-key column names in `rows.py`;
-    `MAX_ROWS_FOR_ROW_LEVEL_COMPARISON` and `RowComparisonSkipReason` in `table.py`;
+    `MAX_COMPARE_ROWS` and `RowComparisonSkipReason` in `table.py`;
     `RowDiffSectionSkipReason` in `table_report.py`; `REPORT_SCHEMA_VERSION` in
     `dataset_report.py`.
 

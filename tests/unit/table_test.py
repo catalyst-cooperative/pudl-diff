@@ -12,6 +12,7 @@ from pudl_diff.rows import (
     RowSetDiff,
 )
 from pudl_diff.table import TableDiffResult, compare_table, run_table_diff
+from pudl_diff.table_report import DiffOptions
 
 
 def test_run_table_diff_succeeds_without_left_datapackage(tmp_path: Path, make_dataset):
@@ -441,7 +442,7 @@ def test_compare_table_skips_row_diff_above_max_rows(
         left,
         right,
         "table_with_pk",
-        max_rows_for_row_level_comparison=1,
+        max_compare_rows=1,
     )
     assert result.row_diff is None
     assert result.schema_diff.is_identical
@@ -453,10 +454,8 @@ def test_compare_table_skips_row_diff_above_max_rows(
     mock_loggers["table"].warning.assert_called_once()
 
 
-def test_compare_table_default_max_rows_for_row_level_comparison(
-    tmp_path, pk_resource, make_dataset
-):
-    """The module constant is still used as the default when not overridden."""
+def test_compare_table_has_no_row_limit_by_default(tmp_path, pk_resource, make_dataset):
+    """The API compares tables of any size unless a limit is passed, even a tiny one's worth."""
     resources = [pk_resource("table_with_pk", ["x"])]
     left = make_dataset(
         tmp_path / "left",
@@ -471,6 +470,7 @@ def test_compare_table_default_max_rows_for_row_level_comparison(
     result = compare_table(left, right, "table_with_pk")
     assert result.row_diff is not None
     assert result.row_diff_skipped_reason is None
+    assert DiffOptions().max_compare_rows is None
 
 
 def test_run_table_diff_success(tmp_path: Path, pk_resource, make_dataset):
