@@ -8,7 +8,9 @@ When a version is released, rename the topmost section to that version and its d
 start a new "(unreleased)" section above it. Don't write the changes of a release anywhere
 else. See AGENTS.md's Documentation section for more. -->
 
-## v0.1.1 (unreleased)
+## v0.1.2 (unreleased)
+
+## v0.1.1 (2026-10-07)
 
 ### 2026-10-07
 
